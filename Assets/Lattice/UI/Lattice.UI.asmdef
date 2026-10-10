@@ -1,0 +1,21 @@
+{
+    "name": "Lattice.UI",
+    "rootNamespace": "Lattice.UI",
+    "references": [
+        "Lattice.Native",
+        "Lattice.Net",
+        "Lattice.Diagnostics",
+        "Lattice.LocalPlayer",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

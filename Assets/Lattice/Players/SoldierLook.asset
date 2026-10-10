@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1fa45bf482a9df34da0257f4dab4bf88, type: 3}
+  m_Name: SoldierLook
+  m_EditorClassIdentifier: Lattice.Players::Lattice.Players.SoldierLook
+  Model: {fileID: 919132149155446097, guid: c53f6910635b89a4681280f8016148f2, type: 3}
+  Controller: {fileID: 9100000, guid: 65c2a973f746aab48a402acc7c61f1b1, type: 2}
+  Factions:
+  - {fileID: 2100000, guid: 30a81e09a3b779f41866f232445a5ff0, type: 2}
+  - {fileID: 2100000, guid: 16dc71be395b94c4492c964fe01cdd1e, type: 2}
+  - {fileID: 2100000, guid: 9aa09d6ef47a3a24385ab7e7145d7086, type: 2}
+  Rifle: {fileID: 624270676327525987, guid: acfaa12c1f9d40041aea9b5b3f759f6d, type: 3}
+  RifleMaterial: {fileID: 2100000, guid: 7075e5178711db348bdf2045d4d7f92b, type: 2}
+  RifleMuzzle: {x: 0, y: 0.06, z: 0.53}
+  RifleGrip: {x: 0, y: -0.02, z: -0.12}
+  RifleForegrip: {x: 0, y: -0.01, z: 0.18}
+  RifleEuler: {x: 270, y: 90, z: 0}
+  RifleScale: 0.85
+  ModelScale: 0.95
+  ShoulderPocket: {x: -0.13, y: 0.06, z: 0.06}
+  RightHandEuler: {x: 0, y: 0, z: -90}
+  LeftHandEuler: {x: 0, y: 0, z: 90}
+  RightElbowHint: {x: 0.35, y: -0.35, z: -0.2}
+  LeftElbowHint: {x: -0.3, y: -0.45, z: 0.1}
+  MaxTwist: 75
+  LodHeights:
+  - 0.3
+  - 0.11
+  - 0.035
+  - 0.004
+  WalkSpeed: 1.6
+  RunSpeed: 5.25
+  SprintSpeed: 6.6

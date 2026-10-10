@@ -1,0 +1,16 @@
+{
+    "name": "Lattice.Net",
+    "rootNamespace": "Lattice.Net",
+    "references": [
+        "Lattice.Native"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

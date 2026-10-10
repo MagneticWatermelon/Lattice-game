@@ -8,7 +8,7 @@ The Unity client for **Lattice**, a PlanetSide-style MMOFPS: thousands of player
 
 - **The design source of truth is `docs/gdd.md` in lattice-net** (Part II is this client; Part III the milestones). It tags every claim *exists / decided / proposed / open*.
 - lattice-net's own `CLAUDE.md` records its decisions (tiers, rewind caps, determinism rules). Read it before touching anything that crosses the plugin boundary.
-- **State today:** this project is still the stock URP template (`Assets/Scenes/SampleScene.unity`, `Assets/TutorialInfo`). No client code, no asmdefs, no plugin yet. The first milestone is **U0**: the `client-ffi/` crate in lattice-net, which doesn't exist yet either.
+- **State today:** U0 is built (lattice-net's `client-ffi`, rebuilt into this project by its `scripts/unity-plugin.sh`); U1 and U2 are in progress. The client lives in `Assets/Lattice/` (one asmdef per layer, below), its scene is `Assets/Scenes/Lattice.unity`, and generated assets (fonts, terrain layers, materials, the animator, the scene itself) come from `Lattice > Setup` (`Assets/Lattice/Editor/LatticeSetup*.cs`), never hand-edited YAML. Run it headless with `& $unity run . -- -executeMethod Lattice.EditorTools.LatticeSetup.All`.
 
 ## Working autonomously
 

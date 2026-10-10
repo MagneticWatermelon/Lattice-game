@@ -1,0 +1,27 @@
+{
+    "name": "Lattice.Game",
+    "rootNamespace": "Lattice.Game",
+    "references": [
+        "Lattice.Native",
+        "Lattice.Net",
+        "Lattice.Diagnostics",
+        "Lattice.LocalPlayer",
+        "Lattice.UI",
+        "Lattice.Players",
+        "Lattice.World",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI",
+        "Unity.InputSystem",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

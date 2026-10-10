@@ -1,0 +1,17 @@
+{
+    "name": "Lattice.Diagnostics",
+    "rootNamespace": "Lattice.Diagnostics",
+    "references": [
+        "Lattice.Native",
+        "Lattice.Net"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
