@@ -241,23 +241,57 @@ namespace Lattice.EditorTools
             Debug.Log($"Lattice setup: scene {ScenePath}");
         }
 
+        const string CloudTexture = "Assets/Lattice/World/Sky/Clouds.png";
+
+        /// <summary>The sky (Lattice/Sky: gradient, sun, clouds), its values the shader's
+        /// defaults; the cloud noise (Tools/Blender/clouds.py) imported as data that tiles.</summary>
         static Material Sky()
         {
+            if (AssetImporter.GetAtPath(CloudTexture) is TextureImporter ti)
+            {
+                ti.sRGBTexture = false;
+                ti.wrapMode = TextureWrapMode.Repeat;
+                ti.mipmapEnabled = true;
+                ti.filterMode = FilterMode.Trilinear;
+                ti.anisoLevel = 4;
+                ti.textureCompression = TextureImporterCompression.CompressedHQ;
+                ti.SaveAndReimport();
+            }
+            var shader = Shader.Find("Lattice/Sky");
             var path = $"{SettingsDir}/Sky.mat";
             var m = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (m == null)
             {
-                m = new Material(Shader.Find("Skybox/Procedural"));
+                m = new Material(shader);
                 AssetDatabase.CreateAsset(m, path);
             }
-            m.SetFloat("_SunSize", 0.035f);
-            m.SetFloat("_SunSizeConvergence", 6f);
-            m.SetFloat("_AtmosphereThickness", 0.9f);
-            m.SetColor("_SkyTint", new Color(0.52f, 0.56f, 0.62f));
-            m.SetColor("_GroundColor", new Color(0.42f, 0.44f, 0.44f));
-            m.SetFloat("_Exposure", 1.25f);
+            m.shader = shader;
+            ShaderDefaults(m);
+            m.SetTexture("_CloudTex", AssetDatabase.LoadAssetAtPath<Texture2D>(CloudTexture));
             EditorUtility.SetDirty(m);
             return m;
+        }
+
+        /// <summary>Puts a material's colors, vectors and numbers back to its shader's
+        /// defaults: the shader's Properties are where they're tuned.</summary>
+        internal static void ShaderDefaults(Material m)
+        {
+            var shader = m.shader;
+            for (int i = 0; i < shader.GetPropertyCount(); i++)
+            {
+                var id = shader.GetPropertyNameId(i);
+                switch (shader.GetPropertyType(i))
+                {
+                    case UnityEngine.Rendering.ShaderPropertyType.Color:
+                    case UnityEngine.Rendering.ShaderPropertyType.Vector:
+                        m.SetVector(id, shader.GetPropertyDefaultVectorValue(i));
+                        break;
+                    case UnityEngine.Rendering.ShaderPropertyType.Float:
+                    case UnityEngine.Rendering.ShaderPropertyType.Range:
+                        m.SetFloat(id, shader.GetPropertyDefaultFloatValue(i));
+                        break;
+                }
+            }
         }
 
         static VolumeProfile Profile()

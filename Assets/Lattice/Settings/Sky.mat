@@ -8,12 +8,12 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Sky
-  m_Shader: {fileID: 106, guid: 0000000000000000f000000000000000, type: 0}
+  m_Shader: {fileID: 4800000, guid: 37421386c6d00e645a03d93491e1251b, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords:
+  m_ValidKeywords: []
+  m_InvalidKeywords:
   - _SUNDISK_HIGH_QUALITY
-  m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -23,16 +23,35 @@ Material:
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
-    m_TexEnvs: []
+    m_TexEnvs:
+    - _CloudTex:
+        m_Texture: {fileID: 2800000, guid: 723f6c3e4ceaf984ea3f808e56c1f867, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
     - _AtmosphereThickness: 0.9
+    - _CloudCover: 0.42
+    - _CloudHeight: 1800
+    - _CloudOpacity: 0.95
+    - _CloudScale: 7000
+    - _Curve: 0.6
     - _Exposure: 1.25
     - _SunDisk: 2
     - _SunSize: 0.035
     - _SunSizeConvergence: 6
     m_Colors:
+    - _CloudLit: {r: 1.5, g: 1.45, b: 1.38, a: 1}
+    - _CloudShade: {r: 0.34, g: 0.39, b: 0.47, a: 1}
+    - _CloudWind: {r: 7, g: 2.5, b: 0, a: 0}
+    - _Falloff: {r: 12.5, g: 12.2, b: 15, a: 0}
+    - _Glow: {r: 0.18, g: 0.22, b: 0.29, a: 1}
+    - _Ground: {r: 0.17, g: 0.18, b: 0.17, a: 1}
     - _GroundColor: {r: 0.42, g: 0.44, b: 0.44, a: 1}
+    - _Horizon: {r: 0.75, g: 1.08, b: 1.35, a: 1}
     - _SkyTint: {r: 0.52, g: 0.56, b: 0.62, a: 1}
+    - _SunDisk: {r: 1, g: 28, b: 0, a: 0}
+    - _SunGlow: {r: 37, g: 0.25, b: 2.5, a: 0}
+    - _Zenith: {r: 0.02, g: 0.06, b: 0.18, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

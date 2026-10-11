@@ -218,21 +218,7 @@ namespace Lattice.EditorTools
                 AssetDatabase.CreateAsset(m, path);
             }
             m.shader = shader;
-            for (int i = 0; i < shader.GetPropertyCount(); i++)
-            {
-                var id = shader.GetPropertyNameId(i);
-                switch (shader.GetPropertyType(i))
-                {
-                    case UnityEngine.Rendering.ShaderPropertyType.Color:
-                    case UnityEngine.Rendering.ShaderPropertyType.Vector:
-                        m.SetVector(id, shader.GetPropertyDefaultVectorValue(i));
-                        break;
-                    case UnityEngine.Rendering.ShaderPropertyType.Float:
-                    case UnityEngine.Rendering.ShaderPropertyType.Range:
-                        m.SetFloat(id, shader.GetPropertyDefaultFloatValue(i));
-                        break;
-                }
-            }
+            LatticeSetup.ShaderDefaults(m);
             EditorUtility.SetDirty(m);
             look.GrassMaterial = m;
             // The scatter's numbers from the code's defaults (the asset keeps old values otherwise).

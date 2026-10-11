@@ -41,6 +41,7 @@ The numpy-only scripts run on Blender's bundled Python (`...\Blender 5.1\5.1\pyt
 | `Blender/rifle_metal.py` | the rifles' metal maps from their albedo: teal panels as satin paint, near-black as anodized metal, the rest bare metal (the source marked everything fully metallic, so the teal mirrored the sky) | `albedo metal_in metal_out` |
 | `Blender/pack_mask.py` | a URP terrain mask map from Poly Haven ARM + displacement (R metallic, G AO, B height, A smoothness) | `arm disp out.png` |
 | `Blender/flatten_albedo.py` | a tiling albedo evened out at large scale (no stripes across a terrain) | see its header |
+| `Blender/clouds.py` | `World/Sky/Clouds.png`: the sky's cloud noise, tileable (R Perlin-Worley shapes, G cellular detail, B fine wisps), and a preview of the shapes cut to the sky's cover | `out.png [preview.png]` |
 | `Blender/contact_sheet.py` | renders and screenshots into one sheet, for checking by eye | `out.png cols size img...` |
 
 ## Sound
