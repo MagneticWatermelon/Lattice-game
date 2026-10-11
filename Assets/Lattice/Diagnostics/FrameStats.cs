@@ -7,9 +7,11 @@ namespace Lattice.Diagnostics
     /// <summary>
     /// Frame times and managed allocations, measured every frame without
     /// allocating: a ring of recent frame times (the net graph's sparkline),
-    /// a histogram of the whole session (the report's percentiles), and the
-    /// bytes the managed heap took per frame (GDD §19: nothing allocates on
-    /// the managed heap during a fight).
+    /// a histogram of the whole session (the report's percentiles), the GPU's
+    /// and the main and render threads' own times (FrameTimingManager: what a
+    /// frame costs when it's faster than the display), and the bytes the
+    /// managed heap took per frame (GDD §19: nothing allocates on the managed
+    /// heap during a fight).
     /// </summary>
     public sealed class FrameStats : IDisposable
     {
@@ -41,6 +43,14 @@ namespace Lattice.Diagnostics
         /// <summary>The plugin's share of the main thread: session histogram, ms.</summary>
         readonly long[] pluginHistogram = new long[Buckets + 1];
         public float PluginMaxMs;
+
+        /// <summary>The GPU's, the main thread's and the render thread's time per
+        /// frame (ms, session histograms), when the player measures them.</summary>
+        readonly long[] gpuHistogram = new long[Buckets + 1], mainHistogram = new long[Buckets + 1], renderHistogram = new long[Buckets + 1];
+        public long TimedFrames;
+        /// <summary>The last frame's GPU time (ms), 0 if unknown.</summary>
+        public float GpuMs;
+        readonly FrameTiming[] timing = new FrameTiming[1];
 
         ProfilerRecorder gcRecorder;
         readonly bool fallback;
@@ -75,6 +85,15 @@ namespace Lattice.Diagnostics
             histogram[Mathf.Min((int)(ms / BucketMs), Buckets)]++;
             pluginHistogram[Mathf.Min((int)(pluginMs / BucketMs), Buckets)]++;
             PluginMaxMs = Mathf.Max(PluginMaxMs, pluginMs);
+            FrameTimingManager.CaptureFrameTimings();
+            if (FrameTimingManager.GetLatestTimings(1, timing) > 0 && timing[0].gpuFrameTime > 0.0)
+            {
+                GpuMs = (float)timing[0].gpuFrameTime;
+                TimedFrames++;
+                gpuHistogram[Mathf.Min((int)(GpuMs / BucketMs), Buckets)]++;
+                mainHistogram[Mathf.Min((int)((float)timing[0].cpuMainThreadFrameTime / BucketMs), Buckets)]++;
+                renderHistogram[Mathf.Min((int)((float)timing[0].cpuRenderThreadFrameTime / BucketMs), Buckets)]++;
+            }
             if (RecentCount < Recent)
                 RecentMs[RecentCount++] = ms;
             else
@@ -140,15 +159,21 @@ namespace Lattice.Diagnostics
         }
 
         /// <summary>The session's frame time at quantile <paramref name="q"/> (0..1), ms.</summary>
-        public float Quantile(float q) => Quantile(histogram, q);
+        public float Quantile(float q) => Quantile(histogram, Frames, q);
 
-        public float PluginQuantile(float q) => Quantile(pluginHistogram, q);
+        public float PluginQuantile(float q) => Quantile(pluginHistogram, Frames, q);
 
-        float Quantile(long[] h, float q)
+        public float GpuQuantile(float q) => Quantile(gpuHistogram, TimedFrames, q);
+
+        public float MainQuantile(float q) => Quantile(mainHistogram, TimedFrames, q);
+
+        public float RenderQuantile(float q) => Quantile(renderHistogram, TimedFrames, q);
+
+        static float Quantile(long[] h, long frames, float q)
         {
-            if (Frames == 0)
+            if (frames == 0)
                 return 0f;
-            long want = (long)Math.Ceiling(Frames * (double)q);
+            long want = (long)Math.Ceiling(frames * (double)q);
             long seen = 0;
             for (int i = 0; i <= Buckets; i++)
             {

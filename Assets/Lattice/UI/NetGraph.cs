@@ -113,7 +113,7 @@ namespace Lattice.UI
 
             var b = buf.Clear();
             b.Append("<color=#8EA5FF>NET</color>  ").Append(Frames.Fps, 0).Append(" fps  frame p50 ").Append(Frames.P50, 1)
-                .Append(" p99 ").Append(Frames.P99, 1).Append(" ms  plugin ").Append(f.PluginMs, 2).Append(" ms\n");
+                .Append(" p99 ").Append(Frames.P99, 1).Append(" ms  gpu ").Append(Frames.GpuMs, 1).Append(" ms  plugin ").Append(f.PluginMs, 2).Append(" ms\n");
             b.Append(State(f.State)).Append("  ").Append(NetDriver.Address).Append('\n');
             b.Append("rtt ").Append(st.rttMs, 1).Append(" ms  loss ").Append(st.loss * 100f, 2).Append("%  down ")
                 .Append(downKbps, 0).Append(" up ").Append(upKbps, 0).Append(" kbps\n");

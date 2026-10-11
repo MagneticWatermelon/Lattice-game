@@ -10,7 +10,9 @@ Shader "Lattice/Lit"
         // Lattice: the faction's color on the light parts of the albedo (a soldier's armor plates).
         _TintColor("Faction Tint", Color) = (1,1,1,1)
         _TintStrength("Faction Tint Strength", Range(0, 1)) = 0
-        _TintRange("Tint Mask (albedo luminance from, to)", Vector) = (0.35, 0.62, 0, 0)
+        _TintRange("Tint Mask (albedo luminance from, to; muted near)", Vector) = (0.35, 0.62, 0, 0)
+        // Lattice: at range the faction's color carries the whole soldier (GDD: distinct at 300 m).
+        _TintFar("Tint at Range (mip from, to, albedo blend, glow)", Vector) = (0, 0, 0, 0)
 
         _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
 

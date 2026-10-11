@@ -89,7 +89,11 @@ namespace Lattice.EditorTools
             Maps(m, $"{Dir}/Soldier", 0.9f);
             m.SetColor("_TintColor", color.linear);
             m.SetFloat("_TintStrength", 0.85f);
-            m.SetVector("_TintRange", new Vector4(0.1f, 0.28f, 0f, 0f));
+            // The plates, muted a third toward gray near (grounded, not toy-bright).
+            m.SetVector("_TintRange", new Vector4(0.1f, 0.28f, 0.3f, 0f));
+            // From ~30 m (texture mip 4.5) to ~160 m (mip 7) the soldier turns to its
+            // faction's color, with a glow of it: distinct at 300 m, even backlit.
+            m.SetVector("_TintFar", new Vector4(4.5f, 7f, 0.75f, 0.55f));
             EditorUtility.SetDirty(m);
             return m;
         }

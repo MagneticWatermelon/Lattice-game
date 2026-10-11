@@ -35,6 +35,7 @@ half _DetailAlbedoMapScale;
 half _DetailNormalMapScale;
 half4 _TintColor;
 half4 _TintRange;
+half4 _TintFar;
 half _TintStrength;
 UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 CBUFFER_END
@@ -261,7 +262,19 @@ inline void InitializeStandardLitSurfaceData(float2 uv, out SurfaceData outSurfa
     // their shading: the plate's luminance carries the detail.
     half tintLum = dot(outSurfaceData.albedo, half3(0.2126h, 0.7152h, 0.0722h));
     half tintMask = smoothstep(_TintRange.x, _TintRange.y, tintLum) * _TintStrength;
-    outSurfaceData.albedo = lerp(outSurfaceData.albedo, _TintColor.rgb * (tintLum * 1.45h), tintMask);
+    // Near, the plates take the color muted (_TintRange.z: how much toward gray).
+    half3 tintNear = lerp(_TintColor.rgb, dot(_TintColor.rgb, half3(0.2126h, 0.7152h, 0.0722h)).xxx, _TintRange.z);
+    outSurfaceData.albedo = lerp(outSurfaceData.albedo, tintNear * (tintLum * 1.45h), tintMask);
+    // Lattice: at range the faction's color carries the whole soldier: the more
+    // texels a pixel covers (the farther, the smaller on screen), the more the
+    // albedo leans to it, with a faint glow of it, so a backlit or shadowed
+    // soldier keeps its color too. No position needed, so the instanced crowd
+    // gets it as well; continuous, so nothing pops.
+    float2 tintTexels = uv * _BaseMap_TexelSize.zw;
+    float2 tintDx = ddx(tintTexels), tintDy = ddy(tintTexels);
+    half tintMip = 0.5h * log2(max(max(dot(tintDx, tintDx), dot(tintDy, tintDy)), 1e-6));
+    half tintFar = smoothstep(_TintFar.x, _TintFar.y, tintMip) * _TintStrength;
+    outSurfaceData.albedo = lerp(outSurfaceData.albedo, _TintColor.rgb, tintFar * _TintFar.z);
     outSurfaceData.albedo = AlphaModulate(outSurfaceData.albedo, outSurfaceData.alpha);
 
 #if _SPECULAR_SETUP
@@ -276,6 +289,7 @@ inline void InitializeStandardLitSurfaceData(float2 uv, out SurfaceData outSurfa
     outSurfaceData.normalTS = SampleNormal(uv, TEXTURE2D_ARGS(_BumpMap, sampler_BumpMap), _BumpScale);
     outSurfaceData.occlusion = SampleOcclusion(uv);
     outSurfaceData.emission = SampleEmission(uv, _EmissionColor.rgb, TEXTURE2D_ARGS(_EmissionMap, sampler_EmissionMap));
+    outSurfaceData.emission += _TintColor.rgb * (tintFar * _TintFar.w);
 
 #if defined(_CLEARCOAT) || defined(_CLEARCOATMAP)
     half2 clearCoat = SampleClearCoat(uv);

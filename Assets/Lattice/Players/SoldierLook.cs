@@ -66,11 +66,14 @@ namespace Lattice.Players
         /// they set playback rates so feet don't slide.</summary>
         public float WalkSpeed = 1.6f, RunSpeed = 5.25f, SprintSpeed = 6.6f;
 
+        /// <summary>Picked to stay apart at range, in sun and in shade (GDD: distinct at
+        /// 300 m): shaded and small, a redder amber and a redder magenta both read as
+        /// red, so amber leans gold and magenta leans violet.</summary>
         public static readonly Color[] FactionColors =
         {
-            new Color(0.79f, 0.51f, 0.09f), // Ordinate: amber
-            new Color(0.14f, 0.57f, 0.44f), // Free Compact: jade
-            new Color(0.72f, 0.20f, 0.50f), // Resonance: magenta
+            new Color(0.92f, 0.62f, 0.10f), // Ordinate: amber
+            new Color(0.12f, 0.66f, 0.50f), // Free Compact: jade
+            new Color(0.78f, 0.22f, 0.72f), // Resonance: magenta
         };
     }
 }

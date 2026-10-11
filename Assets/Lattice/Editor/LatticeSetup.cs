@@ -61,6 +61,8 @@ namespace Lattice.EditorTools
             PlayerSettings.SetScriptingBackend(UnityEditor.Build.NamedBuildTarget.Standalone, ScriptingImplementation.Mono2x);
             PlayerSettings.SetApiCompatibilityLevel(UnityEditor.Build.NamedBuildTarget.Standalone, ApiCompatibilityLevel.NET_Standard);
             PlayerSettings.allowUnsafeCode = true;
+            // GPU and thread times per frame, for the self-check's report and the net graph.
+            PlayerSettings.enableFrameTimingStats = true;
             // Splash: the client starts straight into the game.
             PlayerSettings.SplashScreen.show = false;
             Debug.Log("Lattice setup: project settings");
