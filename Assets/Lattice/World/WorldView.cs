@@ -17,9 +17,11 @@ namespace Lattice.World
         public ulong PreviewSeed;
 
         public TerrainBuilder Terrain { get; private set; }
+        public GrassField Grass { get; private set; }
         public bool Started { get; private set; }
         public bool Ready => Terrain != null && Terrain.Done;
         LtWorldHandle preview;
+        bool grassTried;
 
         void OnEnable()
         {
@@ -52,7 +54,14 @@ namespace Lattice.World
 
         void Update()
         {
-            Terrain?.Step();
+            if (Terrain == null)
+                return;
+            Terrain.Step();
+            if (Terrain.Done && !grassTried)
+            {
+                grassTried = true;
+                Grass = GrassField.Create(transform, Look, Terrain.HeightTexture, Terrain.GrassTexture);
+            }
         }
 
         void OnDestroy()

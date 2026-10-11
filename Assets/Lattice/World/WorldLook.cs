@@ -22,10 +22,21 @@ namespace Lattice.World
         public float BasemapDistance = 1200f;
 
         [Header("Ground scatter")]
+        /// <summary>Grass (GrassField): clumps scattered around the camera by a compute
+        /// shader where the ground is grass or meadow, drawn in one indirect draw.</summary>
         public Material GrassMaterial;
-        public Mesh GrassMesh;
-        public float GrassDistance = 140f;
-        public float GrassDensity = 1f;
+        public ComputeShader GrassCompute;
+        /// <summary>How far grass grows from the camera (m); it thins out from
+        /// GrassThinFrom, and shrinks away over the last 30%.</summary>
+        public float GrassDistance = 60f, GrassThinFrom = 14f;
+        /// <summary>The scatter grid's cell (m), and the chance of a clump in a cell on
+        /// full grass.</summary>
+        public float GrassCell = 0.3f, GrassDensity = 0.75f;
+        /// <summary>The share of clumps left at the far edge (those left are widened).</summary>
+        public float GrassFarKeep = 0.3f;
+        /// <summary>A clump's height (m; on meadow up to a third taller), and its blades'
+        /// width (x the mesh's).</summary>
+        public Vector2 GrassHeight = new Vector2(0.18f, 0.34f), GrassWidth = new Vector2(0.8f, 1.25f);
         /// <summary>Small rock clusters on the open ground (RockScatter), each drawn
         /// while at least this fraction of the screen high: a 1.2 m rock to ~300 m,
         /// as far as the Bevy client draws them.</summary>

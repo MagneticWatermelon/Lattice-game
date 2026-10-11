@@ -35,6 +35,7 @@ namespace Lattice.EditorTools
             look.TerrainMaterial = TerrainMaterial();
             look.PlainCover = PlainCover();
             Cover(look);
+            Grass(look);
             TerrainShadersInBuilds();
             EditorUtility.SetDirty(look);
             AssetDatabase.SaveAssets();
@@ -197,6 +198,51 @@ namespace Lattice.EditorTools
             m.enableInstancing = true;
             EditorUtility.SetDirty(m);
             return m;
+        }
+
+        /// <summary>The grass's material and compute shader. Its colors and wind are the
+        /// shader's own defaults (Grass.shader), put back on every run.</summary>
+        static void Grass(WorldLook look)
+        {
+            const string path = "Assets/Lattice/World/Grass.mat";
+            var shader = Shader.Find("Lattice/Grass");
+            if (shader == null)
+            {
+                Debug.LogWarning("Lattice setup: no Lattice/Grass shader");
+                return;
+            }
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null)
+            {
+                m = new Material(shader);
+                AssetDatabase.CreateAsset(m, path);
+            }
+            m.shader = shader;
+            for (int i = 0; i < shader.GetPropertyCount(); i++)
+            {
+                var id = shader.GetPropertyNameId(i);
+                switch (shader.GetPropertyType(i))
+                {
+                    case UnityEngine.Rendering.ShaderPropertyType.Color:
+                    case UnityEngine.Rendering.ShaderPropertyType.Vector:
+                        m.SetVector(id, shader.GetPropertyDefaultVectorValue(i));
+                        break;
+                    case UnityEngine.Rendering.ShaderPropertyType.Float:
+                    case UnityEngine.Rendering.ShaderPropertyType.Range:
+                        m.SetFloat(id, shader.GetPropertyDefaultFloatValue(i));
+                        break;
+                }
+            }
+            EditorUtility.SetDirty(m);
+            look.GrassMaterial = m;
+            // The scatter's numbers from the code's defaults (the asset keeps old values otherwise).
+            var d = ScriptableObject.CreateInstance<WorldLook>();
+            (look.GrassDistance, look.GrassThinFrom, look.GrassCell, look.GrassDensity, look.GrassFarKeep, look.GrassHeight, look.GrassWidth) =
+                (d.GrassDistance, d.GrassThinFrom, d.GrassCell, d.GrassDensity, d.GrassFarKeep, d.GrassHeight, d.GrassWidth);
+            Object.DestroyImmediate(d);
+            look.GrassCompute = AssetDatabase.LoadAssetAtPath<ComputeShader>("Assets/Lattice/Shaders/Grass.compute");
+            if (look.GrassCompute == null)
+                Debug.LogWarning("Lattice setup: no Assets/Lattice/Shaders/Grass.compute");
         }
 
         static Material LitMaterial(string path)

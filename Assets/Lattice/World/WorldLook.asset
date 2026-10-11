@@ -21,10 +21,15 @@ MonoBehaviour:
   SplatResolution: 1024
   PixelError: 1
   BasemapDistance: 1200
-  GrassMaterial: {fileID: 0}
-  GrassMesh: {fileID: 0}
-  GrassDistance: 140
-  GrassDensity: 1
+  GrassMaterial: {fileID: 2100000, guid: d08f6deed43ecde42a1b75399c8694ec, type: 2}
+  GrassCompute: {fileID: 7200000, guid: 839f1bb537adb084db600da57bfd46bd, type: 3}
+  GrassDistance: 60
+  GrassThinFrom: 14
+  GrassCell: 0.3
+  GrassDensity: 0.75
+  GrassFarKeep: 0.3
+  GrassHeight: {x: 0.18, y: 0.34}
+  GrassWidth: {x: 0.8, y: 1.25}
   RockMesh: {fileID: -4687895321025338212, guid: cdffe197d47bb634b91e10354e91b9f6, type: 3}
   RockMaterial: {fileID: 2100000, guid: 638f2d38e50073e48a29069664930697, type: 2}
   RockCullHeight: 0.004

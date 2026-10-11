@@ -25,13 +25,16 @@ namespace Lattice.World
     /// bases' flattened ground and worn soil around every piece of cover.
     /// It's computed in Burst jobs for all tiles at once, and the tiles are
     /// made one per frame (<see cref="Step"/>), so loading never stalls the
-    /// connection.
+    /// connection. Once made, the heights and a map of the grass (from the
+    /// splat) are handed on as textures, for the grass (<see cref="GrassField"/>).
     /// </summary>
     public sealed class TerrainBuilder : IDisposable
     {
         public const int Tiles = 4;
         public const int TileSamples = 513;
         public const float TileSize = 2048f;
+        /// <summary>The grass map's side: 4 m texels, as the height grid.</summary>
+        public const int GrassMapSize = 2048;
 
         public Terrain[] Terrains { get; } = new Terrain[Tiles * Tiles];
         public float HeightRange { get; private set; }
@@ -41,6 +44,11 @@ namespace Lattice.World
         public float GapP99 { get; private set; }
         public float GapMax { get; private set; }
         public bool Done => next >= Tiles * Tiles;
+        /// <summary>Once done: the game's heights (m, one texel per 4 m sample) and the
+        /// ground's grass (4 m texels: r how much is grass or meadow, g the meadow's
+        /// share). Whoever takes them destroys them.</summary>
+        public Texture2D HeightTexture { get; private set; }
+        public Texture2D GrassTexture { get; private set; }
 
         readonly WorldLook look;
         readonly Transform parent;
@@ -48,7 +56,8 @@ namespace Lattice.World
         NativeArray<float4> sites;
         NativeArray<LtBox> boxes;
         readonly NativeArray<Color32>[] splats = new NativeArray<Color32>[Tiles * Tiles];
-        JobHandle jobs, gapJob;
+        NativeArray<byte> grassMap;
+        JobHandle jobs, gapJob, grassJob;
         readonly float[,] tileHeights = new float[TileSamples, TileSamples];
         int next;
         readonly Stopwatch clock = Stopwatch.StartNew();
@@ -76,6 +85,8 @@ namespace Lattice.World
             gapJob = new GapJob { Heights = heights, N = n, Out = gaps }.Schedule(gaps.Length, 8192);
 
             int res = look.SplatResolution;
+            int grassTile = GrassMapSize / Tiles;
+            grassMap = new NativeArray<byte>(GrassMapSize * GrassMapSize * 2, Allocator.Persistent);
             var all = new NativeArray<JobHandle>(Tiles * Tiles, Allocator.Temp);
             for (int t = 0; t < Tiles * Tiles; t++)
             {
@@ -84,6 +95,11 @@ namespace Lattice.World
                 var splat = new SplatJob { Heights = heights, Sites = sites, N = n, OriginX = ox, OriginY = oy, Texel = TileSize / res, Width = res, Out = splats[t] }
                     .Schedule(res * res, 2048);
                 all[t] = new WearJob { Boxes = boxes, Splat = splats[t], Width = res, OriginX = ox, OriginY = oy, Texel = TileSize / res }.Schedule(splat);
+                // The tiles' grass into the one map, a tile after another (they share it).
+                grassJob = new GrassMapJob
+                {
+                    Splat = splats[t], SplatWidth = res, Width = grassTile, TileX = t % Tiles, TileY = t / Tiles, Side = GrassMapSize, Out = grassMap,
+                }.Schedule(grassTile * grassTile, 4096, JobHandle.CombineDependencies(grassJob, all[t]));
             }
             jobs = JobHandle.CombineDependencies(all);
             all.Dispose();
@@ -108,6 +124,16 @@ namespace Lattice.World
                 gaps.Sort();
                 GapP99 = gaps[(int)(gaps.Length * 0.99f)];
                 GapMax = gaps[gaps.Length - 1];
+                grassJob.Complete();
+                int n = LtConst.TerrainN;
+                HeightTexture = new Texture2D(n, n, TextureFormat.RFloat, false, true)
+                    { name = "Ground heights", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+                HeightTexture.SetPixelData(heights, 0);
+                HeightTexture.Apply(false, true);
+                GrassTexture = new Texture2D(GrassMapSize, GrassMapSize, TextureFormat.RG16, false, true)
+                    { name = "Ground grass", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+                GrassTexture.SetPixelData(grassMap, 0);
+                GrassTexture.Apply(false, true);
                 Debug.Log($"Lattice: terrain made in {clock.Elapsed.TotalSeconds:F2} s (heights to {maxHeight:F1} m, range {HeightRange} m); " +
                           $"drawn triangles differ from the ground by p99 {GapP99 * 100f:F2} cm, at most {GapMax * 100f:F1} cm");
                 Dispose();
@@ -195,6 +221,8 @@ namespace Lattice.World
         {
             jobs.Complete();
             gapJob.Complete();
+            grassJob.Complete();
+            if (grassMap.IsCreated) grassMap.Dispose();
             if (heights.IsCreated) heights.Dispose();
             if (gaps.IsCreated) gaps.Dispose();
             if (sites.IsCreated) sites.Dispose();
@@ -275,6 +303,37 @@ namespace Lattice.World
                 float g = (1f - rock) * (1f - soil);
                 float4 w = new float4(g * (1f - meadow), g * meadow, (1f - rock) * soil, rock);
                 Out[i] = new Color32(Byte(w.x), Byte(w.y), Byte(w.z), Byte(w.w));
+            }
+        }
+
+        /// <summary>One tile's splat into its part of the grass map: each 4 m texel the
+        /// mean of its splat texels' grass and meadow, and the meadow's share.</summary>
+        [BurstCompile]
+        struct GrassMapJob : IJobParallelFor
+        {
+            [ReadOnly] public NativeArray<Color32> Splat;
+            public int SplatWidth, Width, TileX, TileY, Side;
+            [NativeDisableParallelForRestriction] public NativeArray<byte> Out;
+
+            public void Execute(int i)
+            {
+                int lx = i % Width, ly = i / Width;
+                int f = math.max(1, SplatWidth / Width);
+                float grass = 0f, meadow = 0f;
+                for (int y = 0; y < f; y++)
+                for (int x = 0; x < f; x++)
+                {
+                    var c = Splat[math.min(ly * f + y, SplatWidth - 1) * SplatWidth + math.min(lx * f + x, SplatWidth - 1)];
+                    grass += c.r;
+                    meadow += c.g;
+                }
+                float k = 1f / (255f * f * f);
+                grass *= k;
+                meadow *= k;
+                float amount = grass + meadow;
+                int o = ((TileY * Width + ly) * Side + TileX * Width + lx) * 2;
+                Out[o] = Byte(amount);
+                Out[o + 1] = Byte(amount > 1e-3f ? meadow / amount : 0f);
             }
         }
 
