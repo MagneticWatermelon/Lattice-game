@@ -98,7 +98,7 @@ namespace Lattice.Net
         public float NearMs, NearMaxMs, MidMs;
         public float After = 5f, ExitAfter = -1f, ShotEvery = 1f;
         public int Shots = 1;
-        public bool NoVsync, Ghosts, Autoplay, Autofire, Autoaim, Autotarget, HudTest, NoAudio, Windowed;
+        public bool NoVsync, Ghosts, Autoplay, Autofire, Autoaim, Autotarget, HudTest, NoAudio, Windowed, FactionColors, TierColors, Controls;
         public string Errors = "";
 
         public static Options Parse(string[] args)
@@ -137,6 +137,9 @@ namespace Lattice.Net
                     case "--hud-test": o.HudTest = true; break;
                     case "--no-audio": o.NoAudio = true; break;
                     case "--windowed": o.Windowed = true; break;
+                    case "--faction-colors": o.FactionColors = true; break;
+                    case "--tier-colors": o.TierColors = true; break;
+                    case "--controls": o.Controls = true; break;
                     case "--screenshot": o.Screenshot = Val(); break;
                     case "--after": o.After = F(); break;
                     case "--shots": o.Shots = System.Math.Max(1, (int)F()); break;

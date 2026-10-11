@@ -36,6 +36,7 @@ namespace Lattice.Game
         /// <summary>The burst's file names, made at start: a shot mid-fight allocates nothing.</summary>
         string[] shotPaths;
         CameraRig rig;
+        Lattice.LocalPlayer.LocalPlayer player;
         Lattice.World.WorldView world;
         bool worldReady;
 
@@ -65,7 +66,7 @@ namespace Lattice.Game
                 rig = cam.gameObject.AddComponent<CameraRig>();
             rig.Camera = cam;
 
-            if (!TryGetComponent(out Lattice.LocalPlayer.LocalPlayer player))
+            if (!TryGetComponent(out player))
                 player = gameObject.AddComponent<Lattice.LocalPlayer.LocalPlayer>();
             player.Autoplay = Options.Autoplay;
             player.Autofire = Options.Autofire;
@@ -74,6 +75,9 @@ namespace Lattice.Game
             if (Options.NoAudio)
                 AudioListener.volume = 0f;
             player.Ghosts = Options.Ghosts;
+            player.Iff = !Options.FactionColors && PlayerPrefs.GetInt(Lattice.LocalPlayer.LocalPlayer.IffPref, 1) != 0;
+            player.TierColors = Options.TierColors;
+            player.Help = Options.Controls;
             player.Mode = Options.View switch
             {
                 "chase" => ViewMode.Chase,
@@ -114,6 +118,7 @@ namespace Lattice.Game
 
             var hud = UiKit.Canvas("HUD", 10, transform);
             NetGraph.Create(hud.transform, Frames);
+            HelpCard.Create(hud.transform);
             world = FindAnyObjectByType<Lattice.World.WorldView>();
         }
 
@@ -138,6 +143,8 @@ namespace Lattice.Game
         void Update()
         {
             Frames.Record(Time.unscaledDeltaTime, NetDriver.Frame.PluginMs);
+            Lattice.Players.SoldierColors.Mode = player.Iff ? Lattice.Players.SoldierColors.Scheme.Iff : Lattice.Players.SoldierColors.Scheme.Faction;
+            Lattice.Players.SoldierColors.Tiers = player.TierColors;
             // Allocations count from when the world is built (loading allocates).
             if (!worldReady && world != null && world.Ready)
             {

@@ -21,7 +21,6 @@ namespace Lattice.Players
     {
         public ushort Entity { get; private set; }
         public bool Assigned { get; private set; }
-        public int Faction { get; private set; } = -1;
         /// <summary>The muzzle this frame (Unity space), for flashes and tracers.</summary>
         public Vector3 Muzzle { get; private set; }
         public Vector3 MuzzleForward { get; private set; }
@@ -53,6 +52,7 @@ namespace Lattice.Players
         bool reverse, dead, airborne, hasLast;
         float firedAt = -10f;
         bool shadowsOnly, alwaysAnimate;
+        Material body;
 
         public void Init(SoldierLook look)
         {
@@ -130,21 +130,24 @@ namespace Lattice.Players
             gameObject.SetActive(false);
         }
 
-        public void Assign(ushort entity, int faction)
+        public void Assign(ushort entity)
         {
             Entity = entity;
             Assigned = true;
             hasLast = false;
             firedAt = -10f;
             aimWeight = 1f;
-            if (faction != Faction)
-            {
-                Faction = faction;
-                var mat = look.Factions[Mathf.Clamp(faction, 0, look.Factions.Length - 1)];
-                foreach (var r in renderers)
-                    r.sharedMaterial = mat;
-            }
             gameObject.SetActive(true);
+        }
+
+        /// <summary>The body's material (SoldierColors': by relation, faction or how it's drawn).</summary>
+        public void Body(Material mat)
+        {
+            if (mat == body || mat == null)
+                return;
+            body = mat;
+            foreach (var r in renderers)
+                r.sharedMaterial = mat;
         }
 
         public void Release()

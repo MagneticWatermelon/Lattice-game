@@ -2,6 +2,7 @@ using Lattice.Diagnostics;
 using Lattice.LocalPlayer;
 using Lattice.Native;
 using Lattice.Net;
+using Lattice.Players;
 using Lattice.UI;
 using TMPro;
 using UnityEngine;
@@ -30,14 +31,6 @@ namespace Lattice.Combat
         int testStep;
 
         static readonly string[] FactionNames = { "Ordinate", "Free Compact", "Resonance" };
-        /// <summary>The factions' colors, lifted for text on the HUD (amber, jade, magenta).</summary>
-        public static readonly Color[] FactionInk =
-        {
-            new Color(1f, 0.72f, 0.25f),
-            new Color(0.3f, 0.86f, 0.64f),
-            new Color(0.96f, 0.4f, 0.78f),
-        };
-        static readonly string[] FactionHex = { "#FFB840", "#4DDBA3", "#F566C7" };
 
         static readonly Color MarkBody = new Color(1f, 1f, 1f);
         static readonly Color MarkHead = new Color(1f, 0.62f, 0.12f);
@@ -77,6 +70,8 @@ namespace Lattice.Combat
         readonly TextMeshProUGUI[] feedTexts = new TextMeshProUGUI[FeedLines];
         readonly CharBuf[] feedBufs = new CharBuf[FeedLines];
         bool feedDirty;
+        // The color scheme the kill feed was written in (IFF or faction: SoldierColors).
+        SoldierColors.Scheme feedScheme;
 
         RectTransform deathPanel;
         Image deathDim, deathBar;
@@ -182,7 +177,7 @@ namespace Lattice.Combat
             healthPanel = UiKit.Rect("Health", root, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(44f, 40f), new Vector2(330f, 58f));
             var bg = UiKit.Box("Panel", healthPanel, UiKit.Panel);
             UiKit.Fill(bg.rectTransform);
-            healthAccent = UiKit.Box("Faction", healthPanel, FactionInk[0]);
+            healthAccent = UiKit.Box("Faction", healthPanel, SoldierColors.Ink(0));
             var ar = healthAccent.rectTransform;
             ar.anchorMin = new Vector2(0f, 0f);
             ar.anchorMax = new Vector2(0f, 1f);
@@ -290,6 +285,11 @@ namespace Lattice.Combat
             bool dead = live && f.Own.dead != 0;
             bool body = live && p.Mode != ViewMode.Spectator;
 
+            if (SoldierColors.Mode != feedScheme)
+            {
+                feedScheme = SoldierColors.Mode;
+                feedDirty = true;
+            }
             for (int i = 0; i < f.EventCount; i++)
                 Take(f.Events[i], f, p, now);
             if (Test && live)
@@ -477,7 +477,7 @@ namespace Lattice.Combat
             if (hp < trail && shownHealth != f.Own.health)
                 trailHold = now;
             healthTrail.rectTransform.anchorMax = new Vector2(trail, 1f);
-            healthAccent.color = FactionInk[Mathf.Clamp(f.Own.faction, 0, 2)];
+            healthAccent.color = SoldierColors.Ink(f.Own.faction);
             if (shownHealth != f.Own.health)
             {
                 shownHealth = f.Own.health;
@@ -535,7 +535,7 @@ namespace Lattice.Combat
         static void Name(CharBuf b, ushort id, ushort me)
         {
             int fac = id % LtConst.Factions;
-            b.Append("<color=").Append(FactionHex[fac]).Append('>');
+            b.Append("<color=").Append(SoldierColors.Hex(fac)).Append('>');
             if (id == me)
                 b.Append("YOU");
             else

@@ -248,7 +248,7 @@ namespace Lattice.Combat
                 var cam = viewCam.transform;
                 var frame = cam.rotation * rot;
                 var center = cam.TransformPoint(pos);
-                arms.Faction(f.Own.faction, Soldier.Factions);
+                arms.Body(Lattice.Players.SoldierColors.Material(f.Own.faction));
                 arms.Hold(cam.TransformPoint(Look.RightCollar), cam.TransformPoint(Look.RightElbow),
                           center + frame * (Soldier.RightGrip * size), SoldierLook.Grip(frame, Soldier.RightFingers, Soldier.RightBack),
                           cam.TransformPoint(Look.LeftCollar), cam.TransformPoint(Look.LeftElbow),

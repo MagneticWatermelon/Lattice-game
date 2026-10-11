@@ -57,6 +57,10 @@ namespace Lattice.LocalPlayer
 
         /// <summary>Toggles the HUD reads: server ghosts, tier colors, net graph.</summary>
         public bool Ghosts, TierColors, NetGraph = true, Help;
+        /// <summary>Soldiers colored by relation (ours blue-white, enemies orange and
+        /// magenta), else by faction: I, remembered between games.</summary>
+        public bool Iff = true;
+        public const string IffPref = "Lattice.Iff";
 
         /// <summary>The mouse is ours: clicks fire, the right button aims.</summary>
         public bool Grabbed { get; private set; }
@@ -136,6 +140,11 @@ namespace Lattice.LocalPlayer
                 }
                 if (kb.gKey.wasPressedThisFrame) Ghosts = !Ghosts;
                 if (kb.tKey.wasPressedThisFrame) TierColors = !TierColors;
+                if (kb.iKey.wasPressedThisFrame)
+                {
+                    Iff = !Iff;
+                    PlayerPrefs.SetInt(IffPref, Iff ? 1 : 0);
+                }
                 if (kb.nKey.wasPressedThisFrame) NetGraph = !NetGraph;
                 if (kb.f1Key.wasPressedThisFrame) Help = !Help;
             }

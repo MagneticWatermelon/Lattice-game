@@ -26,7 +26,7 @@ namespace Lattice.Combat
         readonly GameObject root;
         readonly Renderer[] renderers;
         readonly Arm right, left;
-        int faction = -1;
+        Material body;
 
         public ViewArms(GameObject model, Transform parent, int layer, SoldierLook soldier)
         {
@@ -83,12 +83,12 @@ namespace Lattice.Combat
                 root.SetActive(on);
         }
 
-        public void Faction(int f, Material[] materials)
+        /// <summary>The sleeves' material: our soldier's (SoldierColors).</summary>
+        public void Body(Material mat)
         {
-            if (f == faction || materials == null || materials.Length == 0)
+            if (mat == body || mat == null)
                 return;
-            faction = f;
-            var mat = materials[Mathf.Clamp(f, 0, materials.Length - 1)];
+            body = mat;
             foreach (var r in renderers)
                 r.sharedMaterial = mat;
         }
