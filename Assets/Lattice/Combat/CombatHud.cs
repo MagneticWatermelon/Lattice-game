@@ -349,6 +349,9 @@ namespace Lattice.Combat
                     {
                         markColor = killed ? MarkKill : head ? MarkHead : MarkBody;
                         markDur = killed ? KillMarkSecs : MarkSecs;
+                        // The scripted check holds each mark through its beat, so a screenshot finds it.
+                        if (Test)
+                            markDur = 0.58f;
                         markAt = now;
                     }
                     break;

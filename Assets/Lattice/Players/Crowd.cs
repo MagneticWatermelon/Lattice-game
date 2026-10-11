@@ -58,6 +58,9 @@ namespace Lattice.Players
             for (int i = 0; i < pool.Length; i++)
                 pool[i] = Make($"Soldier {i}");
             own = Make("Own soldier");
+            // Ours is only a shadow in first person, and must already be in pose the moment
+            // the death view shows it: it never waits on being seen to animate.
+            own.AlwaysAnimate();
             BakePoses();
             crowdParams = new RenderParams[3];
             for (int f = 0; f < 3; f++)

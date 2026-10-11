@@ -52,7 +52,7 @@ namespace Lattice.Players
         float legsYaw, aimYaw, aimPitch, aimWeight, sprint;
         bool reverse, dead, airborne, hasLast;
         float firedAt = -10f;
-        bool shadowsOnly;
+        bool shadowsOnly, alwaysAnimate;
 
         public void Init(SoldierLook look)
         {
@@ -196,6 +196,13 @@ namespace Lattice.Players
                         r.enabled = i == want;
         }
 
+        /// <summary>Animate whether or not it's seen (our own body).</summary>
+        public void AlwaysAnimate()
+        {
+            animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+            alwaysAnimate = true;
+        }
+
         /// <summary>It was drawn firing now.</summary>
         public void Fired(float time) => firedAt = time;
 
@@ -286,7 +293,7 @@ namespace Lattice.Players
             if (dead || spine == null)
                 return;
             // (A headless editor draws no camera: everything counts as seen there.)
-            bool visible = Application.isBatchMode;
+            bool visible = Application.isBatchMode || alwaysAnimate;
             foreach (var r in renderers)
                 visible |= r.isVisible;
             visible |= rifleRenderer.isVisible;
