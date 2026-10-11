@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using Lattice.World;
 using UnityEditor;
 using UnityEditor.Rendering;
@@ -33,6 +34,7 @@ namespace Lattice.EditorTools
                 look.Layers[i] = Layer(Layers[i].name, Layers[i].tile, Layers[i].smooth, Layers[i].normal);
             look.TerrainMaterial = TerrainMaterial();
             look.PlainCover = PlainCover();
+            Cover(look);
             TerrainShadersInBuilds();
             EditorUtility.SetDirty(look);
             AssetDatabase.SaveAssets();
@@ -130,6 +132,118 @@ namespace Lattice.EditorTools
             m.enableInstancing = true;
             EditorUtility.SetDirty(m);
             return m;
+        }
+
+        /// <summary>The cover kinds in LtCode.Cover* order: each one's model (World/Cover,
+        /// from the Bevy client's props by Tools/Blender/prop_fbx.py: unit boxes, base
+        /// at 0, long side x, front +z), how it tiles (as the Bevy client: a wall block
+        /// 1.28 times as long as it's tall), and whether its front is an end (the
+        /// container's doors are on its z faces; the Bevy client stretches them along
+        /// the side).</summary>
+        static readonly (string name, float tileAspect, bool frontOnEnd)[] CoverKinds =
+        {
+            ("Wall", 1.28f, false),
+            ("Crate", 0f, false),
+            ("Container", 0f, true),
+            ("Sandbags", 0f, false),
+            ("Post", 0f, false),
+            ("Command", 0f, false),
+            ("Bunker", 0f, false),
+        };
+
+        const string CoverDir = "Assets/Lattice/World/Cover";
+
+        static void Cover(WorldLook look)
+        {
+            look.Cover = new CoverModel[CoverKinds.Length];
+            for (int k = 0; k < CoverKinds.Length; k++)
+            {
+                var (name, aspect, end) = CoverKinds[k];
+                var mesh = AssetDatabase.LoadAllAssetsAtPath($"{CoverDir}/{name}.fbx").OfType<Mesh>().FirstOrDefault();
+                if (mesh == null)
+                {
+                    Debug.LogWarning($"Lattice setup: no cover model {name}");
+                    continue;
+                }
+                var m = ModelMaterial(name);
+                // At a distance a plain box of the model's average color stands in.
+                var far = LitMaterial($"{CoverDir}/{name}_Far.mat");
+                far.SetColor("_BaseColor", AverageColor($"{CoverDir}/{name}_albedo.jpg", mesh));
+                far.SetFloat("_Smoothness", 0.25f);
+                far.SetFloat("_Metallic", 0f);
+                far.SetFloat("_TintStrength", 0f);
+                far.enableInstancing = true;
+                EditorUtility.SetDirty(far);
+                look.Cover[k] = new CoverModel { Mesh = mesh, Materials = new[] { m }, Far = far, TileAspect = aspect, FrontOnEnd = end };
+            }
+            look.RockMesh = AssetDatabase.LoadAllAssetsAtPath($"{CoverDir}/Rocks.fbx").OfType<Mesh>().FirstOrDefault();
+            look.RockMaterial = look.RockMesh != null ? ModelMaterial("Rocks") : null;
+        }
+
+        /// <summary>A model's material from its maps beside it (Name_albedo.jpg,
+        /// _normal.jpg, _metal.png: URP's metallic in R, smoothness in A).</summary>
+        static Material ModelMaterial(string name)
+        {
+            var m = LitMaterial($"{CoverDir}/{name}.mat");
+            m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>($"{CoverDir}/{name}_albedo.jpg"));
+            m.SetTexture("_BumpMap", AssetDatabase.LoadAssetAtPath<Texture2D>($"{CoverDir}/{name}_normal.jpg"));
+            m.SetTexture("_MetallicGlossMap", AssetDatabase.LoadAssetAtPath<Texture2D>($"{CoverDir}/{name}_metal.png"));
+            m.SetFloat("_BumpScale", 1f);
+            m.SetFloat("_Smoothness", 0.85f);
+            m.SetFloat("_Metallic", 1f);
+            m.SetFloat("_TintStrength", 0f);
+            m.EnableKeyword("_NORMALMAP");
+            m.EnableKeyword("_METALLICSPECGLOSSMAP");
+            m.enableInstancing = true;
+            EditorUtility.SetDirty(m);
+            return m;
+        }
+
+        static Material LitMaterial(string path)
+        {
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null)
+            {
+                m = new Material(Shader.Find("Lattice/Lit"));
+                AssetDatabase.CreateAsset(m, path);
+            }
+            m.shader = Shader.Find("Lattice/Lit");
+            return m;
+        }
+
+        /// <summary>The color a model shows on average (sRGB): its texture sampled over
+        /// its surface, each triangle by its area (a Meshy atlas spends most of its
+        /// space on small parts, so the texture's own mean is far off).</summary>
+        static Color AverageColor(string path, Mesh mesh)
+        {
+            var t = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            t.LoadImage(File.ReadAllBytes(path));
+            var v = mesh.vertices;
+            var uv = mesh.uv;
+            var tris = mesh.triangles;
+            // Four points per triangle: its centroid and toward each corner.
+            Vector3[] bary = { new Vector3(1f / 3, 1f / 3, 1f / 3), new Vector3(2f / 3, 1f / 6, 1f / 6), new Vector3(1f / 6, 2f / 3, 1f / 6), new Vector3(1f / 6, 1f / 6, 2f / 3) };
+            double r = 0, g = 0, b = 0, total = 0;
+            for (int k = 0; k < tris.Length; k += 3)
+            {
+                int i0 = tris[k], i1 = tris[k + 1], i2 = tris[k + 2];
+                double area = Vector3.Cross(v[i1] - v[i0], v[i2] - v[i0]).magnitude;
+                if (area <= 0)
+                    continue;
+                foreach (var w in bary)
+                {
+                    var p = uv[i0] * w.x + uv[i1] * w.y + uv[i2] * w.z;
+                    var c = t.GetPixelBilinear(p.x, p.y);
+                    r += c.r * area;
+                    g += c.g * area;
+                    b += c.b * area;
+                    total += area;
+                }
+            }
+            Object.DestroyImmediate(t);
+            if (total <= 0)
+                return Color.gray;
+            return new Color((float)(r / total), (float)(g / total), (float)(b / total));
         }
 
         static Material PlainCover()

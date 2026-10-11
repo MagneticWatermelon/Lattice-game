@@ -1,5 +1,7 @@
 # Blender: a static model for Unity: one mesh, its textures beside the FBX
-# (Name_albedo/_normal/_mr.png), 1 unit = 1 m. Args after --: in.glb out.fbx name
+# (Name_albedo/_normal/_mr, .jpg or .png as packed), 1 unit = 1 m. Args after --: in.glb out.fbx name
+# The mesh data itself is in Unity's axes (y up, the model's front at +z), not
+# turned by its node: the client draws the bare Mesh, without the FBX's transform.
 import bpy, sys, os
 src, out, name = sys.argv[sys.argv.index("--") + 1:][:3]
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -25,9 +27,12 @@ if mat and mat.node_tree:
         if n.type == 'TEX_IMAGE' and n.image:
             role = "albedo" if link.to_socket.name == "Base Color" else "normal" if link.to_node.type == 'NORMAL_MAP' else "mr" if link.to_node.type == 'SEPARATE_COLOR' or link.to_socket.name in ("Roughness", "Metallic") else None
             if role:
-                n.image.filepath_raw = os.path.join(texdir, f"{name}_{role}.png"); n.image.file_format = 'PNG'; n.image.save()
-                print("texture", role, n.image.size[0])
+                # The packed bytes are saved as they are, so the name gets their real format.
+                ext = ".jpg" if n.image.file_format == 'JPEG' else ".png"
+                n.image.filepath_raw = os.path.join(texdir, f"{name}_{role}{ext}"); n.image.save()
+                print("texture", role, n.image.size[0], ext)
 bpy.ops.object.select_all(action='DESELECT'); m.select_set(True)
 bpy.ops.export_scene.fbx(filepath=out, use_selection=True, apply_unit_scale=True, apply_scale_options='FBX_SCALE_ALL',
-    axis_forward='-Z', axis_up='Y', object_types={'MESH'}, mesh_smooth_type='FACE', bake_anim=False, path_mode='STRIP')
+    axis_forward='-Z', axis_up='Y', bake_space_transform=True, object_types={'MESH'}, mesh_smooth_type='FACE',
+    bake_anim=False, path_mode='STRIP')
 print("exported", out)

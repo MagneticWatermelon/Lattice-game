@@ -47,6 +47,7 @@ namespace Lattice.World
             Started = true;
             Terrain = new TerrainBuilder(world, Look, transform);
             CoverBuilder.Build(world, Look, transform);
+            RockScatter.Build(world, Look, transform);
         }
 
         void Update()

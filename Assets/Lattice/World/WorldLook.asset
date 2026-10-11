@@ -25,27 +25,52 @@ MonoBehaviour:
   GrassMesh: {fileID: 0}
   GrassDistance: 140
   GrassDensity: 1
+  RockMesh: {fileID: -4687895321025338212, guid: cdffe197d47bb634b91e10354e91b9f6, type: 3}
+  RockMaterial: {fileID: 2100000, guid: 638f2d38e50073e48a29069664930697, type: 2}
+  RockCullHeight: 0.004
   Cover:
-  - Mesh: {fileID: 0}
-    Materials: []
-    TileLength: 0
-  - Mesh: {fileID: 0}
-    Materials: []
-    TileLength: 0
-  - Mesh: {fileID: 0}
-    Materials: []
-    TileLength: 0
-  - Mesh: {fileID: 0}
-    Materials: []
-    TileLength: 0
-  - Mesh: {fileID: 0}
-    Materials: []
-    TileLength: 0
-  - Mesh: {fileID: 0}
-    Materials: []
-    TileLength: 0
-  - Mesh: {fileID: 0}
-    Materials: []
-    TileLength: 0
-  CoverModelDistance: 700
+  - Mesh: {fileID: 8733429697405204941, guid: d87a93831bfa1314e859478d619089ec, type: 3}
+    Materials:
+    - {fileID: 2100000, guid: 539c413f604982d47b86d6a5df0522c5, type: 2}
+    Far: {fileID: 2100000, guid: c257a9c1d5bd70742ac25e2f4235737b, type: 2}
+    TileAspect: 1.28
+    FrontOnEnd: 0
+  - Mesh: {fileID: -3660275907326674588, guid: bc2625051fa8b67479ca200157e2a1dc, type: 3}
+    Materials:
+    - {fileID: 2100000, guid: fdcef00844a1b03459243c39d7437823, type: 2}
+    Far: {fileID: 2100000, guid: 27fcd4975e399a347b97df965b8c39c6, type: 2}
+    TileAspect: 0
+    FrontOnEnd: 0
+  - Mesh: {fileID: -5685363115531012651, guid: 58ba37a0e9e06454da5f73efe49213bb, type: 3}
+    Materials:
+    - {fileID: 2100000, guid: 81ff0963e31ac3345ab512e8032f5ece, type: 2}
+    Far: {fileID: 2100000, guid: 14937ff951610d447881abed50df6b6c, type: 2}
+    TileAspect: 0
+    FrontOnEnd: 1
+  - Mesh: {fileID: -1962481032112925138, guid: 3a72c085b20d6f947990933790fc8a7a, type: 3}
+    Materials:
+    - {fileID: 2100000, guid: 6b7c5dba64effb6439ace8cf122745fe, type: 2}
+    Far: {fileID: 2100000, guid: 7c8d7cd6138f78340a07a10b317e89ef, type: 2}
+    TileAspect: 0
+    FrontOnEnd: 0
+  - Mesh: {fileID: 4946852426162558294, guid: 76a7e94a5e0836147b9d76f081ef04bb, type: 3}
+    Materials:
+    - {fileID: 2100000, guid: d33e2fca35d348b438ea4c774e9bf74f, type: 2}
+    Far: {fileID: 2100000, guid: 623c65b5d3013254fb941ec6c2498e83, type: 2}
+    TileAspect: 0
+    FrontOnEnd: 0
+  - Mesh: {fileID: 167801378083623731, guid: 59f45d88b9cf4484db9c3044e35d91fb, type: 3}
+    Materials:
+    - {fileID: 2100000, guid: f6034db0c0343c64e930dcd74229c380, type: 2}
+    Far: {fileID: 2100000, guid: b37ad29dd68c07145a9f46f0aa52edf7, type: 2}
+    TileAspect: 0
+    FrontOnEnd: 0
+  - Mesh: {fileID: -8268693768041906735, guid: ea84893259193064ebaff53024ea7dea, type: 3}
+    Materials:
+    - {fileID: 2100000, guid: bd5c2cc46c3299f40af91f52e613eabe, type: 2}
+    Far: {fileID: 2100000, guid: 4ba1af5cf42cf9041b22bc8fff999fce, type: 2}
+    TileAspect: 0
+    FrontOnEnd: 0
+  CoverDetailHeight: 0.004
+  CoverFarHeight: 0.0003
   PlainCover: {fileID: 2100000, guid: 8869710db727ec14d9fdbbcb4e8dc6a5, type: 2}

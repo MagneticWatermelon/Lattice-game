@@ -8,9 +8,11 @@ namespace Lattice.World
 {
     /// <summary>
     /// Every cover box of the world, drawn as its kind's model fitted exactly
-    /// to the box (GDD §14.3: what you see is what blocks you), and as a plain
-    /// box past <see cref="WorldLook.CoverModelDistance"/>. Static renderers:
-    /// the GPU Resident Drawer instances them.
+    /// to the box (GDD §14.3: what you see is what blocks you): walls tiled
+    /// along their length, the rest stretched once. Each piece is a level of
+    /// detail: the model near, a plain box in the model's own color farther,
+    /// nothing once it's a speck. Static renderers: the GPU Resident Drawer
+    /// instances them.
     /// </summary>
     public static class CoverBuilder
     {
@@ -39,38 +41,54 @@ namespace Lattice.World
         }
 
         /// <summary>A model fitted into box <paramref name="b"/>: its long side along
-        /// the box's long side, its front to the box's facing; walls tile it.</summary>
+        /// the box's long side, its front to the box's facing (or, for a model whose
+        /// front is an end, like a container's doors, to one end); walls tile it.</summary>
         static int Place(Transform root, CoverModel model, WorldLook look, LtBox b, Vector3 bottomCenter, Vector3 size, Mesh cube)
         {
-            // The model's x runs along the box's long side, +z faces the front.
             bool alongX = size.x >= size.z;
             float length = alongX ? size.x : size.z, depth = alongX ? size.z : size.x;
             // Facing 0 east, 1 north, 2 west, 3 south (game); the model's front is +z.
             float yaw = b.facing switch { 0 => 90f, 1 => 0f, 2 => -90f, _ => 180f };
-            // A model's long axis must lie along the box's: turn by 90 if the
-            // facing would put it across.
-            bool modelAlongX = Mathf.Abs(Mathf.Sin(yaw * Mathf.Deg2Rad)) < 0.5f;
-            if (modelAlongX != alongX)
+            // The model's long axis (x, or z if its front is an end) must lie along
+            // the box's: turn by 90 if the facing would put it across.
+            bool longAlongX = (Mathf.Abs(Mathf.Sin(yaw * Mathf.Deg2Rad)) < 0.5f) != model.FrontOnEnd;
+            if (longAlongX != alongX)
                 yaw += 90f;
-            int pieces = model.TileLength > 0f ? Mathf.Max(1, Mathf.RoundToInt(length / model.TileLength)) : 1;
+            int pieces = model.TileAspect > 0f ? Mathf.Max(1, Mathf.RoundToInt(length / (size.y * model.TileAspect))) : 1;
             float piece = length / pieces;
             var dir = alongX ? Vector3.right : Vector3.forward;
-            int n = 0;
+            var rot = Quaternion.Euler(0f, yaw, 0f);
+            // The piece in the model's own axes: x across its front, z front to back.
+            var scale = model.FrontOnEnd ? new Vector3(depth, size.y, piece) : new Vector3(piece, size.y, depth);
             for (int i = 0; i < pieces; i++)
             {
                 var go = new GameObject("Cover");
                 go.transform.SetParent(root, false);
-                var at = bottomCenter + dir * ((i + 0.5f) * piece - length * 0.5f);
-                go.transform.SetPositionAndRotation(at, Quaternion.Euler(0f, yaw, 0f));
-                go.transform.localScale = new Vector3(piece, size.y, depth);
-                var mf = go.AddComponent<MeshFilter>();
-                mf.sharedMesh = model.Mesh;
-                var mr = go.AddComponent<MeshRenderer>();
-                mr.sharedMaterials = model.Materials;
-                mr.shadowCastingMode = ShadowCastingMode.On;
-                n++;
+                go.transform.SetPositionAndRotation(bottomCenter + dir * ((i + 0.5f) * piece - length * 0.5f), rot);
+                var near = Piece(go.transform, "Model", model.Mesh, model.Materials, scale);
+                var far = Piece(go.transform, "Far", cube, model.Far != null ? new[] { model.Far } : new[] { look.PlainCover }, scale);
+                var lods = go.AddComponent<LODGroup>();
+                lods.SetLODs(new[]
+                {
+                    new LOD(look.CoverDetailHeight, new Renderer[] { near }),
+                    new LOD(look.CoverFarHeight, new Renderer[] { far }),
+                });
+                lods.fadeMode = LODFadeMode.None;
+                lods.RecalculateBounds();
             }
-            return n;
+            return pieces;
+        }
+
+        static MeshRenderer Piece(Transform parent, string name, Mesh mesh, Material[] materials, Vector3 scale)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localScale = scale;
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var mr = go.AddComponent<MeshRenderer>();
+            mr.sharedMaterials = materials;
+            mr.shadowCastingMode = ShadowCastingMode.On;
+            return mr;
         }
 
         static void Plain(Transform root, Material mat, Mesh cube, Vector3 bottomCenter, Vector3 size, byte kind)

@@ -104,6 +104,7 @@ namespace Lattice.EditorTools
             {
                 // Made before: top up what it's missing.
                 existing.TryAddCharacters(FontChars, out _);
+                KeepOnBuild(existing);
                 EditorUtility.SetDirty(existing);
                 AssetDatabase.SaveAssets();
                 return;
@@ -125,9 +126,20 @@ namespace Lattice.EditorTools
             }
             fa.material.name = $"{name} Material";
             AssetDatabase.AddObjectToAsset(fa.material, fa);
+            KeepOnBuild(fa);
             EditorUtility.SetDirty(fa);
             AssetDatabase.SaveAssets();
             Debug.Log($"Lattice setup: font {path}");
+        }
+
+        /// <summary>A dynamic font asset is emptied before every player build by
+        /// default (and saved so): the build would then add each glyph the first time
+        /// it's drawn, mid-fight. These keep their atlas.</summary>
+        static void KeepOnBuild(TMP_FontAsset fa)
+        {
+            var so = new SerializedObject(fa);
+            so.FindProperty("m_ClearDynamicDataOnBuild").boolValue = false;
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         [MenuItem("Lattice/Setup/Scene")]
@@ -171,6 +183,8 @@ namespace Lattice.EditorTools
             // SMAA: no ghosting on tracers and small, fast soldiers (TAA smears them).
             data.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
             data.antialiasingQuality = AntialiasingQuality.High;
+            // Dithered before the 8-bit output: the sky's gradient shows no bands.
+            data.dithering = true;
             data.renderShadows = true;
             camGo.AddComponent<AudioListener>();
 

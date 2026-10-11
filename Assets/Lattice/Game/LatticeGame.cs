@@ -33,7 +33,11 @@ namespace Lattice.Game
         float started;
         bool reported;
         int shots;
+        /// <summary>The burst's file names, made at start: a shot mid-fight allocates nothing.</summary>
+        string[] shotPaths;
         CameraRig rig;
+        Lattice.World.WorldView world;
+        bool worldReady;
 
         void Awake()
         {
@@ -110,6 +114,7 @@ namespace Lattice.Game
 
             var hud = UiKit.Canvas("HUD", 10, transform);
             NetGraph.Create(hud.transform, Frames);
+            world = FindAnyObjectByType<Lattice.World.WorldView>();
         }
 
         void Start()
@@ -117,24 +122,31 @@ namespace Lattice.Game
             started = Time.realtimeSinceStartup;
             if (ConnectOnStart && !NetDriver.Start(Settings, out var error))
                 Debug.LogError($"Lattice: couldn't connect to {NetDriver.Address}: {error}");
+            if (Options.Screenshot != null && Options.Shots > 0)
+            {
+                // Relative to where the game was started (a player resolves bare
+                // names against its data folder otherwise); a burst numbers them.
+                var path = System.IO.Path.GetFullPath(Options.Screenshot);
+                shotPaths = new string[Options.Shots];
+                for (int i = 0; i < shotPaths.Length; i++)
+                    shotPaths[i] = Options.Shots == 1 ? path : System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path),
+                        $"{System.IO.Path.GetFileNameWithoutExtension(path)}_{i}{System.IO.Path.GetExtension(path)}");
+                Debug.Log($"Lattice: {shotPaths.Length} screenshot(s) to {shotPaths[0]}, from {Options.After:F1} s every {Options.ShotEvery:F1} s");
+            }
         }
 
         void Update()
         {
             Frames.Record(Time.unscaledDeltaTime, NetDriver.Frame.PluginMs);
-            float t = Time.realtimeSinceStartup - started;
-            if (shots < Options.Shots && Options.Screenshot != null && t >= Options.After + shots * Options.ShotEvery)
+            // Allocations count from when the world is built (loading allocates).
+            if (!worldReady && world != null && world.Ready)
             {
-                // Relative to where the game was started (a player resolves bare
-                // names against its data folder otherwise); a burst numbers them.
-                var path = System.IO.Path.GetFullPath(Options.Screenshot);
-                if (Options.Shots > 1)
-                    path = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path),
-                        $"{System.IO.Path.GetFileNameWithoutExtension(path)}_{shots}{System.IO.Path.GetExtension(path)}");
-                shots++;
-                ScreenCapture.CaptureScreenshot(path);
-                Debug.Log($"Lattice: screenshot to {path}");
+                worldReady = true;
+                Frames.RestartAllocations(2f);
             }
+            float t = Time.realtimeSinceStartup - started;
+            if (shotPaths != null && shots < shotPaths.Length && t >= Options.After + shots * Options.ShotEvery)
+                ScreenCapture.CaptureScreenshot(shotPaths[shots++]);
             if (Options.ExitAfter > 0f && t >= Options.ExitAfter)
             {
                 Options.ExitAfter = -1f;
