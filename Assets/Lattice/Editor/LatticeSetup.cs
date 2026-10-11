@@ -92,11 +92,22 @@ namespace Lattice.EditorTools
             MakeFont("Assets/Lattice/UI/Fonts/IBMPlexMono-SemiBold.ttf", "IBMPlexMono-SemiBold SDF", 64);
         }
 
+        /// <summary>Everything the HUD writes, up front: no atlas work mid-fight (and no
+        /// font asset that changes whenever the game runs in the editor).</summary>
+        const string FontChars = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~°±×·–—’“”•…→←↑↓▲▼●○■□‹›«»";
+
         static void MakeFont(string ttf, string name, int size)
         {
             var path = $"{FontDir}/{name}.asset";
-            if (AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path) != null)
+            var existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
+            if (existing != null)
+            {
+                // Made before: top up what it's missing.
+                existing.TryAddCharacters(FontChars, out _);
+                EditorUtility.SetDirty(existing);
+                AssetDatabase.SaveAssets();
                 return;
+            }
             var font = AssetDatabase.LoadAssetAtPath<Font>(ttf);
             if (font == null)
             {
@@ -105,9 +116,7 @@ namespace Lattice.EditorTools
             }
             var fa = TMP_FontAsset.CreateFontAsset(font, size, size / 8, GlyphRenderMode.SDFAA, 1024, 1024, AtlasPopulationMode.Dynamic, true);
             fa.name = name;
-            // Everything the HUD writes, up front: no atlas work mid-fight.
-            const string chars = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~°±×·–—’“”•…→←↑↓▲▼●○■□";
-            fa.TryAddCharacters(chars, out _);
+            fa.TryAddCharacters(FontChars, out _);
             AssetDatabase.CreateAsset(fa, path);
             for (int i = 0; i < fa.atlasTextures.Length; i++)
             {
