@@ -28,6 +28,9 @@ namespace Lattice.World
             ThinId = Shader.PropertyToID("_Thin"), SizeId = Shader.PropertyToID("_Size"), MapId = Shader.PropertyToID("_Map"),
             PlanesId = Shader.PropertyToID("_Planes"), PixelId = Shader.PropertyToID("_GrassPixel");
 
+        /// <summary>Not drawn (--off grass: to measure what it costs).</summary>
+        public static bool Off;
+
         WorldLook look;
         ComputeShader compute;
         int kernel, cells, groups;
@@ -96,7 +99,7 @@ namespace Lattice.World
         /// camera by hand call it first).</summary>
         public void Draw(Camera cam)
         {
-            if (cam == null || clumps == null)
+            if (cam == null || clumps == null || Off)
                 return;
             float max = look.GrassDistance, cell = look.GrassCell;
             var eye = cam.transform.position;

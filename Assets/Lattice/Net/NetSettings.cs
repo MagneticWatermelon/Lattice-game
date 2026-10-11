@@ -94,6 +94,12 @@ namespace Lattice.Net
     public class Options
     {
         public string Server, TokenKey, Invite, View, Spectate, Screenshot;
+        /// <summary>Features to turn off, to measure what each costs (comma-separated:
+        /// grass, ssao, shadows, clouds, bloom, cover).</summary>
+        public string Off = "";
+        /// <summary>The render scale (URP's, 0.1-2): 2 makes the GPU the bottleneck, so
+        /// it runs at full clock and its times compare between runs.</summary>
+        public float RenderScale;
         public ulong User, ServerId;
         public float NearMs, NearMaxMs, MidMs;
         public float After = 5f, ExitAfter = -1f, ShotEvery = 1f;
@@ -140,6 +146,8 @@ namespace Lattice.Net
                     case "--faction-colors": o.FactionColors = true; break;
                     case "--tier-colors": o.TierColors = true; break;
                     case "--controls": o.Controls = true; break;
+                    case "--off": o.Off = Val(); break;
+                    case "--render-scale": o.RenderScale = F(); break;
                     case "--screenshot": o.Screenshot = Val(); break;
                     case "--after": o.After = F(); break;
                     case "--shots": o.Shots = System.Math.Max(1, (int)F()); break;

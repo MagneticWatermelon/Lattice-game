@@ -132,6 +132,9 @@ namespace Lattice.Game
         void Start()
         {
             started = Time.realtimeSinceStartup;
+            TurnOff(Options.Off);
+            if (Options.RenderScale > 0f && UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline is UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset urp)
+                urp.renderScale = Mathf.Clamp(Options.RenderScale, 0.1f, 2f);
             if (ConnectOnStart && !NetDriver.Start(Settings, out var error))
                 Debug.LogError($"Lattice: couldn't connect to {NetDriver.Address}: {error}");
             if (Options.Screenshot != null && Options.Shots > 0)
@@ -157,6 +160,8 @@ namespace Lattice.Game
             if (!worldReady && world != null && world.Ready)
             {
                 worldReady = true;
+                if (pendingCoverOff)
+                    world.transform.Find("Cover")?.gameObject.SetActive(false);
                 WorldBuiltAt = Time.realtimeSinceStartup - started;
                 Frames.Restart(2f);
             }
@@ -187,6 +192,54 @@ namespace Lattice.Game
             Application.Quit();
 #endif
         }
+
+        /// <summary>--off: features turned off, to measure what each costs on the GPU.</summary>
+        static void TurnOff(string list)
+        {
+            if (string.IsNullOrEmpty(list))
+                return;
+            foreach (var raw in list.Split(','))
+            {
+                string what = raw.Trim().ToLowerInvariant();
+                switch (what)
+                {
+                    case "grass":
+                        Lattice.World.GrassField.Off = true;
+                        break;
+                    case "shadows":
+                        if (RenderSettings.sun != null)
+                            RenderSettings.sun.shadows = LightShadows.None;
+                        break;
+                    case "clouds":
+                        if (RenderSettings.sun != null && RenderSettings.sun.TryGetComponent(out Lattice.World.CloudShadows clouds))
+                            clouds.enabled = false;
+                        break;
+                    case "ssao":
+                    {
+                        var asset = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline as UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset;
+                        var field = typeof(UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset).GetField("m_RendererDataList",
+                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        if (asset != null && field?.GetValue(asset) is UnityEngine.Rendering.Universal.ScriptableRendererData[] datas)
+                            foreach (var d in datas)
+                                foreach (var f in d.rendererFeatures)
+                                    if (f is UnityEngine.Rendering.Universal.ScreenSpaceAmbientOcclusion)
+                                        f.SetActive(false);
+                        break;
+                    }
+                    case "bloom":
+                        foreach (var v in FindObjectsByType<UnityEngine.Rendering.Volume>(FindObjectsSortMode.None))
+                            if (v.sharedProfile != null && v.sharedProfile.TryGet(out UnityEngine.Rendering.Universal.Bloom bloom))
+                                bloom.active = false;
+                        break;
+                    case "cover":
+                        pendingCoverOff = true;
+                        break;
+                }
+                Debug.Log($"Lattice: off: {what}");
+            }
+        }
+
+        static bool pendingCoverOff;
 
         /// <summary>The report's lines on loading and on corrections' timing.</summary>
         static string SessionSection()
