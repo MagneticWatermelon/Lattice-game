@@ -112,13 +112,30 @@ namespace Lattice.Diagnostics
             {
                 sortedAt = now;
                 Array.Copy(RecentMs, scratch, RecentCount);
-                Array.Sort(scratch, 0, RecentCount);
+                Sort(scratch, RecentCount);
                 float sum = 0f;
                 for (int i = 0; i < RecentCount; i++)
                     sum += scratch[i];
                 P50 = scratch[Mathf.Min(RecentCount - 1, RecentCount / 2)];
                 P99 = scratch[Mathf.Min(RecentCount - 1, (int)(RecentCount * 0.99f))];
                 Fps = sum > 0f ? RecentCount * 1000f / sum : 0f;
+            }
+        }
+
+        /// <summary>Insertion sort: Array.Sort makes a comparison delegate per call (an
+        /// allocation four times a second), and this is 120 values.</summary>
+        static void Sort(float[] a, int n)
+        {
+            for (int i = 1; i < n; i++)
+            {
+                float v = a[i];
+                int j = i - 1;
+                while (j >= 0 && a[j] > v)
+                {
+                    a[j + 1] = a[j];
+                    j--;
+                }
+                a[j + 1] = v;
             }
         }
 

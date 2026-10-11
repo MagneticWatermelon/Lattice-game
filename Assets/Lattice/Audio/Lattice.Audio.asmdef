@@ -1,0 +1,21 @@
+{
+    "name": "Lattice.Audio",
+    "rootNamespace": "Lattice.Audio",
+    "references": [
+        "Lattice.Native",
+        "Lattice.Net",
+        "Lattice.LocalPlayer",
+        "Lattice.Players",
+        "Lattice.Combat",
+        "Lattice.Diagnostics"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

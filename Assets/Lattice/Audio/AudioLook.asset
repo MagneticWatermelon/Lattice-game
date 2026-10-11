@@ -1,0 +1,77 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c6ba49bfcecd23a438b1222b30a3748f, type: 3}
+  m_Name: AudioLook
+  m_EditorClassIdentifier: Lattice.Audio::Lattice.Audio.AudioLook
+  ShotOwn:
+  - {fileID: 8300000, guid: 92a4241f32553484883f005de68d685a, type: 3}
+  - {fileID: 8300000, guid: 92659d3ad20974f42a4430e931ad64f1, type: 3}
+  - {fileID: 8300000, guid: b89e45b40dca107438ea9c63cae61356, type: 3}
+  - {fileID: 8300000, guid: 69ee4c2f0bc1f61448b6c4e566f5c7cb, type: 3}
+  ShotNear:
+  - {fileID: 8300000, guid: 5b846ceb160204b4c9701f68efce4849, type: 3}
+  - {fileID: 8300000, guid: 004fa2c8a6db4f5419a1bb1bcc30f2b1, type: 3}
+  - {fileID: 8300000, guid: 0932b509c7d7f1144bec6a0473a8845e, type: 3}
+  - {fileID: 8300000, guid: fa026b8058632444ab0b85a1a008b52d, type: 3}
+  ShotFar:
+  - {fileID: 8300000, guid: 482dd20ae4ba6094db99c2c91ed3077d, type: 3}
+  - {fileID: 8300000, guid: 726d6342ac2cc8e43865921a7750dbec, type: 3}
+  - {fileID: 8300000, guid: d16480b3afd77d843968f6dfbdcc2987, type: 3}
+  - {fileID: 8300000, guid: 433687e87e574d2459dd390db49e3b37, type: 3}
+  Crack:
+  - {fileID: 8300000, guid: 0f2ec4a36b831464585e85a460083679, type: 3}
+  - {fileID: 8300000, guid: 1b0faddf2ef57b94db7c1361f3c40ae1, type: 3}
+  - {fileID: 8300000, guid: 47c44eba2f714c64ab4d2b9b378687fd, type: 3}
+  - {fileID: 8300000, guid: 6204736e2ce00b446be60b6cf24ce939, type: 3}
+  ImpactDirt:
+  - {fileID: 8300000, guid: 0d82ea3abf115fd4f899557a1f2390a5, type: 3}
+  - {fileID: 8300000, guid: 41cd57f622407b7458b5d0fa702f4af7, type: 3}
+  - {fileID: 8300000, guid: dccac031073854f4f972cfed49dc04d7, type: 3}
+  - {fileID: 8300000, guid: 37322f5e895f8b449bb62e67d5f01b3b, type: 3}
+  ImpactHard:
+  - {fileID: 8300000, guid: f488a6934bb66724883565a84e71fce3, type: 3}
+  - {fileID: 8300000, guid: 76773cca4a4bb684fa4dcb7b9ae55b9b, type: 3}
+  - {fileID: 8300000, guid: 6c67640121023d04091288922c4431a8, type: 3}
+  - {fileID: 8300000, guid: 7719aed2744af26408a81dd3ca24d234, type: 3}
+  Footstep:
+  - {fileID: 8300000, guid: 3379bdf327863754c973c797b2c06807, type: 3}
+  - {fileID: 8300000, guid: 4be931392139f7c41afd0f8fc4b4e054, type: 3}
+  - {fileID: 8300000, guid: 3c38621ab2f8be448be05359dfbc2eac, type: 3}
+  - {fileID: 8300000, guid: b4ffe1763d605604db33da197617388f, type: 3}
+  Hurt:
+  - {fileID: 8300000, guid: eaf887c196581c048b09886db096803a, type: 3}
+  - {fileID: 8300000, guid: 0bfe596e8d72f2a4cb74aa8caae8d409, type: 3}
+  - {fileID: 8300000, guid: fe1cab109590b24469bb0fb019ae588f, type: 3}
+  HitBody: {fileID: 8300000, guid: cd09a7c70f4f1224db54eeabd67baff4, type: 3}
+  HitHead: {fileID: 8300000, guid: 93cc489c3762032428dab0a7d19ee2b8, type: 3}
+  Kill: {fileID: 8300000, guid: 7fedb62d719b7e44ca1046c801730ad0, type: 3}
+  Death: {fileID: 8300000, guid: 003da257657374a45a03d8de316884b7, type: 3}
+  Respawn: {fileID: 8300000, guid: 7af72275439f34742a2b6e0cbec825de, type: 3}
+  SightsUp: {fileID: 8300000, guid: 943196bb07340014686f5a30215a7772, type: 3}
+  SightsDown: {fileID: 8300000, guid: 288626cebee0af74196f755310a18cdc, type: 3}
+  Wind: {fileID: 8300000, guid: fcb659dca13d1214694d9cdaaf0ddffe, type: 3}
+  BattleSmall: {fileID: 8300000, guid: b39aa30e84da68545a505062ec1cd9fc, type: 3}
+  BattleLarge: {fileID: 8300000, guid: daf4edea1157fb44ab99cf66f7e20742, type: 3}
+  Master: 0.9
+  OwnShot: 0.8
+  Shots: 0.8
+  Feedback: 0.7
+  Footsteps: 0.45
+  Ambience: 0.28
+  Battle: 0.55
+  ShotNearDistance: 10
+  FarFrom: 70
+  Audible: 900
+  FarIndividually: 450
+  FarPerSecond: 10
+  AirDistance: 140
+  SoundSpeed: 343

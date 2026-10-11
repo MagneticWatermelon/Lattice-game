@@ -33,6 +33,7 @@ namespace Lattice.EditorTools
                 look.Layers[i] = Layer(Layers[i].name, Layers[i].tile, Layers[i].smooth, Layers[i].normal);
             look.TerrainMaterial = TerrainMaterial();
             look.PlainCover = PlainCover();
+            TerrainShadersInBuilds();
             EditorUtility.SetDirty(look);
             AssetDatabase.SaveAssets();
             Debug.Log("Lattice setup: world assets");
@@ -77,6 +78,35 @@ namespace Lattice.EditorTools
             return l;
         }
 
+        /// <summary>
+        /// The terrain engine's own hidden shaders, kept in builds: the terrains are made
+        /// at runtime, so a build sees no terrain and strips what an instanced terrain
+        /// needs to make its normal map (without it the ground draws unlit, near black).
+        /// </summary>
+        static void TerrainShadersInBuilds()
+        {
+            var settings = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/GraphicsSettings.asset")[0];
+            var so = new SerializedObject(settings);
+            var list = so.FindProperty("m_AlwaysIncludedShaders");
+            foreach (var name in new[] { "Hidden/TerrainEngine/GenerateNormalmap", "Hidden/Nature/Terrain/Utilities" })
+            {
+                var shader = Shader.Find(name);
+                if (shader == null)
+                {
+                    Debug.LogWarning($"Lattice setup: no shader {name} to keep in builds");
+                    continue;
+                }
+                bool present = false;
+                for (int i = 0; i < list.arraySize; i++)
+                    present |= list.GetArrayElementAtIndex(i).objectReferenceValue == shader;
+                if (present)
+                    continue;
+                list.InsertArrayElementAtIndex(list.arraySize);
+                list.GetArrayElementAtIndex(list.arraySize - 1).objectReferenceValue = shader;
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         static Material TerrainMaterial()
         {
             var path = "Assets/Lattice/World/Terrain/Terrain.mat";
@@ -91,6 +121,13 @@ namespace Lattice.EditorTools
             m.SetFloat("_HeightTransition", 0.35f);
             m.SetFloat("_EnableInstancedPerPixelNormal", 1f);
             m.EnableKeyword("_TERRAIN_INSTANCED_PERPIXEL_NORMAL");
+            // Every layer has normal and mask maps. The editor's shader GUI would turn
+            // these on; a material made in code must, or the shader ignores the maps.
+            m.EnableKeyword("_NORMALMAP");
+            m.EnableKeyword("_MASKMAP");
+            // The terrains draw instanced: without this a build strips the instanced
+            // variants and the terrain falls back to its (ungenerated) base map.
+            m.enableInstancing = true;
             EditorUtility.SetDirty(m);
             return m;
         }

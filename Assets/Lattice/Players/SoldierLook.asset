@@ -20,15 +20,23 @@ MonoBehaviour:
   - {fileID: 2100000, guid: 9aa09d6ef47a3a24385ab7e7145d7086, type: 2}
   Rifle: {fileID: 624270676327525987, guid: acfaa12c1f9d40041aea9b5b3f759f6d, type: 3}
   RifleMaterial: {fileID: 2100000, guid: 7075e5178711db348bdf2045d4d7f92b, type: 2}
-  RifleMuzzle: {x: 0, y: 0.06, z: 0.53}
-  RifleGrip: {x: 0, y: -0.02, z: -0.12}
-  RifleForegrip: {x: 0, y: -0.01, z: 0.18}
-  RifleEuler: {x: 270, y: 90, z: 0}
+  Holo: {fileID: 2594999250697716090, guid: 0d9fb592e60271145a8e1ca72fcd71d6, type: 3}
+  HoloBody: {fileID: 2100000, guid: 1bd58e7503d0d6d4d94d5b432121c853, type: 2}
+  HoloInner: {fileID: 2100000, guid: c19f24d7910428247b775e53761f3807, type: 2}
+  HoloGlass: {fileID: 2100000, guid: ac15199122322d34aaeab7aa2d5ba126, type: 2}
+  RifleMuzzle: {x: 0, y: 0.069, z: 0.5}
+  RifleEuler: {x: 90, y: 90, z: 0}
   RifleScale: 0.85
   ModelScale: 0.95
-  ShoulderPocket: {x: -0.13, y: 0.06, z: 0.06}
-  RightHandEuler: {x: 0, y: 0, z: -90}
-  LeftHandEuler: {x: 0, y: 0, z: 90}
+  ShoulderPocket: {x: -0.15, y: -0.07, z: 0.24}
+  RightGrip: {x: 0.059, y: -0.071, z: -0.49}
+  RightFingers: {x: 0, y: -0.39, z: 0.92}
+  RightBack: {x: 1, y: 0, z: 0}
+  LeftGrip: {x: -0.117, y: 0.037, z: 0.084}
+  LeftFingers: {x: 0.15, y: -0.55, z: 0.82}
+  LeftBack: {x: -0.8, y: 0.5, z: 0}
+  RightBindBack: {x: -0.11, y: 0.76, z: 0.64}
+  LeftBindBack: {x: 0.12, y: 0.78, z: 0.61}
   RightElbowHint: {x: 0.35, y: -0.35, z: -0.2}
   LeftElbowHint: {x: -0.3, y: -0.45, z: 0.1}
   MaxTwist: 75

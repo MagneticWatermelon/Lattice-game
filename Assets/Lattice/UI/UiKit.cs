@@ -90,6 +90,24 @@ namespace Lattice.UI
             return t;
         }
 
+        /// <summary>
+        /// Sizes a text's internal arrays for <paramref name="chars"/> characters now,
+        /// at startup: TextMeshPro grows them (hundreds of KB at once) the first time
+        /// a text gets longer, which mid-fight is an allocation spike.
+        /// </summary>
+        public static void Warm(TMP_Text t, int chars)
+        {
+            var sb = new System.Text.StringBuilder(chars);
+            while (sb.Length < chars)
+                sb.Append("0123456789 abcdefghij\n");
+            sb.Length = chars;
+            var keep = t.text;
+            t.text = sb.ToString();
+            t.ForceMeshUpdate(true, true);
+            t.text = keep ?? "";
+            t.ForceMeshUpdate(true, true);
+        }
+
         /// <summary>Stretches <paramref name="r"/> over its parent, inset by <paramref name="pad"/>.</summary>
         public static void Fill(RectTransform r, float pad = 0f)
         {

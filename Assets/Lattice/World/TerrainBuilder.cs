@@ -176,6 +176,19 @@ namespace Lattice.World
             terrain.drawTreesAndFoliage = false;
             terrain.reflectionProbeUsage = ReflectionProbeUsage.BlendProbes;
             Terrains[t] = terrain;
+            if (t == 0)
+            {
+                // What the first tile was given (a player build has once drawn it untextured).
+                long r = 0, g = 0, b = 0, a = 0;
+                var sp = splats[t];
+                for (int i = 0; i < sp.Length; i += 97)
+                    (r, g, b, a) = (r + sp[i].r, g + sp[i].g, b + sp[i].b, a + sp[i].a);
+                int count = (sp.Length + 96) / 97;
+                var l0 = td.terrainLayers.Length > 0 ? td.terrainLayers[0] : null;
+                Debug.Log($"Lattice: terrain tile 0: control {control.format} {control.width}, splat mean {r / count}/{g / count}/{b / count}/{a / count}, " +
+                          $"layers {td.terrainLayers.Length} (first {(l0 != null && l0.diffuseTexture != null ? l0.diffuseTexture.name + " " + l0.diffuseTexture.width : "none")}), " +
+                          $"material {terrain.materialTemplate?.shader?.name} supported {terrain.materialTemplate?.shader?.isSupported} keywords [{string.Join(",", terrain.materialTemplate?.shaderKeywords ?? new string[0])}]");
+            }
         }
 
         public void Dispose()

@@ -39,6 +39,8 @@ namespace Lattice.EditorTools
             Fonts();
             LatticeSetupWorld.All();
             LatticeSetupPlayers.All();
+            LatticeSetupCombat.All();
+            LatticeSetupAudio.All();
             Scene();
             AssetDatabase.SaveAssets();
             Debug.Log("Lattice setup: done");
@@ -133,6 +135,19 @@ namespace Lattice.EditorTools
             var crowdGo = new GameObject("Crowd");
             var crowd = crowdGo.AddComponent<Lattice.Players.Crowd>();
             crowd.Look = AssetDatabase.LoadAssetAtPath<Lattice.Players.SoldierLook>(LatticeSetupPlayers.LookPath);
+            var combatGo = new GameObject("Combat");
+            var combatLook = AssetDatabase.LoadAssetAtPath<Lattice.Combat.CombatLook>(LatticeSetupCombat.LookPath);
+            var gun = combatGo.AddComponent<Lattice.Combat.Gun>();
+            gun.Soldier = crowd.Look;
+            gun.Look = combatLook;
+            var effects = combatGo.AddComponent<Lattice.Combat.Effects>();
+            effects.Look = combatLook;
+            effects.Crowd = crowd;
+            var audioGo = new GameObject("Audio");
+            var audio = audioGo.AddComponent<Lattice.Audio.BattleAudio>();
+            audio.Look = AssetDatabase.LoadAssetAtPath<Lattice.Audio.AudioLook>(LatticeSetupAudio.LookPath);
+            audio.Gun = gun;
+            audio.Crowd = crowd;
 
             var camGo = new GameObject("Main Camera");
             camGo.tag = "MainCamera";

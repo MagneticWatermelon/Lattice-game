@@ -30,9 +30,16 @@ namespace Lattice.Players
         Animator animator;
         Transform model, rifle;
         Renderer[] renderers;
-        MeshRenderer rifleRenderer;
+        // Levels of detail, chosen here (a LODGroup on a moving soldier costs the GPU
+        // Resident Drawer an allocation every frame): renderers per level, the size
+        // the screen heights refer to, the level shown (-1: none).
+        Renderer[][] lodRenderers;
+        float lodSize;
+        int lod = -2;
+        MeshRenderer rifleRenderer, holoRenderer;
         Transform spine, chest, upperChest, neck, head;
         Transform rUpper, rLower, rHand, lUpper, lLower, lHand;
+        HandGrip rGrip, lGrip;
         static readonly int SpeedId = Animator.StringToHash("Speed");
         static readonly int PlayRateId = Animator.StringToHash("PlayRate");
         static readonly int AimRateId = Animator.StringToHash("AimRate");
@@ -67,16 +74,23 @@ namespace Lattice.Players
                 {
                     smr.updateWhenOffscreen = false;
                     smr.skinnedMotionVectors = false;
+                    // Bounds that hold any pose: the arms reaching for the rifle, a fall.
+                    // (The bind pose's are tight enough that a soldier just off screen
+                    // would be culled while its rifle, held out, stays in view.)
+                    float toLocal = 1f / Mathf.Max(smr.rootBone != null ? smr.rootBone.lossyScale.x : smr.transform.lossyScale.x, 1e-6f);
+                    smr.localBounds = new Bounds(smr.localBounds.center, Vector3.one * (2.4f * look.ModelScale * toLocal));
                 }
             }
             var lods = inst.GetComponent<LODGroup>();
             if (lods != null)
             {
                 var l = lods.GetLODs();
-                for (int i = 0; i < l.Length && i < look.LodHeights.Length; i++)
-                    l[i].screenRelativeTransitionHeight = look.LodHeights[i];
-                lods.SetLODs(l);
-                lods.fadeMode = LODFadeMode.None;
+                lodRenderers = new Renderer[l.Length][];
+                for (int i = 0; i < l.Length; i++)
+                    lodRenderers[i] = l[i].renderers;
+                var s = inst.transform.lossyScale;
+                lodSize = lods.size * Mathf.Max(s.x, Mathf.Max(s.y, s.z));
+                DestroyImmediate(lods);
             }
             // (The clips are imported body-oriented: the animated body faces the
             // model's +z, whatever the bind pose's axes.)
@@ -91,6 +105,11 @@ namespace Lattice.Players
             lUpper = animator.GetBoneTransform(HumanBodyBones.LeftUpperArm);
             lLower = animator.GetBoneTransform(HumanBodyBones.LeftLowerArm);
             lHand = animator.GetBoneTransform(HumanBodyBones.LeftHand);
+            // Still in the bind pose (nothing has animated yet): how each hand is bound.
+            var bodyRight = (rUpper.position - lUpper.position).normalized;
+            var bodyUp = head.position - animator.GetBoneTransform(HumanBodyBones.Hips).position;
+            rGrip = HandGrip.FromBind(rLower, rHand, HandGrip.InBody(look.RightBindBack, bodyRight, bodyUp));
+            lGrip = HandGrip.FromBind(lLower, lHand, HandGrip.InBody(look.LeftBindBack, bodyRight, bodyUp));
 
             var rg = new GameObject("Rifle");
             rifle = rg.transform;
@@ -99,6 +118,15 @@ namespace Lattice.Players
             rifleRenderer = rg.AddComponent<MeshRenderer>();
             rifleRenderer.sharedMaterial = look.RifleMaterial;
             rifleRenderer.shadowCastingMode = ShadowCastingMode.On;
+            if (look.Holo != null)
+            {
+                var hg = new GameObject("Holo sight");
+                hg.transform.SetParent(rifle, false);
+                hg.AddComponent<MeshFilter>().sharedMesh = look.Holo;
+                holoRenderer = hg.AddComponent<MeshRenderer>();
+                holoRenderer.sharedMaterials = new[] { look.HoloBody, look.HoloInner, look.HoloGlass };
+                holoRenderer.shadowCastingMode = ShadowCastingMode.On;
+            }
             gameObject.SetActive(false);
         }
 
@@ -135,6 +163,37 @@ namespace Lattice.Players
             foreach (var r in renderers)
                 r.shadowCastingMode = mode;
             rifleRenderer.shadowCastingMode = mode;
+            if (holoRenderer != null)
+                holoRenderer.shadowCastingMode = mode;
+        }
+
+        /// <summary>
+        /// Shows the level of detail its size on screen calls for, by the thresholds
+        /// in the look (as a LODGroup would): <paramref name="eye"/> the camera,
+        /// <paramref name="scale"/> the LOD bias over 2 tan(fov/2).
+        /// </summary>
+        public void Lod(Vector3 eye, float scale)
+        {
+            if (lodRenderers == null)
+                return;
+            float d = Vector3.Distance(eye, transform.position);
+            float height = lodSize * scale / Mathf.Max(d, 0.01f);
+            int want = -1;
+            for (int i = 0; i < lodRenderers.Length && i < look.LodHeights.Length; i++)
+            {
+                if (height >= look.LodHeights[i])
+                {
+                    want = i;
+                    break;
+                }
+            }
+            if (want == lod)
+                return;
+            lod = want;
+            for (int i = 0; i < lodRenderers.Length; i++)
+                foreach (var r in lodRenderers[i])
+                    if (r != null)
+                        r.enabled = i == want;
         }
 
         /// <summary>It was drawn firing now.</summary>
@@ -206,6 +265,8 @@ namespace Lattice.Players
             animator.SetBool(DeadId, dead);
             animator.SetLayerWeight(1, aimWeight);
             rifleRenderer.enabled = !dead;
+            if (holoRenderer != null)
+                holoRenderer.enabled = !dead;
         }
 
         static float Wrap(float a)
@@ -255,7 +316,7 @@ namespace Lattice.Players
             var stock = rUpper.position + aim * look.ShoulderPocket;
             var aimPos = stock + aim * Vector3.forward * (0.45f * size);
             var carry = Quaternion.LookRotation((transform.forward * 0.8f + Vector3.down * 0.6f).normalized, transform.up);
-            var handPos = rHand.position + carry * new Vector3(0f, 0.03f, 0.1f);
+            var handPos = rHand.position - carry * (look.RightGrip * size);
             float w = Mathf.Max(aimWeight, 1f - sprint);
             var pos = Vector3.Lerp(handPos, aimPos, w);
             var frame = Quaternion.Slerp(carry, aim, w);
@@ -266,12 +327,12 @@ namespace Lattice.Players
 
             if (visible && w > 0.01f)
             {
-                var grip = pos + frame * (look.RifleGrip * size);
-                var fore = pos + frame * (look.RifleForegrip * size);
+                var grip = pos + frame * (look.RightGrip * size);
+                var fore = pos + frame * (look.LeftGrip * size);
                 TwoBoneIK.Solve(rUpper, rLower, rHand, grip, rUpper.position + aim * look.RightElbowHint, w);
-                rHand.rotation = Quaternion.Slerp(rHand.rotation, aim * Quaternion.Euler(look.RightHandEuler), w);
+                rHand.rotation = Quaternion.Slerp(rHand.rotation, rGrip.Hold(SoldierLook.Grip(frame, look.RightFingers, look.RightBack)), w);
                 TwoBoneIK.Solve(lUpper, lLower, lHand, fore, lUpper.position + aim * look.LeftElbowHint, w);
-                lHand.rotation = Quaternion.Slerp(lHand.rotation, aim * Quaternion.Euler(look.LeftHandEuler), w);
+                lHand.rotation = Quaternion.Slerp(lHand.rotation, lGrip.Hold(SoldierLook.Grip(frame, look.LeftFingers, look.LeftBack)), w);
             }
         }
 

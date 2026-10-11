@@ -51,6 +51,8 @@ namespace Lattice.LocalPlayer
         /// <summary>Radians per pixel of mouse movement.</summary>
         public float Sensitivity = 0.0025f;
         public bool Autoplay, Autofire, Autoaim;
+        /// <summary>Self-check: turn toward the nearest enemy in reach and fire when on it.</summary>
+        public bool Autotarget;
         public IGun Gun;
 
         /// <summary>Toggles the HUD reads: server ghosts, tier colors, net graph.</summary>
@@ -182,9 +184,10 @@ namespace Lattice.LocalPlayer
             if (mouse == null || !mouse.leftButton.isPressed)
                 swallow = false;
             bool alive = NetDriver.Frame.Welcomed && NetDriver.Frame.Own.dead == 0;
+            bool onTarget = Autotarget && alive && Mode != ViewMode.Spectator && Target(dt);
             if (Mode != ViewMode.Spectator && alive)
             {
-                trigger = Autofire || (Grabbed && !swallow && mouse != null && mouse.leftButton.isPressed);
+                trigger = Autofire || onTarget || (Grabbed && !swallow && mouse != null && mouse.leftButton.isPressed);
                 aim = Autoaim || (Grabbed && mouse != null && mouse.rightButton.isPressed);
             }
             Gun?.Frame(session, this, trigger, aim);
@@ -200,6 +203,62 @@ namespace Lattice.LocalPlayer
             intent.right = right;
             intent.buttons = buttons;
         }
+
+        /// <summary>
+        /// --autotarget: turn toward the nearest living enemy within 400 m (its
+        /// chest, led by how it moves and raised for the slug's drop), at a
+        /// hand's pace; true once the aim is on it. A self-check, like
+        /// --autofire: the turn is ours, the shot the plugin's as ever.
+        /// </summary>
+        bool Target(float dt)
+        {
+            var f = NetDriver.Frame;
+            var me = f.Own.pos;
+            float best = 400f * 400f;
+            int k = -1;
+            for (int i = 0; i < f.EntityCount; i++)
+            {
+                var e = f.Entities[i];
+                if (e.faction == f.Own.faction || (e.flags & LtCode.FlagDead) != 0)
+                    continue;
+                float dx = e.pos.x - me.x, dy = e.pos.y - me.y;
+                float d2 = dx * dx + dy * dy;
+                // Keep the one we're on unless another is much nearer.
+                if (e.id == targetId)
+                    d2 *= 0.6f;
+                if (d2 < best)
+                    (best, k) = (d2, i);
+            }
+            if (k < 0)
+            {
+                targetId = LtCode.Nobody;
+                return false;
+            }
+            var t = f.Entities[k];
+            var at = new Vector3(t.pos.x, t.pos.y, t.pos.z);
+            // Its velocity from where it was drawn last frame (the same one only).
+            if (t.id != targetId || dt <= 0f)
+                targetVel = Vector3.zero;
+            else
+                targetVel = Vector3.Lerp(targetVel, (at - targetLast) / dt, 1f - Mathf.Exp(-dt / 0.2f));
+            (targetId, targetLast) = (t.id, at);
+            float tx = at.x - me.x, ty = at.y - me.y;
+            float flight = Mathf.Sqrt(tx * tx + ty * ty) / LtConst.MuzzleSpeed;
+            tx += targetVel.x * flight;
+            ty += targetVel.y * flight;
+            float tz = at.z + 1.2f + 0.5f * LtConst.Gravity * flight * flight - (me.z + LtConst.EyeHeight);
+            float wantYaw = Mathf.Atan2(ty, tx);
+            float wantPitch = Mathf.Atan2(tz, Mathf.Sqrt(tx * tx + ty * ty));
+            float dYaw = Mathf.DeltaAngle(Yaw * Mathf.Rad2Deg, wantYaw * Mathf.Rad2Deg);
+            float dPitch = (wantPitch - Pitch) * Mathf.Rad2Deg;
+            float step = 260f * dt;
+            Yaw = Coords.Wrap(Yaw + Mathf.Clamp(dYaw, -step, step) * Mathf.Deg2Rad);
+            Pitch = Mathf.Clamp(Pitch + Mathf.Clamp(dPitch, -step, step) * Mathf.Deg2Rad, -MaxPitch, MaxPitch);
+            return Mathf.Abs(dYaw) < 2f && Mathf.Abs(dPitch) < 2f;
+        }
+
+        ushort targetId = LtCode.Nobody;
+        Vector3 targetLast, targetVel;
 
         /// <summary>Above and behind our player, looking at it.</summary>
         void PlaceSpectatorBehind()

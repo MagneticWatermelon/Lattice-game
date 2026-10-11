@@ -1,0 +1,27 @@
+{
+    "name": "Lattice.Combat",
+    "rootNamespace": "Lattice.Combat",
+    "references": [
+        "Lattice.Native",
+        "Lattice.Net",
+        "Lattice.LocalPlayer",
+        "Lattice.Players",
+        "Unity.Collections",
+        "Unity.Mathematics",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Lattice.UI",
+        "Lattice.Diagnostics",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

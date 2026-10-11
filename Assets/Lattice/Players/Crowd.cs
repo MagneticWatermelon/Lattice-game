@@ -238,6 +238,17 @@ namespace Lattice.Players
         {
             if (pool == null)
                 return;
+            // Levels of detail by size on screen (zooming down the sights brings detail in).
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                var eye = cam.transform.position;
+                float scale = QualitySettings.lodBias / (2f * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad));
+                foreach (var kv in rich)
+                    kv.Value.Lod(eye, scale);
+                if (own.Assigned)
+                    own.Lod(eye, scale);
+            }
             foreach (var kv in rich)
                 kv.Value.Rig();
             if (own.Assigned)

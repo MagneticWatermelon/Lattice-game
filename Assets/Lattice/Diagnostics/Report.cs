@@ -18,6 +18,10 @@ namespace Lattice.Diagnostics
     {
         public const string FileName = "lattice-report.txt";
 
+        /// <summary>More of the summary, from systems above this layer (audio, ...):
+        /// each returns its lines, called once when the report is written.</summary>
+        public static readonly System.Collections.Generic.List<Func<string>> Sections = new System.Collections.Generic.List<Func<string>>();
+
         public static string Build(FrameStats frames, float playedSeconds)
         {
             var sb = new StringBuilder();
@@ -42,6 +46,17 @@ namespace Lattice.Diagnostics
             }
             else
                 sb.Append("  managed allocations: not measurable in this build\n");
+            foreach (var section in Sections)
+            {
+                try
+                {
+                    sb.Append(section());
+                }
+                catch (Exception e)
+                {
+                    sb.Append("  (a report section failed: ").Append(e.Message).Append(")\n");
+                }
+            }
             var s = NetDriver.Session;
             if (s != null && s.IsOpen)
                 sb.Append("  ").Append(s.Summary().Replace("\n  ", "\n  "));

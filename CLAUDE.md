@@ -8,7 +8,7 @@ The Unity client for **Lattice**, a PlanetSide-style MMOFPS: thousands of player
 
 - **The design source of truth is `docs/gdd.md` in lattice-net** (Part II is this client; Part III the milestones). It tags every claim *exists / decided / proposed / open*.
 - lattice-net's own `CLAUDE.md` records its decisions (tiers, rewind caps, determinism rules). Read it before touching anything that crosses the plugin boundary.
-- **State today:** U0 is built (lattice-net's `client-ffi`, rebuilt into this project by its `scripts/unity-plugin.sh`); U1 and U2 are in progress. The client lives in `Assets/Lattice/` (one asmdef per layer, below), its scene is `Assets/Scenes/Lattice.unity`, and generated assets (fonts, terrain layers, materials, the animator, the scene itself) come from `Lattice > Setup` (`Assets/Lattice/Editor/LatticeSetup*.cs`), never hand-edited YAML. Run it headless with `& $unity run . -- -executeMethod Lattice.EditorTools.LatticeSetup.All`.
+- **State today:** U0 is built (lattice-net's `client-ffi`, rebuilt into this project by its `scripts/unity-plugin.sh`); U1 and U2 are in progress (U2's fight is playable: first-person rifle and arms, holographic sight, tracers, flashes, impacts, the combat HUD, death view, battle audio). The client lives in `Assets/Lattice/` (one asmdef per layer, below), its scene is `Assets/Scenes/Lattice.unity`, and generated assets (fonts, terrain layers, materials, the animator, the scene itself) come from `Lattice > Setup` (`Assets/Lattice/Editor/LatticeSetup*.cs`), never hand-edited YAML. Run it headless with `& $unity run . -- -executeMethod Lattice.EditorTools.LatticeSetup.All`.
 
 ## Working autonomously
 
@@ -73,6 +73,8 @@ Pass `--json` when you parse output, and branch on `success` and the exit code.
 
 ## Meshes and textures: Blender
 
+The scripts that made the committed art and sound, and where their sources live, are in `Tools/` (see `Tools/README.md`): change an asset by changing its script and rerunning it.
+
 Do all mesh and texture work in **Blender 5.1**: modeling, cleanup, decimation and LODs, UVs, baking, texture painting and editing, rigging fixes and export, Meshy output included. Unity only imports the results and builds materials from them.
 
 ```powershell
@@ -101,7 +103,7 @@ cargo build --release -p lattice-sim
 
 - The **Bevy client** (`lattice-net/client/`) is the reference implementation until Unity passes U2. When behavior is unclear (tracers, interpolation, HUD, coordinate math), match what it does.
 - **Milestone pass bars are measured, not eyeballed:** e.g. U0 means 0 corrections over 60 s against a local server with no per-frame managed allocations; U2 means `rewinds_trimmed` and `renders_held` are 0 in the server's session log. See GDD §20.
-- **Self-checks** (planned, carried over from the Bevy client) let Claude Code run and judge a Windows build: `--autoplay`, `--autofire`, `--screenshot PATH --after S`, `--exit-after S`, and a summary appended to `lattice-report.txt` on exit.
+- **Self-checks** let Claude Code run and judge a Windows build (`Builds/Windows/Lattice.exe`, run from `Builds/run`): `--autoplay`, `--autofire`, `--autotarget` (aim at the nearest enemy, fire when on it), `--hud-test` (a scripted run of hit markers, hurts and kills fed to the HUD only), `--screenshot PATH --after S` (`--shots N --shot-every S` for a burst), `--exit-after S`, and a summary appended to `lattice-report.txt` on exit (frames, managed allocations, audio levels, the net session). The headless editor can't show HUD canvases or play audio: check those in a build.
 - Faction colors: amber (Ordinate), jade (Free Compact), magenta (Resonance), plus an IFF mode. Don't reuse the Bevy client's red/blue/purple placeholders.
 - Large source art (e.g. Meshy GLBs, big `.blend` files) stays out of git until there's an LFS remote.
 - Any change that needs protocol or server work happens in lattice-net (GDD §21 lists what each milestone needs).

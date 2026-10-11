@@ -7,6 +7,7 @@
         "Lattice.Diagnostics",
         "Lattice.LocalPlayer",
         "Lattice.UI",
+        "Lattice.Combat",
         "Lattice.Players",
         "Lattice.World",
         "Unity.TextMeshPro",

@@ -38,6 +38,7 @@ namespace Lattice.UI
             g.text = UiKit.Text("Text", root, UiKit.Mono, 15f, UiKit.Ink);
             UiKit.Fill(g.text.rectTransform, 10f);
             g.text.lineSpacing = -6f;
+            UiKit.Warm(g.text, 1400);
             var fl = UiKit.Text("Frame label", root, UiKit.Mono, 12f, UiKit.Muted);
             fl.rectTransform.anchorMin = fl.rectTransform.anchorMax = new Vector2(0f, 0f);
             fl.rectTransform.pivot = new Vector2(0f, 0f);

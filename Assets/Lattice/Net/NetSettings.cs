@@ -96,8 +96,9 @@ namespace Lattice.Net
         public string Server, TokenKey, Invite, View, Spectate, Screenshot;
         public ulong User, ServerId;
         public float NearMs, NearMaxMs, MidMs;
-        public float After = 5f, ExitAfter = -1f;
-        public bool NoVsync, Ghosts, Autoplay, Autofire, Autoaim, NoAudio, Windowed;
+        public float After = 5f, ExitAfter = -1f, ShotEvery = 1f;
+        public int Shots = 1;
+        public bool NoVsync, Ghosts, Autoplay, Autofire, Autoaim, Autotarget, HudTest, NoAudio, Windowed;
         public string Errors = "";
 
         public static Options Parse(string[] args)
@@ -132,10 +133,14 @@ namespace Lattice.Net
                     case "--autoplay": o.Autoplay = true; break;
                     case "--autofire": o.Autofire = true; break;
                     case "--autoaim": o.Autoaim = true; break;
+                    case "--autotarget": o.Autotarget = true; break;
+                    case "--hud-test": o.HudTest = true; break;
                     case "--no-audio": o.NoAudio = true; break;
                     case "--windowed": o.Windowed = true; break;
                     case "--screenshot": o.Screenshot = Val(); break;
                     case "--after": o.After = F(); break;
+                    case "--shots": o.Shots = System.Math.Max(1, (int)F()); break;
+                    case "--shot-every": o.ShotEvery = F(); break;
                     case "--exit-after": o.ExitAfter = F(); break;
                     // Unity's own flags (and their values) pass through.
                     default:

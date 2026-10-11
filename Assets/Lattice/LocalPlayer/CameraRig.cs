@@ -24,6 +24,14 @@ namespace Lattice.LocalPlayer
 
         Vector3 chase;
         bool chaseInit;
+        // The death view: where the eye was and which way it looked when we died.
+        float diedAt = -1f, deathYaw;
+        Vector3 deathEye;
+        Quaternion deathRot;
+
+        /// <summary>The death view's camera is up and back of the body, on the side we faced from.</summary>
+        static readonly Vector3 DeathOffset = new Vector3(-3.4f, 0f, 2.4f);
+        const float DeathMove = 1.6f;
 
         /// <summary>Debugging: orbit another player (its entity id; 0: off), at
         /// <see cref="FollowOffset"/> (meters right, up, back of its aim) — for
@@ -54,6 +62,16 @@ namespace Lattice.LocalPlayer
                 Camera.fieldOfView = Fov;
                 return;
             }
+            bool dead = f.Welcomed && f.Own.dead != 0 && p.Mode != ViewMode.Spectator;
+            if (dead && DeathView(p, feet, eye, out camPos, out camRot))
+            {
+                transform.SetPositionAndRotation(camPos, camRot);
+                Camera.fieldOfView = Fov;
+                Eye = eye;
+                return;
+            }
+            if (!dead)
+                diedAt = -1f;
             switch (p.Mode)
             {
                 case ViewMode.Chase:
@@ -95,6 +113,38 @@ namespace Lattice.LocalPlayer
             transform.SetPositionAndRotation(camPos, camRot);
             float zoom = p.Mode == ViewMode.FirstPerson ? Mathf.Max(1f, Zoom) : 1f;
             Camera.fieldOfView = 2f * Mathf.Atan(Mathf.Tan(Fov * 0.5f * Mathf.Deg2Rad) / zoom) * Mathf.Rad2Deg;
+        }
+
+        /// <summary>
+        /// Dead: the camera rises from the eye and draws back to look down at
+        /// the body (GDD §15), eased, kept out of the ground and cover.
+        /// </summary>
+        bool DeathView(LocalPlayer p, LtVec3 feet, Vector3 eye, out Vector3 pos, out Quaternion rot)
+        {
+            float now = Time.unscaledTime;
+            if (diedAt < 0f)
+            {
+                diedAt = now;
+                deathYaw = p.Yaw;
+                deathEye = transform.position;
+                deathRot = transform.rotation;
+            }
+            float c = Mathf.Cos(deathYaw), s = Mathf.Sin(deathYaw);
+            var target = new Vector3(feet.x + c * DeathOffset.x, feet.y + s * DeathOffset.x, feet.z + DeathOffset.z);
+            var world = NetDriver.World;
+            var from = new LtVec3 { x = feet.x, y = feet.y, z = feet.z + 1f };
+            var to = new LtVec3 { x = target.x, y = target.y, z = target.z };
+            if (world != null && world.Raycast(from, to, out var hit))
+                target = Vector3.Lerp(new Vector3(from.x, from.y, from.z), target, Mathf.Max(0f, hit.t - 0.1f));
+            if (world != null)
+                target.z = Mathf.Max(target.z, world.Height(target.x, target.y) + 0.6f);
+            float t = Mathf.Clamp01((now - diedAt) / DeathMove);
+            t = 1f - (1f - t) * (1f - t) * (1f - t);
+            var goal = Coords.ToUnity(target.x, target.y, target.z);
+            var body = Coords.ToUnity(feet.x, feet.y, feet.z + 0.35f);
+            pos = Vector3.Lerp(deathEye, goal, t);
+            rot = Quaternion.Slerp(deathRot, Quaternion.LookRotation(body - goal, Vector3.up), t);
+            return true;
         }
 
         bool FollowCamera(NetFrame f, out Vector3 pos, out Quaternion rot)

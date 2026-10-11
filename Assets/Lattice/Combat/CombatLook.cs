@@ -1,0 +1,63 @@
+using UnityEngine;
+
+namespace Lattice.Combat
+{
+    /// <summary>
+    /// How fighting looks: the first-person rifle and its motion, tracers,
+    /// muzzle flashes and impacts. An asset made by Lattice > Setup
+    /// (LatticeSetupCombat), referenced by the scene. Offsets are in the
+    /// first-person camera's space (x right, y up, z forward, meters).
+    /// </summary>
+    [CreateAssetMenu(menuName = "Lattice/Combat Look")]
+    public sealed class CombatLook : ScriptableObject
+    {
+        [Header("First-person rifle")]
+        public Mesh ViewRifle;
+        public Material ViewRifleMaterial;
+        /// <summary>The mesh's rotation into "muzzle +z, top +y" (as the soldier's rifle).</summary>
+        public Vector3 ViewRifleEuler = new Vector3(90f, 90f, 0f);
+        /// <summary>Its size: the soldiers' (the arms hold it at their own scale).</summary>
+        public float ViewScale = 0.85f;
+        /// <summary>The first-person camera's vertical field of view (the rifle's own, so it
+        /// never stretches with the world's FOV setting), degrees.</summary>
+        public float ViewFov = 64f;
+        /// <summary>The rifle's center from the hip.</summary>
+        public Vector3 Hip = new Vector3(0.21f, -0.26f, 0.72f);
+        /// <summary>The rifle's turn from the hip (angled in toward the crosshair), degrees.</summary>
+        public Vector3 HipEuler = new Vector3(-3f, -5f, -5f);
+        /// <summary>The holographic sight's line of sight, at its rear window, in the rifle's
+        /// frame at size 1: aiming down sights puts it on the line of sight,
+        /// <see cref="SightDistance"/> from the eye.</summary>
+        public Vector3 Sight = new Vector3(0f, 0.224f, -0.198f);
+        public float SightDistance = 0.11f;
+        /// <summary>The sight's glass in first person: with the reticle.</summary>
+        public Material ViewHoloGlass;
+        /// <summary>The muzzle, in the rifle's frame at size 1.</summary>
+        public Vector3 Muzzle = new Vector3(0f, 0.069f, 0.5f);
+
+        [Header("First-person arms")]
+        /// <summary>The soldier's arms alone (Combat/Arms), held by <see cref="ViewArms"/>.</summary>
+        public GameObject Arms;
+        /// <summary>Where the collarbones are rooted (by the neck) and the elbows' pull, in the
+        /// first-person camera's space (m); how far the shoulders swing toward the hands (0..1).</summary>
+        public Vector3 RightCollar = new Vector3(0.04f, -0.24f, -0.02f);
+        public Vector3 LeftCollar = new Vector3(-0.14f, -0.3f, -0.02f);
+        public Vector3 RightElbow = new Vector3(0.55f, -0.6f, 0.05f);
+        public Vector3 LeftElbow = new Vector3(-0.7f, -0.6f, 0.3f);
+        public float ShoulderSwing = 0.5f;
+        /// <summary>Sprinting: the rifle lowered and turned in.</summary>
+        public Vector3 SprintOffset = new Vector3(0.05f, -0.1f, -0.06f);
+        public Vector3 SprintEuler = new Vector3(20f, -31f, 4f);
+        /// <summary>A shot's kick: back (m) and up (degrees), from the hip and down the sights.</summary>
+        public Vector2 KickHip = new Vector2(0.045f, 4.2f);
+        public Vector2 KickAds = new Vector2(0.022f, 1.6f);
+        public float KickTau = 0.075f;
+
+        [Header("Effects")]
+        public Material Tracer;
+        public Material Flash;
+        /// <summary>Impact puffs (alpha-blended) and sparks (added), on a soft puff texture.</summary>
+        public Material Dust;
+        public Material Sparks;
+    }
+}

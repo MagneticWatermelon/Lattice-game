@@ -8,7 +8,9 @@ namespace Lattice.EditorTools
     /// Import rules for the game's models. The soldier (Players/Soldier) is a
     /// humanoid: its clips loop where they cycle, and every clip stays in
     /// place (root motion baked into the pose): only the server moves
-    /// soldiers. No model brings its own materials; the client makes them.
+    /// soldiers. The first-person arms (Combat/Arms) keep their skin and bones
+    /// but no animation (IK poses them). No model brings its own materials;
+    /// the client makes them.
     /// </summary>
     sealed class ModelRules : AssetPostprocessor
     {
@@ -38,6 +40,13 @@ namespace Lattice.EditorTools
                 m.importAnimation = true;
                 m.animationCompression = ModelImporterAnimationCompression.Optimal;
                 m.resampleCurves = true;
+            }
+            else if (assetPath.Contains("/Combat/Arms/"))
+            {
+                m.animationType = ModelImporterAnimationType.Generic;
+                m.avatarSetup = ModelImporterAvatarSetup.NoAvatar;
+                m.optimizeGameObjects = false;
+                m.importAnimation = false;
             }
             else
             {

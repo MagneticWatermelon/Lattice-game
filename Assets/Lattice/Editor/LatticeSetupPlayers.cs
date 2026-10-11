@@ -35,6 +35,24 @@ namespace Lattice.EditorTools
             look.Rifle = AssetDatabase.LoadAllAssetsAtPath($"{RifleDir}/Rifle.fbx").OfType<Mesh>().First();
             look.RifleMaterial = RifleMaterial("Rifle", 0.62f);
             RifleMaterial("RifleView", 0.62f);
+            look.Holo = AssetDatabase.LoadAllAssetsAtPath($"{RifleDir}/HoloSight.fbx").OfType<Mesh>().First();
+            look.HoloBody = Lit($"{RifleDir}/HoloBody.mat");
+            look.HoloBody.SetColor("_BaseColor", new Color(0.045f, 0.05f, 0.055f));
+            look.HoloBody.SetFloat("_Metallic", 0.35f);
+            look.HoloBody.SetFloat("_Smoothness", 0.32f);
+            look.HoloBody.SetFloat("_TintStrength", 0f);
+            look.HoloBody.enableInstancing = true;
+            EditorUtility.SetDirty(look.HoloBody);
+            look.HoloInner = Lit($"{RifleDir}/HoloInner.mat");
+            look.HoloInner.SetColor("_BaseColor", new Color(0.012f, 0.012f, 0.013f));
+            look.HoloInner.SetFloat("_Metallic", 0f);
+            look.HoloInner.SetFloat("_Smoothness", 0.08f);
+            look.HoloInner.SetFloat("_TintStrength", 0f);
+            look.HoloInner.SetFloat("_EnvironmentReflections", 0f);
+            look.HoloInner.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
+            look.HoloInner.enableInstancing = true;
+            EditorUtility.SetDirty(look.HoloInner);
+            look.HoloGlass = HoloGlass($"{RifleDir}/HoloGlass.mat", false);
             EditorUtility.SetDirty(look);
             AssetDatabase.SaveAssets();
             Debug.Log("Lattice setup: players");
@@ -72,6 +90,23 @@ namespace Lattice.EditorTools
             m.SetColor("_TintColor", color.linear);
             m.SetFloat("_TintStrength", 0.85f);
             m.SetVector("_TintRange", new Vector4(0.1f, 0.28f, 0f, 0f));
+            EditorUtility.SetDirty(m);
+            return m;
+        }
+
+        /// <summary>The holographic sight's glass: with its reticle (first person) or without.</summary>
+        public static Material HoloGlass(string path, bool reticle)
+        {
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null)
+            {
+                m = new Material(Shader.Find("Lattice/HoloGlass"));
+                AssetDatabase.CreateAsset(m, path);
+            }
+            m.shader = Shader.Find("Lattice/HoloGlass");
+            m.SetFloat("_FrontX", 0.17f);
+            if (!reticle)
+                m.SetColor("_ReticleColor", Color.black);
             EditorUtility.SetDirty(m);
             return m;
         }

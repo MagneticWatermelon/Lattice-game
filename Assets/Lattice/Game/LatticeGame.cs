@@ -16,8 +16,10 @@ namespace Lattice.Game
     /// session log closes the session) and appends the report to
     /// lattice-report.txt.
     ///
-    /// Self-checks, as the Bevy client's: --autoplay, --autofire, --autoaim,
-    /// --screenshot PATH --after S, --exit-after S.
+    /// Self-checks, as the Bevy client's: --autoplay, --autofire, --autoaim, and
+    /// --autotarget (aim at the nearest enemy, fire when on it), --hud-test (a scripted
+    /// run of hit markers, hurts and kills, for screenshots),
+    /// --screenshot PATH --after S (--shots N --shot-every S: a burst), --exit-after S.
     /// </summary>
     [DefaultExecutionOrder(-1000)]
     public sealed class LatticeGame : MonoBehaviour
@@ -29,7 +31,8 @@ namespace Lattice.Game
         public FrameStats Frames { get; private set; }
 
         float started;
-        bool reported, shot;
+        bool reported;
+        int shots;
         CameraRig rig;
 
         void Awake()
@@ -63,6 +66,9 @@ namespace Lattice.Game
             player.Autoplay = Options.Autoplay;
             player.Autofire = Options.Autofire;
             player.Autoaim = Options.Autoaim;
+            player.Autotarget = Options.Autotarget;
+            if (Options.NoAudio)
+                AudioListener.volume = 0f;
             player.Ghosts = Options.Ghosts;
             player.Mode = Options.View switch
             {
@@ -80,6 +86,16 @@ namespace Lattice.Game
                 }
             }
 
+            var gun = FindAnyObjectByType<Lattice.Combat.Gun>();
+            if (gun != null)
+            {
+                gun.Rig = rig;
+                player.Gun = gun;
+                var combatHud = gameObject.AddComponent<Lattice.Combat.CombatHud>();
+                combatHud.Gun = gun;
+                combatHud.Test = Options.HudTest;
+            }
+
             var crowd = FindAnyObjectByType<Lattice.Players.Crowd>();
             if (crowd != null)
             {
@@ -87,7 +103,8 @@ namespace Lattice.Game
                 crowd.Own = () =>
                 {
                     var o = NetDriver.Frame.Own;
-                    return (new Vector3(o.pos.x, o.pos.y, o.pos.z), lp.Yaw, lp.Pitch, o.grounded == 0, o.dead != 0, lp.Gun != null && lp.Gun.Ads, lp.Mode != ViewMode.FirstPerson);
+                    // Seen from outside in the chase and spectator views, and in the death view.
+                    return (new Vector3(o.pos.x, o.pos.y, o.pos.z), lp.Yaw, lp.Pitch, o.grounded == 0, o.dead != 0, lp.Gun != null && lp.Gun.Ads, lp.Mode != ViewMode.FirstPerson || o.dead != 0);
                 };
             }
 
@@ -106,12 +123,15 @@ namespace Lattice.Game
         {
             Frames.Record(Time.unscaledDeltaTime, NetDriver.Frame.PluginMs);
             float t = Time.realtimeSinceStartup - started;
-            if (!shot && Options.Screenshot != null && t >= Options.After)
+            if (shots < Options.Shots && Options.Screenshot != null && t >= Options.After + shots * Options.ShotEvery)
             {
-                shot = true;
                 // Relative to where the game was started (a player resolves bare
-                // names against its data folder otherwise).
+                // names against its data folder otherwise); a burst numbers them.
                 var path = System.IO.Path.GetFullPath(Options.Screenshot);
+                if (Options.Shots > 1)
+                    path = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path),
+                        $"{System.IO.Path.GetFileNameWithoutExtension(path)}_{shots}{System.IO.Path.GetExtension(path)}");
+                shots++;
                 ScreenCapture.CaptureScreenshot(path);
                 Debug.Log($"Lattice: screenshot to {path}");
             }

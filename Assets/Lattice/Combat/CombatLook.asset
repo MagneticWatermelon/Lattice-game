@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 65e248fa51b854a4ca77148f6da3fb6f, type: 3}
+  m_Name: CombatLook
+  m_EditorClassIdentifier: Lattice.Combat::Lattice.Combat.CombatLook
+  ViewRifle: {fileID: 8707901099844997707, guid: cb69a531e2cf03340987cb1ff2e3fa51, type: 3}
+  ViewRifleMaterial: {fileID: 2100000, guid: 52db4215a39e5724cac10f42a5498c74, type: 2}
+  ViewRifleEuler: {x: 90, y: 90, z: 0}
+  ViewScale: 0.85
+  ViewFov: 64
+  Hip: {x: 0.21, y: -0.26, z: 0.72}
+  HipEuler: {x: -3, y: -5, z: -5}
+  Sight: {x: 0, y: 0.224, z: -0.198}
+  SightDistance: 0.11
+  ViewHoloGlass: {fileID: 2100000, guid: 493cbc67a95cd314198c57268ccc689d, type: 2}
+  Muzzle: {x: 0, y: 0.069, z: 0.5}
+  Arms: {fileID: 919132149155446097, guid: afdaa8a21a8e4c448ab3c0cb6df37c8d, type: 3}
+  RightCollar: {x: 0.04, y: -0.24, z: -0.02}
+  LeftCollar: {x: -0.14, y: -0.3, z: -0.02}
+  RightElbow: {x: 0.55, y: -0.6, z: 0.05}
+  LeftElbow: {x: -0.7, y: -0.6, z: 0.3}
+  ShoulderSwing: 0.5
+  SprintOffset: {x: 0.05, y: -0.1, z: -0.06}
+  SprintEuler: {x: 20, y: -31, z: 4}
+  KickHip: {x: 0.045, y: 4.2}
+  KickAds: {x: 0.022, y: 1.6}
+  KickTau: 0.075
+  Tracer: {fileID: 2100000, guid: 8892558a587a0dd4f9e604924aeeddc9, type: 2}
+  Flash: {fileID: 2100000, guid: 93ef92119baa21741a661da30ddde1b4, type: 2}
+  Dust: {fileID: 2100000, guid: 068e8199a888c8542a7531dfa84483d6, type: 2}
+  Sparks: {fileID: 2100000, guid: 9f25011c9c764be4dbb93e8b7d8122ac, type: 2}
