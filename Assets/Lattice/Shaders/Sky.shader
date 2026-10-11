@@ -2,11 +2,12 @@
 // color by its own rate: red and green faster than blue, so the sky deepens to
 // blue as it rises), a broad bluish glow and a tight glare around the sun, the
 // sun's disk, and a layer of fair-weather
-// cumulus 1.8 km up drifting on the wind: where the view meets the layer, two
-// turned samples of the cloud noise (World/Sky/Clouds.png, Tools/Blender/clouds.py)
-// cut to the cover, their edges eaten by finer cells; lit from the sun's side
-// (thinner toward it, brighter), silver at the edges near the sun, fading into
-// the haze toward the horizon. Colors are HDR, before the camera's tonemapping.
+// cumulus 1.8 km over the battlefield drifting on the wind (World/CloudShadows.cs
+// moves it and casts its shadows): where the view meets the layer, its density
+// (Clouds.hlsl: the cloud noise from Tools/Blender/clouds.py, cut to the cover,
+// edges eaten by finer cells); lit from the sun's side (thinner toward it,
+// brighter), silver at the edges near the sun, fading into the haze toward the
+// horizon. Colors are HDR, before the camera's tonemapping.
 Shader "Lattice/Sky"
 {
     Properties
@@ -19,9 +20,9 @@ Shader "Lattice/Sky"
         _SunGlow("Sun Glow (glow degrees, glare, glare degrees)", Vector) = (37, 0.25, 2.5, 0)
         _SunDisk("Sun Disk (radius degrees, brightness)", Vector) = (1.0, 28, 0, 0)
         [NoScaleOffset] _CloudTex("Cloud Noise", 2D) = "black" {}
-        _CloudCover("Cloud Cover", Range(0, 1)) = 0.42
+        _CloudCover("Cloud Cover", Range(0, 1)) = 0.46
         _CloudScale("Cloud Scale (m per tile)", Float) = 7000
-        _CloudHeight("Cloud Height (m)", Float) = 1800
+        _CloudHeight("Cloud Height (m, world)", Float) = 1900
         _CloudWind("Cloud Wind (x, z m/s)", Vector) = (7, 2.5, 0, 0)
         [HDR] _CloudLit("Cloud Lit", Color) = (1.5, 1.45, 1.38, 1)
         [HDR] _CloudShade("Cloud Shade", Color) = (0.34, 0.39, 0.47, 1)
@@ -43,6 +44,11 @@ Shader "Lattice/Sky"
 
             TEXTURE2D(_CloudTex);
             SAMPLER(sampler_CloudTex);
+            #define CLOUD_SAMPLE(uv) SAMPLE_TEXTURE2D(_CloudTex, sampler_CloudTex, uv)
+            #include "Clouds.hlsl"
+
+            // How far the wind has carried the clouds (m), from CloudShadows.
+            float4 _CloudDrift;
 
             CBUFFER_START(UnityPerMaterial)
             half4 _Zenith, _Horizon, _Ground, _Glow, _CloudLit, _CloudShade;
@@ -60,15 +66,6 @@ Shader "Lattice/Sky"
                 o.positionCS = TransformObjectToHClip(v.positionOS.xyz);
                 o.dir = v.positionOS.xyz;
                 return o;
-            }
-
-            // The clouds' shapes at uv: two turned samples (against tiling), cut to the cover.
-            half Shape(float2 uv)
-            {
-                half a = SAMPLE_TEXTURE2D(_CloudTex, sampler_CloudTex, uv).r;
-                half b = SAMPLE_TEXTURE2D(_CloudTex, sampler_CloudTex, float2(uv.y, -uv.x) * 1.37 + 0.31).r;
-                half s = a * 0.65 + b * 0.35;
-                return saturate((s - (1.0 - _CloudCover)) / max(_CloudCover, 1e-3));
             }
 
             half4 Frag(Varyings i) : SV_Target
@@ -90,16 +87,13 @@ Shader "Lattice/Sky"
                 half alpha = 0.0;
                 if (e > 0.004)
                 {
-                    // Where the view meets the cloud layer (m), drifting on the wind.
-                    float2 at = v.xz * (_CloudHeight / e) + _CloudWind.xy * _Time.y;
-                    float2 uv = at / _CloudScale;
-                    half d = Shape(uv);
-                    half detail = SAMPLE_TEXTURE2D(_CloudTex, sampler_CloudTex, uv * 3.7 + 0.53).g;
-                    d = saturate(d - (1.0 - detail) * 0.35);
-                    d = smoothstep(0.0, 0.55, d);
+                    // Where the view meets the cloud layer (world m).
+                    float above = max(_CloudHeight - _WorldSpaceCameraPos.y, 50.0);
+                    float2 at = _WorldSpaceCameraPos.xz + v.xz * (above / e);
+                    half d = CloudDensity(at, _CloudDrift.xy, _CloudCover, _CloudScale);
                     // Lit from the sun's side: thinner toward the sun, brighter.
-                    float2 toSun = normalize(sun.xz + 1e-4) * (420.0 / _CloudScale);
-                    half shade = saturate(Shape(uv + toSun) * 1.4);
+                    float2 toSun = normalize(sun.xz + 1e-4) * 420.0;
+                    half shade = saturate(CloudShape((at + toSun + _CloudDrift.xy) / _CloudScale, _CloudCover) * 1.4);
                     half lit = exp(-shade * 2.2);
                     half3 cloud = lerp(_CloudShade.rgb, _CloudLit.rgb, lit) * (sunColor / 2.2);
                     // Silver where thin edges stand near the sun.

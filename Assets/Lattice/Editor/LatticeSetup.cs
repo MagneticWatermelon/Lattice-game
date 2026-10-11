@@ -211,6 +211,9 @@ namespace Lattice.EditorTools
             // Ambient from three colors, not the skybox: nothing is baked, so the
             // sky light builds its own probe (shadows read as daylight, not black).
             sunGo.AddComponent<Lattice.World.SkyLight>();
+            // The clouds' shadows, a cookie for the sun drawn from the sky's clouds.
+            var clouds = sunGo.AddComponent<Lattice.World.CloudShadows>();
+            clouds.Compute = AssetDatabase.LoadAssetAtPath<ComputeShader>("Assets/Lattice/Shaders/CloudShadow.compute");
             RenderSettings.skybox = Sky();
 
             // Specular reflections of the sky: rendered once at start (sky only).

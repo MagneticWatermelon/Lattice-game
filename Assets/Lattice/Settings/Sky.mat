@@ -31,8 +31,8 @@ Material:
     m_Ints: []
     m_Floats:
     - _AtmosphereThickness: 0.9
-    - _CloudCover: 0.42
-    - _CloudHeight: 1800
+    - _CloudCover: 0.46
+    - _CloudHeight: 1900
     - _CloudOpacity: 0.95
     - _CloudScale: 7000
     - _Curve: 0.6

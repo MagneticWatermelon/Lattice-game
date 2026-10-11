@@ -1,0 +1,34 @@
+// Lattice: the clouds' shadows, as the sun's light cookie (World/CloudShadows.cs).
+// URP projects a main light's cookie along the light: texel (u, v) covers the
+// points whose light-space (x, y) is (uv - 0.5) * size + offset. For each
+// texel, follow the light from that line up to the cloud layer, and take the
+// layer's density there (Clouds.hlsl, as the sky draws it): the light that
+// gets through.
+#pragma kernel Shadow
+
+Texture2D<float4> _CloudTex;
+SamplerState linear_repeat_sampler;
+#define CLOUD_SAMPLE(uv) _CloudTex.SampleLevel(linear_repeat_sampler, uv, 0)
+#include "Clouds.hlsl"
+
+RWTexture2D<float> _Cookie;
+float4 _CookieSize;      // x, y: texels, z: light-space size (m), w: how much a cloud's shade takes
+float4 _CookieOffset;    // xy: light-space offset (m)
+float4x4 _LightToWorld;
+float4 _CloudParams;     // x: cover, y: scale (m per tile), z: the layer's height (world y)
+float4 _CloudDrift;      // xy: how far the wind has carried it (m)
+
+[numthreads(8, 8, 1)]
+void Shadow(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)_CookieSize.x || id.y >= (uint)_CookieSize.y)
+        return;
+    float2 uv = (id.xy + 0.5) / _CookieSize.xy;
+    float2 ls = (uv - 0.5) * _CookieSize.z + _CookieOffset.xy;
+    float3 p = mul(_LightToWorld, float4(ls, 0.0, 1.0)).xyz;
+    float3 along = normalize(mul((float3x3)_LightToWorld, float3(0.0, 0.0, 1.0)));
+    float t = (_CloudParams.z - p.y) / min(along.y, -1e-3);
+    float3 cloud = p + along * t;
+    float d = CloudDensity(cloud.xz, _CloudDrift.xy, _CloudParams.x, _CloudParams.y);
+    _Cookie[id.xy] = 1.0 - d * _CookieSize.w;
+}

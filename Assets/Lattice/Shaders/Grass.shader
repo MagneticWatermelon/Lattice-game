@@ -122,6 +122,7 @@ Shader "Lattice/Grass"
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
+            #pragma multi_compile_fragment _ _LIGHT_COOKIES
             #pragma multi_compile_fog
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
@@ -154,7 +155,8 @@ Shader "Lattice/Grass"
                 half3 albedo = lerp(root, tip, smoothstep(0.0, 1.0, along)) * (0.85 + 0.3 * i.shade.z);
                 float3 n = SoftNormal(i.normalWS, front);
 
-                Light light = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
+                // (The world-space form: it puts the clouds' shadows on, the light cookie.)
+                Light light = GetMainLight(TransformWorldToShadowCoord(i.positionWS), i.positionWS, half4(1.0, 1.0, 1.0, 1.0));
                 half wrap = saturate((dot(n, light.direction) + _Wrap) / (1.0 + _Wrap));
                 float3 view = normalize(_WorldSpaceCameraPos - i.positionWS);
                 half through = pow(saturate(dot(view, -light.direction)), 3.0) * _Translucency * along;
