@@ -246,6 +246,7 @@ namespace Lattice.Combat
             deathTitle = UiKit.Text("Title", deathPanel, UiKit.Display, 22f, UiKit.Muted, TextAlignmentOptions.Center);
             deathTitle.text = "KILLED BY";
             deathTitle.characterSpacing = 10f;
+            UiKit.Warm(deathTitle, 16);
             Place(deathTitle.rectTransform, new Vector2(0f, 64f), new Vector2(700f, 30f));
             deathKiller = UiKit.Text("Killer", deathPanel, UiKit.Display, 46f, UiKit.Ink, TextAlignmentOptions.Center);
             UiKit.Warm(deathKiller, 160);

@@ -36,6 +36,11 @@ namespace Lattice.Game
         /// <summary>The burst's file names, made at start: a shot mid-fight allocates nothing.</summary>
         string[] shotPaths;
         CameraRig rig;
+        ulong lastCorrections;
+        /// <summary>When the world was built, and when the first corrections came (s since start).</summary>
+        public static float WorldBuiltAt = -1f;
+        public static readonly float[] CorrectionTimes = new float[16];
+        public static int CorrectionCount;
         Lattice.LocalPlayer.LocalPlayer player;
         Lattice.World.WorldView world;
         bool worldReady;
@@ -46,6 +51,7 @@ namespace Lattice.Game
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             Options = Options.Parse(Environment.GetCommandLineArgs());
+            (WorldBuiltAt, CorrectionCount) = (-1f, 0);
             if (Options.Errors.Length > 0)
                 Debug.LogError($"Lattice: {Options.Errors}");
             Settings.Apply(Options);
@@ -118,6 +124,7 @@ namespace Lattice.Game
 
             var hud = UiKit.Canvas("HUD", 10, transform);
             NetGraph.Create(hud.transform, Frames);
+            Report.Sections.Add(SessionSection);
             HelpCard.Create(hud.transform);
             world = FindAnyObjectByType<Lattice.World.WorldView>();
         }
@@ -145,11 +152,21 @@ namespace Lattice.Game
             Frames.Record(Time.unscaledDeltaTime, NetDriver.Frame.PluginMs);
             Lattice.Players.SoldierColors.Mode = player.Iff ? Lattice.Players.SoldierColors.Scheme.Iff : Lattice.Players.SoldierColors.Scheme.Faction;
             Lattice.Players.SoldierColors.Tiers = player.TierColors;
-            // Allocations count from when the world is built (loading allocates).
+            // The session's numbers count from when the world is built (loading is
+            // slow by design, and allocates).
             if (!worldReady && world != null && world.Ready)
             {
                 worldReady = true;
-                Frames.RestartAllocations(2f);
+                WorldBuiltAt = Time.realtimeSinceStartup - started;
+                Frames.Restart(2f);
+            }
+            // When each correction came (the report says; a stall makes them).
+            ulong corrections = NetDriver.Frame.Stats.corrections;
+            if (corrections > lastCorrections)
+            {
+                for (ulong c = lastCorrections; c < corrections && CorrectionCount < CorrectionTimes.Length; c++)
+                    CorrectionTimes[CorrectionCount++] = Time.realtimeSinceStartup - started;
+                lastCorrections = corrections;
             }
             float t = Time.realtimeSinceStartup - started;
             if (shotPaths != null && shots < shotPaths.Length && t >= Options.After + shots * Options.ShotEvery)
@@ -169,6 +186,23 @@ namespace Lattice.Game
 #else
             Application.Quit();
 #endif
+        }
+
+        /// <summary>The report's lines on loading and on corrections' timing.</summary>
+        static string SessionSection()
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.Append(WorldBuiltAt >= 0f
+                ? string.Format(CultureInfo.InvariantCulture, "  world built {0:F1} s in (the frame numbers above count from then)\n", WorldBuiltAt)
+                : "  world never built\n");
+            if (CorrectionCount > 0)
+            {
+                sb.Append("  corrections at:");
+                for (int i = 0; i < CorrectionCount; i++)
+                    sb.Append(string.Format(CultureInfo.InvariantCulture, " {0:F1}s", CorrectionTimes[i]));
+                sb.Append(" (since start)\n");
+            }
+            return sb.ToString();
         }
 
         void WriteReport()
@@ -194,6 +228,7 @@ namespace Lattice.Game
             WriteReport();
             NetDriver.Stop();
             Frames?.Dispose();
+            Report.Sections.Remove(SessionSection);
         }
     }
 }

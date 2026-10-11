@@ -145,6 +145,8 @@ namespace Lattice.Audio
         {
             if (Gun != null)
                 Gun.Fired -= OnOwnShot;
+            // (The report is written on quitting, before anything is destroyed.)
+            Report.Sections.Remove(Summary);
         }
 
         Voice MakeVoice(string name, bool inWorld)

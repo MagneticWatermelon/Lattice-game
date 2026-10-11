@@ -23,8 +23,8 @@ namespace Lattice.World
     /// The splat (grass, meadow, soil, rock) comes from the ground itself:
     /// slope, broad noise for drier and greener patches, packed soil on the
     /// bases' flattened ground and worn soil around every piece of cover.
-    /// It's computed in Burst jobs for all tiles at once, and the tiles are
-    /// made one per frame (<see cref="Step"/>), so loading never stalls the
+    /// It's computed in Burst jobs for all tiles at once, and each tile is made
+    /// over three frames (<see cref="Step"/>), so loading never stalls the
     /// connection. Once made, the heights and a map of the grass (from the
     /// splat) are handed on as textures, for the grass (<see cref="GrassField"/>).
     /// </summary>
@@ -53,20 +53,37 @@ namespace Lattice.World
         readonly WorldLook look;
         readonly Transform parent;
         NativeArray<float> heights, gaps;
+        // The gaps' histogram (0.1 mm bins to 20 cm, then everything past) and their largest.
+        NativeArray<int> gapBins;
+        NativeArray<float> gapMax;
         NativeArray<float4> sites;
         NativeArray<LtBox> boxes;
         readonly NativeArray<Color32>[] splats = new NativeArray<Color32>[Tiles * Tiles];
         NativeArray<byte> grassMap;
         JobHandle jobs, gapJob, grassJob;
+        // The order the tiles are made in, the tile being made, and how far along
+        // (heights, splat, the terrain).
+        readonly int[] order = new int[Tiles * Tiles];
+        TerrainData making;
+        int phase;
         readonly float[,] tileHeights = new float[TileSamples, TileSamples];
         int next;
         readonly Stopwatch clock = Stopwatch.StartNew();
         float maxHeight;
 
-        public unsafe TerrainBuilder(LtWorldHandle world, WorldLook look, Transform parent)
+        /// <summary>The ground, its tiles made nearest <paramref name="near"/> (Unity) first.</summary>
+        public unsafe TerrainBuilder(LtWorldHandle world, WorldLook look, Transform parent, Vector3 near)
         {
             this.look = look;
             this.parent = parent;
+            var g = Coords.ToGame(near);
+            var dist = new float[Tiles * Tiles];
+            for (int t = 0; t < dist.Length; t++)
+            {
+                float dx = (t % Tiles + 0.5f) * TileSize - g.x, dy = (t / Tiles + 0.5f) * TileSize - g.y;
+                (dist[t], order[t]) = (dx * dx + dy * dy, t);
+            }
+            System.Array.Sort(dist, order);
             int n = LtConst.TerrainN;
             heights = new NativeArray<float>(n * n, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             world.Heights(0, 0, n, n, (float*)heights.GetUnsafePtr());
@@ -83,6 +100,11 @@ namespace Lattice.World
 
             gaps = new NativeArray<float>((n - 1) * (n - 1), Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             gapJob = new GapJob { Heights = heights, N = n, Out = gaps }.Schedule(gaps.Length, 8192);
+            // Their p99 and largest by a histogram, off the main thread (sorting 4 million
+            // floats there held a frame for two seconds).
+            gapBins = new NativeArray<int>(GapBins + 1, Allocator.Persistent);
+            gapMax = new NativeArray<float>(1, Allocator.Persistent);
+            gapJob = new GapStatsJob { Gaps = gaps, Bins = gapBins, Max = gapMax }.Schedule(gapJob);
 
             int res = look.SplatResolution;
             int grassTile = GrassMapSize / Tiles;
@@ -106,7 +128,10 @@ namespace Lattice.World
             JobHandle.ScheduleBatchedJobs();
         }
 
-        /// <summary>Makes the next tile once the jobs are done; true when all are made.</summary>
+        /// <summary>A frame's slice of the work, once the jobs are done: a tile's heights,
+        /// its splat, or the terrain itself (each some 15-45 ms: a whole tile at once
+        /// held a frame long enough for the server to stand in for our inputs). True
+        /// when all are made.</summary>
         public bool Step()
         {
             if (Done)
@@ -114,16 +139,39 @@ namespace Lattice.World
             if (!jobs.IsCompleted)
                 return false;
             jobs.Complete();
-            Make(next++);
+            int tile = order[next];
+            switch (phase)
+            {
+                case 0:
+                    making = Heights(tile);
+                    phase = 1;
+                    return false;
+                case 1:
+                    Splat(tile, making);
+                    phase = 2;
+                    return false;
+            }
+            Place(tile, making);
+            making = null;
+            phase = 0;
+            next++;
             if (Done)
             {
                 for (int ty = 0; ty < Tiles; ty++)
                 for (int tx = 0; tx < Tiles; tx++)
                     Terrains[ty * Tiles + tx].SetNeighbors(At(tx - 1, ty), At(tx, ty + 1), At(tx + 1, ty), At(tx, ty - 1));
                 gapJob.Complete();
-                gaps.Sort();
-                GapP99 = gaps[(int)(gaps.Length * 0.99f)];
-                GapMax = gaps[gaps.Length - 1];
+                long want = (long)(gaps.Length * 0.99), seen = 0;
+                for (int i = 0; i <= GapBins; i++)
+                {
+                    seen += gapBins[i];
+                    if (seen >= want)
+                    {
+                        GapP99 = (i + 1) * GapBin;
+                        break;
+                    }
+                }
+                GapMax = gapMax[0];
                 grassJob.Complete();
                 int n = LtConst.TerrainN;
                 HeightTexture = new Texture2D(n, n, TextureFormat.RFloat, false, true)
@@ -143,9 +191,9 @@ namespace Lattice.World
 
         Terrain At(int x, int y) => x < 0 || y < 0 || x >= Tiles || y >= Tiles ? null : Terrains[y * Tiles + x];
 
-        unsafe void Make(int t)
+        TerrainData Heights(int t)
         {
-            int tx = t % Tiles, ty = t / Tiles, n = LtConst.TerrainN, res = look.SplatResolution;
+            int tx = t % Tiles, ty = t / Tiles, n = LtConst.TerrainN;
             int x0 = tx * (TileSamples - 1), y0 = ty * (TileSamples - 1);
             float inv = 1f / HeightRange;
             for (int y = 0; y < TileSamples; y++)
@@ -158,11 +206,17 @@ namespace Lattice.World
             {
                 name = $"Ground {tx},{ty}",
                 heightmapResolution = TileSamples,
-                alphamapResolution = res,
+                alphamapResolution = look.SplatResolution,
                 baseMapResolution = 1024,
             };
             td.size = new Vector3(TileSize, HeightRange, TileSize);
             td.SetHeights(0, 0, tileHeights);
+            return td;
+        }
+
+        void Splat(int t, TerrainData td)
+        {
+            int res = look.SplatResolution;
             td.terrainLayers = look.Layers;
             // The splat straight into the control texture (layers 0-3 in RGBA),
             // or through the slow path if it isn't the format we write.
@@ -187,7 +241,11 @@ namespace Lattice.World
                 }
                 td.SetAlphamaps(0, 0, maps);
             }
+        }
 
+        void Place(int t, TerrainData td)
+        {
+            int tx = t % Tiles, ty = t / Tiles;
             var go = new GameObject(td.name);
             go.transform.SetParent(parent, false);
             go.transform.position = Coords.ToUnity(tx * TileSize, ty * TileSize, 0f);
@@ -205,6 +263,7 @@ namespace Lattice.World
             if (t == 0)
             {
                 // What the first tile was given (a player build has once drawn it untextured).
+                var control = td.alphamapTextures[0];
                 long r = 0, g = 0, b = 0, a = 0;
                 var sp = splats[t];
                 for (int i = 0; i < sp.Length; i += 97)
@@ -225,6 +284,8 @@ namespace Lattice.World
             if (grassMap.IsCreated) grassMap.Dispose();
             if (heights.IsCreated) heights.Dispose();
             if (gaps.IsCreated) gaps.Dispose();
+            if (gapBins.IsCreated) gapBins.Dispose();
+            if (gapMax.IsCreated) gapMax.Dispose();
             if (sites.IsCreated) sites.Dispose();
             if (boxes.IsCreated) boxes.Dispose();
             for (int i = 0; i < splats.Length; i++)
@@ -244,6 +305,29 @@ namespace Lattice.World
         }
 
         static byte Byte(float v) => (byte)math.clamp((int)math.round(v * 255f), 0, 255);
+
+        const int GapBins = 2000;
+        const float GapBin = 0.0001f;
+
+        [BurstCompile]
+        struct GapStatsJob : IJob
+        {
+            [ReadOnly] public NativeArray<float> Gaps;
+            public NativeArray<int> Bins;
+            public NativeArray<float> Max;
+
+            public void Execute()
+            {
+                float max = 0f;
+                for (int i = 0; i < Gaps.Length; i++)
+                {
+                    float g = Gaps[i];
+                    max = math.max(max, g);
+                    Bins[math.min((int)(g / GapBin), GapBins)]++;
+                }
+                Max[0] = max;
+            }
+        }
 
         [BurstCompile]
         struct GapJob : IJobParallelFor

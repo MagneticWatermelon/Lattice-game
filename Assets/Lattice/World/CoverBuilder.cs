@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Diagnostics;
 using Lattice.Native;
 using UnityEngine;
@@ -12,32 +13,42 @@ namespace Lattice.World
     /// along their length, the rest stretched once. Each piece is a level of
     /// detail: the model near, a plain box in the model's own color farther,
     /// nothing once it's a speck. Static renderers: the GPU Resident Drawer
-    /// instances them.
+    /// instances them. Made a few boxes per step, for the caller to run steps
+    /// within a frame's budget (all at once held a frame for seconds).
     /// </summary>
     public static class CoverBuilder
     {
-        public static GameObject Build(LtWorldHandle world, WorldLook look, Transform parent)
+        /// <summary>The cover, nearest <paramref name="near"/> (Unity) first.</summary>
+        public static IEnumerator Build(LtWorldHandle world, WorldLook look, Transform parent, Vector3 near)
         {
             var clock = Stopwatch.StartNew();
             var root = new GameObject("Cover");
             root.transform.SetParent(parent, false);
             var boxes = world.Boxes();
+            var g = Coords.ToGame(near);
+            var dist = new float[boxes.Length];
+            for (int i = 0; i < boxes.Length; i++)
+            {
+                float dx = (boxes[i].min.x + boxes[i].max.x) * 0.5f - g.x, dy = (boxes[i].min.y + boxes[i].max.y) * 0.5f - g.y;
+                dist[i] = dx * dx + dy * dy;
+            }
+            System.Array.Sort(dist, boxes);
             var cube = CubeMesh();
             int models = 0;
-            foreach (var b in boxes)
+            for (int i = 0; i < boxes.Length; i++)
             {
+                var b = boxes[i];
                 var model = b.kind < look.Cover.Length ? look.Cover[b.kind] : default;
                 var center = Coords.ToUnity((b.min.x + b.max.x) * 0.5f, (b.min.y + b.max.y) * 0.5f, b.min.z);
                 var size = new Vector3(b.max.x - b.min.x, b.max.z - b.min.z, b.max.y - b.min.y);
                 if (model.Mesh != null)
-                {
                     models += Place(root.transform, model, look, b, center, size, cube);
-                    continue;
-                }
-                Plain(root.transform, look.PlainCover, cube, center, size, b.kind);
+                else
+                    Plain(root.transform, look.PlainCover, cube, center, size, b.kind);
+                if ((i & 15) == 15)
+                    yield return null;
             }
             Debug.Log($"Lattice: {boxes.Length} cover boxes ({models} model pieces) in {clock.Elapsed.TotalSeconds:F2} s");
-            return root;
         }
 
         /// <summary>A model fitted into box <paramref name="b"/>: its long side along

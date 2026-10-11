@@ -67,11 +67,25 @@ namespace Lattice.Diagnostics
             warmupUntil = Time.realtimeSinceStartup + warmupSeconds;
         }
 
-        /// <summary>Starts counting allocations from now (after loading, say).</summary>
-        public void RestartAllocations(float warmupSeconds)
+        /// <summary>When the session's numbers start: since startup, or since
+        /// <see cref="Restart"/> (seconds since startup).</summary>
+        public float Since { get; private set; }
+
+        /// <summary>Starts the session's numbers over from now (once the world is
+        /// built: loading is slow by design, and allocates), allocations after a
+        /// further warm-up.</summary>
+        public void Restart(float warmupSeconds)
         {
+            Frames = TimedFrames = 0;
+            MaxMs = PluginMaxMs = 0f;
+            Array.Clear(histogram, 0, histogram.Length);
+            Array.Clear(pluginHistogram, 0, pluginHistogram.Length);
+            Array.Clear(gpuHistogram, 0, gpuHistogram.Length);
+            Array.Clear(mainHistogram, 0, mainHistogram.Length);
+            Array.Clear(renderHistogram, 0, renderHistogram.Length);
             AllocFrames = AllocBytes = AllocMax = AllocMeasured = 0;
-            warmupUntil = Time.realtimeSinceStartup + warmupSeconds;
+            Since = Time.realtimeSinceStartup;
+            warmupUntil = Since + warmupSeconds;
         }
 
         /// <summary>Once per frame, with the last frame's duration.</summary>

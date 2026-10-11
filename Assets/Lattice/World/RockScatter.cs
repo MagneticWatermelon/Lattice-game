@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Lattice.Native;
@@ -12,7 +13,7 @@ namespace Lattice.World
     /// off the sites and clear of cover. Cosmetic: too low to look like cover,
     /// and nothing in the game collides with them. Placed by the Bevy client's
     /// hash (client/src/models.rs, spawn_rocks), so both clients draw them in
-    /// the same places.
+    /// the same places. Made a row of cells per step, for the caller's frame budget.
     /// </summary>
     public static class RockScatter
     {
@@ -20,10 +21,10 @@ namespace Lattice.World
         /// <summary>How far clear of a cover box a rock stays (m).</summary>
         const float Clear = 2f;
 
-        public static GameObject Build(LtWorldHandle world, WorldLook look, Transform parent)
+        public static IEnumerator Build(LtWorldHandle world, WorldLook look, Transform parent)
         {
             if (look.RockMesh == null)
-                return null;
+                yield break;
             var clock = Stopwatch.StartNew();
             var root = new GameObject("Rocks");
             root.transform.SetParent(parent, false);
@@ -59,9 +60,9 @@ namespace Lattice.World
                     lods.RecalculateBounds();
                     n++;
                 }
+                yield return null;
             }
             Debug.Log($"Lattice: {n} rocks in {clock.Elapsed.TotalSeconds:F2} s");
-            return root;
         }
 
         /// <summary>The Bevy client's: a splitmix-style step, 24 bits as [0, 1).</summary>

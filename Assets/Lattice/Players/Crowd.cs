@@ -21,6 +21,10 @@ namespace Lattice.Players
         /// <summary>Full soldiers at most (GDD: ≤ 96), and how far out.</summary>
         public int RichCount = 64;
         public float RichDistance = 150f;
+        /// <summary>Full soldiers taken on per frame at most: waking an animator costs a
+        /// few ms, and the whole band at once (joining a fight) held a frame for 200.
+        /// The rest wait in the crowd a frame or two.</summary>
+        public int RichPerFrame = 8;
 
         /// <summary>Our own player: drawn from the local player's view (set by the game).</summary>
         public Func<(Vector3 feet, float yaw, float pitch, bool airborne, bool dead, bool ads, bool thirdPerson)> Own;
@@ -186,7 +190,7 @@ namespace Lattice.Players
             for (int key = 0; key < SoldierColors.Keys; key++)
             for (int p = 0; p < 3; p++)
                 batches[key, p].Clear();
-            int crowd = 0;
+            int crowd = 0, taken = 0;
             for (int k = 0; k < n; k++)
             {
                 var e = ents[order[k]];
@@ -194,17 +198,18 @@ namespace Lattice.Players
                 bool deadE = (e.flags & LtCode.FlagDead) != 0;
                 if (k < richWanted)
                 {
-                    if (!rich.TryGetValue(e.id, out var v))
+                    if (!rich.TryGetValue(e.id, out var v) && taken < RichPerFrame && (v = Free()) != null)
                     {
-                        v = Free();
-                        if (v == null)
-                            continue;
                         v.Assign(e.id);
                         rich[e.id] = v;
+                        taken++;
                     }
-                    v.Body(SoldierColors.Material(SoldierColors.Key(e)));
-                    v.Place(feet, e.yaw, e.pitch, (e.flags & LtCode.FlagAirborne) != 0, deadE, (e.flags & LtCode.FlagAds) != 0, dt, now);
-                    continue;
+                    if (v != null)
+                    {
+                        v.Body(SoldierColors.Material(SoldierColors.Key(e)));
+                        v.Place(feet, e.yaw, e.pitch, (e.flags & LtCode.FlagAirborne) != 0, deadE, (e.flags & LtCode.FlagAds) != 0, dt, now);
+                        continue;
+                    }
                 }
                 // The crowd: velocity for the pose, then an instance.
                 int id = e.id;

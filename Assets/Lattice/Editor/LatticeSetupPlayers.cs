@@ -187,6 +187,7 @@ namespace Lattice.EditorTools
             jump.motion = Clip("Jump");
             var death = sm.AddState("Death");
             death.motion = Clip("Death");
+            death.speed = 1.4f;
             var t = move.AddTransition(jump);
             t.hasExitTime = false;
             t.duration = 0.12f;
@@ -199,6 +200,10 @@ namespace Lattice.EditorTools
             t.hasExitTime = false;
             t.duration = 0.1f;
             t.canTransitionToSelf = false;
+            // The clip staggers upright, arms flung out, for its first 1.4 s (it read as
+            // a T-pose) and falls over the next 1: enter past the stagger, played faster,
+            // the body is down in under a second.
+            t.offset = 0.38f;
             t.AddCondition(AnimatorConditionMode.If, 0f, "Dead");
             t = death.AddTransition(move);
             t.hasExitTime = false;
