@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Lattice.Native;
 using Lattice.Net;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -49,6 +50,10 @@ namespace Lattice.Players
         RenderParams rifleParams;
 
         public int RichDrawn => rich.Count;
+
+        // The crowd's steps, for the profiler (free in a release build).
+        static readonly ProfilerMarker PlaceMarker = new ProfilerMarker("Crowd.Place"), LodMarker = new ProfilerMarker("Crowd.Lod"),
+            RigMarker = new ProfilerMarker("Crowd.Rig"), DrawMarker = new ProfilerMarker("Crowd.Draw");
         public int CrowdDrawn { get; private set; }
 
         void Start()
@@ -120,6 +125,7 @@ namespace Lattice.Players
         {
             if (pool == null)
                 return;
+            using var marker = PlaceMarker.Auto();
             var f = NetDriver.Frame;
             float now = Time.realtimeSinceStartup;
             float dt = Mathf.Min(Time.unscaledDeltaTime, 0.25f);
@@ -257,6 +263,7 @@ namespace Lattice.Players
             var cam = Camera.main;
             if (cam != null)
             {
+                using var lodMarker = LodMarker.Auto();
                 var eye = cam.transform.position;
                 float scale = QualitySettings.lodBias / (2f * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad));
                 foreach (var kv in rich)
@@ -264,10 +271,14 @@ namespace Lattice.Players
                 if (own.Assigned)
                     own.Lod(eye, scale);
             }
-            foreach (var kv in rich)
-                kv.Value.Rig();
-            if (own.Assigned)
-                own.Rig();
+            using (RigMarker.Auto())
+            {
+                foreach (var kv in rich)
+                    kv.Value.Rig();
+                if (own.Assigned)
+                    own.Rig();
+            }
+            using var drawMarker = DrawMarker.Auto();
             for (int key = 0; key < SoldierColors.Keys; key++)
             for (int p = 0; p < 3; p++)
             {

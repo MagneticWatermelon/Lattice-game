@@ -114,6 +114,7 @@ namespace Lattice.Players
             var rg = new GameObject("Rifle");
             rifle = rg.transform;
             rifle.SetParent(transform, false);
+            rifle.localScale = Vector3.one * look.RifleScale;
             rg.AddComponent<MeshFilter>().sharedMesh = look.Rifle;
             rifleRenderer = rg.AddComponent<MeshRenderer>();
             rifleRenderer.sharedMaterial = look.RifleMaterial;
@@ -305,7 +306,16 @@ namespace Lattice.Players
             var up = Vector3.up;
             float twist = Mathf.DeltaAngle(90f - legsYaw * Mathf.Rad2Deg, 90f - aimYaw * Mathf.Rad2Deg);
             twist = Mathf.Clamp(twist, -look.MaxTwist - 15f, look.MaxTwist + 15f);
-            if (visible)
+            // Small on screen (past the full rig's levels of detail), the upper body
+            // turns to the aim from one bone, and the hands stay where the aim layer
+            // holds them: a hand there is a pixel or two.
+            bool small = (lod < 0 || lod >= look.FullRigLods) && !alwaysAnimate;
+            if (visible && small)
+            {
+                var right = aim * Vector3.right;
+                Turn(upperChest, Quaternion.AngleAxis(-aimPitch * Mathf.Rad2Deg * aimWeight * 0.7f, right) * Quaternion.AngleAxis(twist, up));
+            }
+            else if (visible)
             {
                 Turn(spine, Quaternion.AngleAxis(twist * 0.25f, up));
                 Turn(chest, Quaternion.AngleAxis(twist * 0.35f, up));
@@ -331,11 +341,10 @@ namespace Lattice.Players
             var pos = Vector3.Lerp(handPos, aimPos, w);
             var frame = Quaternion.Slerp(carry, aim, w);
             rifle.SetPositionAndRotation(pos, frame * Quaternion.Euler(look.RifleEuler));
-            rifle.localScale = Vector3.one * size;
             Muzzle = pos + frame * (look.RifleMuzzle * size);
             MuzzleForward = frame * Vector3.forward;
 
-            if (visible && w > 0.01f)
+            if (visible && w > 0.01f && !small)
             {
                 var grip = pos + frame * (look.RightGrip * size);
                 var fore = pos + frame * (look.LeftGrip * size);

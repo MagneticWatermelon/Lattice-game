@@ -60,6 +60,11 @@ namespace Lattice.Players
         public float MaxTwist = 75f;
         /// <summary>LOD screen heights (fraction of the screen) below which each LOD gives way.</summary>
         public float[] LodHeights = { 0.30f, 0.11f, 0.035f, 0.004f };
+        /// <summary>The levels of detail that get the full rig: the hands on the rifle and
+        /// the aim spread down the spine. Past them a soldier is under ~70 px tall (a
+        /// hand a pixel or two): the upper body turns from one bone, the hands stay
+        /// where the aim layer holds them, at a fifth of the cost.</summary>
+        public int FullRigLods = 2;
 
         [Header("Gait")]
         /// <summary>The speeds (m/s) each clip's feet move at, measured from the clips:
