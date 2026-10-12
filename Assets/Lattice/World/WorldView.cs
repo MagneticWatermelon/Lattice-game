@@ -10,7 +10,8 @@ namespace Lattice.World
     /// Builds the drawn world once the server's Welcome names it, a slice per
     /// frame (the game goes on meanwhile: a frame held for long makes the server
     /// stand in for our inputs, and a moving player's are then corrected): the
-    /// terrain (from background jobs), the cover, the rocks, then the grass. In
+    /// terrain (from background jobs), the cover and the rocks (drawn by a
+    /// <see cref="StaticField"/> once both are in), then the grass. In
     /// the editor, it can also show a world from a seed without a server
     /// (<see cref="PreviewSeed"/>), for looking at it.
     /// </summary>
@@ -22,9 +23,21 @@ namespace Lattice.World
 
         public TerrainBuilder Terrain { get; private set; }
         public GrassField Grass { get; private set; }
+        /// <summary>The cover and the rocks.</summary>
+        public StaticField Statics { get; private set; }
+        /// <summary>Measuring (--off cover, --off rocks): leave them out.</summary>
+        public static bool NoCover, NoRocks;
+        bool staticsDone;
+        /// <summary>Frames drawn since everything was made: the first ones upload the
+        /// terrain's and grass's textures and build the GPU's pipelines (a frame held
+        /// ~100 ms), so the world isn't ready until a few are behind it, under the join
+        /// card.</summary>
+        int builtFrames;
+        const int WarmFrames = 4;
+        bool Built => Terrain != null && Terrain.Done && staticsDone && grassTried;
         public bool Started { get; private set; }
         /// <summary>All of it built.</summary>
-        public bool Ready => Terrain != null && Terrain.Done && cover == null && rocks == null && grassTried;
+        public bool Ready => Built && builtFrames >= WarmFrames;
         /// <summary>How much of a frame building may take, past the terrain's slice (s).</summary>
         const double Budget = 0.008;
         LtWorldHandle preview;
@@ -65,8 +78,11 @@ namespace Lattice.World
             var cam = Camera.main;
             var near = cam != null ? cam.transform.position : Vector3.zero;
             Terrain = new TerrainBuilder(world, Look, transform, near);
-            cover = CoverBuilder.Build(world, Look, transform, near);
-            rocks = RockScatter.Build(world, Look, transform);
+            Statics = new StaticField();
+            if (!NoCover)
+                cover = CoverBuilder.Build(world, Look, Statics, near);
+            if (!NoRocks)
+                rocks = RockScatter.Build(world, Look, Statics);
         }
 
         void Update()
@@ -95,12 +111,27 @@ namespace Lattice.World
                 else
                     (rocks, rocksDone) = (null, 1f);
             }
+            if (!staticsDone && Statics != null && cover == null && rocks == null)
+            {
+                var urp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline as UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset;
+                Statics.Finish(urp != null ? urp.shadowDistance : 260f);
+                (staticsDone, coverDone, rocksDone) = (true, 1f, 1f);
+            }
+        }
+
+        void LateUpdate()
+        {
+            if (staticsDone)
+                Statics.Update(Camera.main);
+            if (Built && builtFrames < WarmFrames)
+                builtFrames++;
         }
 
         static double Spent(long start) => (Stopwatch.GetTimestamp() - start) / (double)Stopwatch.Frequency;
 
         void OnDestroy()
         {
+            Statics?.Dispose();
             Terrain?.Dispose();
             preview?.Dispose();
         }

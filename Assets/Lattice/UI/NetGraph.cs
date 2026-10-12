@@ -9,8 +9,10 @@ namespace Lattice.UI
     /// <summary>
     /// The net graph (N), as the Bevy client's: frame times, the connection,
     /// the server, the render timeline, smoothness per tier, corrections, and
-    /// sparklines of frame time and snapshot arrival gaps. Text four times a
-    /// second, built in a reused buffer (no allocations).
+    /// sparklines of frame time and snapshot arrival gaps. Closed until opened
+    /// (N). Text four times a second, built in a reused buffer (no
+    /// allocations); the sparklines thirty times (each rebuild is a mesh of
+    /// 240 bars).
     /// </summary>
     public sealed class NetGraph : MonoBehaviour
     {
@@ -21,7 +23,7 @@ namespace Lattice.UI
         RectTransform panel;
         readonly CharBuf buf = new CharBuf(2048);
         readonly float[] gaps = new float[120];
-        float textAt = -1f, rateAt;
+        float textAt = -1f, rateAt, linesAt = -1f;
         ulong bytesIn, bytesOut;
         readonly ulong[] lastFrames = new ulong[12];
         float downKbps, upKbps;
@@ -77,11 +79,15 @@ namespace Lattice.UI
                 return;
             var f = NetDriver.Frame;
             var s = NetDriver.Session;
-            frameLine.SetData(Frames.RecentMs, Frames.RecentCount);
-            if (s != null && s.IsOpen)
-                gapLine.SetData(gaps, s.SnapshotGaps(gaps));
-
             float now = Time.realtimeSinceStartup;
+            if (now - linesAt >= 1f / 30f)
+            {
+                linesAt = now;
+                frameLine.SetData(Frames.RecentMs, Frames.RecentCount);
+                if (s != null && s.IsOpen)
+                    gapLine.SetData(gaps, s.SnapshotGaps(gaps));
+            }
+
             if (now - textAt < 0.25f)
                 return;
             textAt = now;

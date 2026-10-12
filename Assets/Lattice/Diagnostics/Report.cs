@@ -29,9 +29,9 @@ namespace Lattice.Diagnostics
             sb.Append($"== {utc} UTC | Unity client {Application.version} on {NetDriver.Address} | played {playedSeconds:F0} s ==\n");
             sb.Append("== client summary ==\n");
             var ci = CultureInfo.InvariantCulture;
-            sb.Append(string.Format(ci, "  frames {0} | frame time p50 {1:F1} p99 {2:F1} max {3:F1} ms | plugin calls p50 {4:F2} p99 {5:F2} max {6:F2} ms per frame\n",
+            sb.Append(string.Format(ci, "  frames {0} | frame time p50 {1:F1} p99 {2:F1} max {3:F1} ms (at {7:F1} s; {8} over 20 ms) | plugin calls p50 {4:F2} p99 {5:F2} max {6:F2} ms per frame\n",
                 frames.Frames, frames.Quantile(0.5f), frames.Quantile(0.99f), frames.MaxMs,
-                frames.PluginQuantile(0.5f), frames.PluginQuantile(0.99f), frames.PluginMaxMs));
+                frames.PluginQuantile(0.5f), frames.PluginQuantile(0.99f), frames.PluginMaxMs, frames.MaxAt, frames.Hitches));
             if (frames.TimedFrames > 0)
                 sb.Append(string.Format(ci, "  gpu p50 {0:F2} p99 {1:F2} ms | main thread p50 {2:F2} p99 {3:F2} ms | render thread p50 {4:F2} p99 {5:F2} ms ({6} frames timed) | {7}\n",
                     frames.GpuQuantile(0.5f), frames.GpuQuantile(0.99f), frames.MainQuantile(0.5f), frames.MainQuantile(0.99f),

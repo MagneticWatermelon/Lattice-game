@@ -29,7 +29,7 @@ The numpy-only scripts run on Blender's bundled Python (`...\Blender 5.1\5.1\pyt
 | script | makes | args |
 |---|---|---|
 | `Blender/soldier_fbx.py` (with `hands.py`) | `Players/Soldier/Soldier.fbx`: one armature, every clip as a take, four LODs; the hands closed into grips in the mesh (the rig has no finger bones). `Combat/Arms/SoldierArms.fbx`: the first-person arms, cut from the collarbones out, skinned to the arm bones only, upper arm and forearm lengthened (they must reach a rifle held out in front) | `src_dir soldier.fbx arms.fbx` |
-| `Blender/rifle_fbx.py` | `Combat/Rifle/Rifle.fbx`, `RifleView.fbx`: the GLB as one mesh, its folding iron sights folded down | `in.glb out.fbx Name` |
+| `Blender/rifle_fbx.py` | `Combat/Rifle/Rifle.fbx`, `RifleView.fbx`: the GLB as one mesh, its folding iron sights folded down. With the last three args, also `RifleLow.fbx`: welded and decimated to 600 triangles, the crowd's rifle | `in.glb out.fbx Name [low.fbx LowName triangles]` |
 | `Blender/holo_fbx.py` | `Combat/Rifle/HoloSight.fbx`: the holographic sight, in the rifle mesh's own frame (body, matte hood inside, glass); renders previews | `rifle_view.glb out.fbx preview_dir` |
 | `Blender/prop_fbx.py` | `World/Cover/*.fbx`: a static GLB as one FBX mesh, in Unity's axes (the client draws the bare mesh, not the FBX's transform), with its textures beside it (then `mr_to_urp.py` for `_metal.png`) | `in.glb out.fbx Name` |
 

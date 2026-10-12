@@ -119,6 +119,9 @@ namespace Lattice.Players
             rifleRenderer = rg.AddComponent<MeshRenderer>();
             rifleRenderer.sharedMaterial = look.RifleMaterial;
             rifleRenderer.shadowCastingMode = ShadowCastingMode.On;
+            // It moves every frame and comes and goes with the band: the GPU Resident
+            // Drawer, made for what stays put, would redo its instance each frame.
+            GpuDriven.Exclude(rifleRenderer);
             if (look.Holo != null)
             {
                 var hg = new GameObject("Holo sight");
@@ -127,6 +130,7 @@ namespace Lattice.Players
                 holoRenderer = hg.AddComponent<MeshRenderer>();
                 holoRenderer.sharedMaterials = new[] { look.HoloBody, look.HoloInner, look.HoloGlass };
                 holoRenderer.shadowCastingMode = ShadowCastingMode.On;
+                GpuDriven.Exclude(holoRenderer);
             }
             gameObject.SetActive(false);
         }
@@ -396,14 +400,17 @@ namespace Lattice.Players
             foreach (var r in renderers)
                 if (r is SkinnedMeshRenderer s && (lightest == null || s.sharedMesh.vertexCount < lightest.sharedMesh.vertexCount))
                     lightest = s;
-            // Baked in the renderer's own space, unscaled; its full matrix (the
-            // import's scale included) takes it to ours.
+            // Baked without the renderer's scale, the body comes out at its size in
+            // the world (meters), in the renderer's own orientation: its position and
+            // rotation alone take it to ours. (Its full matrix would apply the
+            // import's 0.01 scale a second time: a body 2 cm tall.)
             var body = new Mesh();
             lightest.BakeMesh(body, false);
             var toRoot = transform.worldToLocalMatrix;
+            var place = Matrix4x4.TRS(lightest.transform.position, lightest.transform.rotation, Vector3.one);
             var parts = new List<CombineInstance>
             {
-                new CombineInstance { mesh = body, transform = toRoot * lightest.transform.localToWorldMatrix },
+                new CombineInstance { mesh = body, transform = toRoot * place },
             };
             if (rifleMesh != null)
                 parts.Add(new CombineInstance { mesh = rifleMesh, transform = toRoot * rifle.localToWorldMatrix });

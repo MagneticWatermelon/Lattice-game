@@ -4,7 +4,6 @@ using Lattice.Net;
 using Lattice.Players;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
 
 namespace Lattice.Combat
 {
@@ -17,9 +16,10 @@ namespace Lattice.Combat
     /// The rules (cone, rates, recoil numbers) are the game's, from the
     /// generated constants; the shot itself is the plugin's (lt_fire).
     ///
-    /// The first-person rifle is drawn by an overlay camera with its own
-    /// field of view, after the world with depth cleared, so it never sinks
-    /// into a wall and never stretches with the player's FOV.
+    /// The first-person rifle is drawn in the world camera's render with its
+    /// own field of view, after the world with depth cleared
+    /// (<see cref="ViewModelFeature"/>), so it never sinks into a wall and
+    /// never stretches with the player's FOV.
     /// </summary>
     [DefaultExecutionOrder(-50)]
     public sealed class Gun : MonoBehaviour, IGun
@@ -27,6 +27,9 @@ namespace Lattice.Combat
         public const int ViewLayer = 6;
         const float AdsTime = 0.2f;
         const float FlashSecs = 0.045f;
+        /// <summary>How far toward the sun the world's shade is looked for (m), and how
+        /// long the rifle takes to pass into or out of it (s).</summary>
+        const float SunReach = 300f, SunFade = 0.12f;
 
         public CombatLook Look;
         public CameraRig Rig;
@@ -44,12 +47,16 @@ namespace Lattice.Combat
         /// <summary>The first-person muzzle in the world (for effects), as drawn.</summary>
         public Vector3 MuzzleWorld { get; private set; }
 
-        Camera viewCam;
+        /// <summary>The first-person view's root: on the world camera, as the view is drawn from it.</summary>
+        Transform view;
+        /// <summary>The view's vertical field of view now, degrees.</summary>
+        float viewFov;
         Transform rifle, flash;
         Light flashLight;
         Renderer[] viewRenderers;
         ViewArms arms;
         float sprint, bobPhase, kick, kickRoll, flashUntil, dip, airTime;
+        float sunlit = 1f;
         Vector2 debt;          // recoil not yet recovered: degrees (up, right)
         Vector2 sway, swayVel; // degrees (yaw, pitch) the rifle lags the view
         float lastYaw, lastPitch;
@@ -66,19 +73,13 @@ namespace Lattice.Combat
         void Start()
         {
             var main = Rig.Camera;
-            main.cullingMask &= ~(1 << ViewLayer);
-            var go = new GameObject("First-person camera");
-            go.transform.SetParent(main.transform, false);
-            viewCam = go.AddComponent<Camera>();
-            viewCam.cullingMask = 1 << ViewLayer;
-            viewCam.nearClipPlane = 0.01f;
-            viewCam.farClipPlane = 4f;
-            viewCam.fieldOfView = Look.ViewFov;
-            var data = viewCam.GetUniversalAdditionalCameraData();
-            data.renderType = CameraRenderType.Overlay;
-            data.renderShadows = false;
-            data.renderPostProcessing = false;
-            main.GetUniversalAdditionalCameraData().cameraStack.Add(viewCam);
+            // The world camera culls the view layer; only the view's pass draws it.
+            main.cullingMask |= 1 << ViewLayer;
+            var go = new GameObject("First-person view") { layer = ViewLayer };
+            view = go.transform;
+            view.SetParent(main.transform, false);
+            viewFov = Look.ViewFov;
+            ViewModelFeature.Camera = main;
 
             var r = new GameObject("First-person rifle");
             r.layer = ViewLayer;
@@ -89,6 +90,8 @@ namespace Lattice.Combat
             mr.sharedMaterial = Look.ViewRifleMaterial;
             mr.shadowCastingMode = ShadowCastingMode.Off;
             mr.receiveShadows = true;
+            // Moving every frame: drawn the plain way, not by the GPU Resident Drawer.
+            GpuDriven.Exclude(mr);
             if (Soldier == null)
                 Soldier = FindAnyObjectByType<Crowd>()?.Look;
             if (Soldier != null && Soldier.Holo != null)
@@ -99,6 +102,7 @@ namespace Lattice.Combat
                 var hr = hg.AddComponent<MeshRenderer>();
                 hr.sharedMaterials = new[] { Soldier.HoloBody, Soldier.HoloInner, Look.ViewHoloGlass };
                 hr.shadowCastingMode = ShadowCastingMode.Off;
+                GpuDriven.Exclude(hr);
             }
 
             var f = new GameObject("Flash");
@@ -110,6 +114,7 @@ namespace Lattice.Combat
             fr.sharedMaterial = Look.Flash;
             fr.shadowCastingMode = ShadowCastingMode.Off;
             fr.receiveShadows = false;
+            GpuDriven.Exclude(fr);
             f.SetActive(false);
 
             var l = new GameObject("Flash light");
@@ -125,6 +130,12 @@ namespace Lattice.Combat
 
             if (Look.Arms != null && Soldier != null)
                 arms = new ViewArms(Look.Arms, go.transform, ViewLayer, Soldier);
+        }
+
+        void OnDestroy()
+        {
+            ViewModelFeature.Camera = null;
+            ViewModelFeature.Fov = 0f;
         }
 
         static float Ease(float t) => t * t * (3f - 2f * t);
@@ -181,7 +192,7 @@ namespace Lattice.Combat
 
         void LateUpdate()
         {
-            if (viewCam == null || Rig == null)
+            if (view == null || Rig == null)
                 return;
             var p = Lattice.LocalPlayer.LocalPlayer.Instance;
             var f = NetDriver.Frame;
@@ -194,10 +205,12 @@ namespace Lattice.Combat
             {
                 flash.gameObject.SetActive(false);
                 flashLight.enabled = false;
+                ViewModelFeature.Fov = 0f;
                 return;
             }
             float a = Ease(Blend);
-            viewCam.fieldOfView = 2f * Mathf.Atan(Mathf.Tan(Look.ViewFov * 0.5f * Mathf.Deg2Rad) / Mathf.Lerp(1f, 1.12f, a)) * Mathf.Rad2Deg;
+            viewFov = 2f * Mathf.Atan(Mathf.Tan(Look.ViewFov * 0.5f * Mathf.Deg2Rad) / Mathf.Lerp(1f, 1.12f, a)) * Mathf.Rad2Deg;
+            ViewModelFeature.Fov = viewFov;
 
             // Movement: bob while walking, lowered while sprinting, a dip on landing.
             var v = f.Own.vel;
@@ -242,10 +255,25 @@ namespace Lattice.Combat
             rifle.localRotation = rot * Quaternion.Euler(Look.ViewRifleEuler);
             rifle.localScale = Vector3.one * size;
 
+            // The world's shade on the rifle (it samples no shadow map): a ray from
+            // the eye toward the sun, over the ground and cover as the game has
+            // them. The light fades as we step in or out, as through a penumbra.
+            var sun = RenderSettings.sun;
+            var world = NetDriver.World;
+            if (sun != null && world != null)
+            {
+                var from = Coords.ToGame(Rig.Camera.transform.position);
+                var toSun = Coords.DirToGame(-sun.transform.forward);
+                var to = new LtVec3 { x = from.x + toSun.x * SunReach, y = from.y + toSun.y * SunReach, z = from.z + toSun.z * SunReach };
+                bool shaded = world.Raycast(from, to, out _);
+                sunlit = Mathf.MoveTowards(sunlit, shaded ? 0f : 1f, dt / SunFade);
+            }
+            ViewModelFeature.Sun = sunlit;
+
             // Both hands on it, as soldiers hold it.
             if (arms != null)
             {
-                var cam = viewCam.transform;
+                var cam = view;
                 var frame = cam.rotation * rot;
                 var center = cam.TransformPoint(pos);
                 arms.Body(Lattice.Players.SoldierColors.Material(f.Own.faction));
@@ -257,9 +285,9 @@ namespace Lattice.Combat
             }
 
             // Where the tracer leaves from: the drawn muzzle, as the world camera
-            // sees that point (the two cameras' fields of view differ).
+            // sees that point (the view's field of view differs from the world's).
             var mv = pos + rot * (Look.Muzzle * size);
-            float k = Mathf.Tan(Rig.Camera.fieldOfView * 0.5f * Mathf.Deg2Rad) / Mathf.Tan(viewCam.fieldOfView * 0.5f * Mathf.Deg2Rad);
+            float k = Mathf.Tan(Rig.Camera.fieldOfView * 0.5f * Mathf.Deg2Rad) / Mathf.Tan(viewFov * 0.5f * Mathf.Deg2Rad);
             muzzleView = new Vector3(mv.x * k, mv.y * k, mv.z);
             MuzzleWorld = Rig.Camera.transform.TransformPoint(muzzleView);
 

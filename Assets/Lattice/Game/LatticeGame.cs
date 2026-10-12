@@ -57,6 +57,13 @@ namespace Lattice.Game
             if (Options.Errors.Length > 0)
                 Debug.LogError($"Lattice: {Options.Errors}");
             Settings.Apply(Options);
+            if (!string.IsNullOrEmpty(Options.Profile) && Debug.isDebugBuild)
+            {
+                // From the first frame: loading and the moment the world appears included.
+                UnityEngine.Profiling.Profiler.logFile = System.IO.Path.GetFullPath(Options.Profile);
+                UnityEngine.Profiling.Profiler.enableBinaryLog = true;
+                UnityEngine.Profiling.Profiler.enabled = true;
+            }
             Application.runInBackground = true;
             QualitySettings.vSyncCount = Options.NoVsync ? 0 : 1;
             Application.targetFrameRate = -1;
@@ -85,6 +92,7 @@ namespace Lattice.Game
             player.Ghosts = Options.Ghosts;
             player.Iff = !Options.FactionColors && PlayerPrefs.GetInt(Lattice.LocalPlayer.LocalPlayer.IffPref, 1) != 0;
             player.TierColors = Options.TierColors;
+            player.NetGraph = Options.NetGraph || PlayerPrefs.GetInt(Lattice.LocalPlayer.LocalPlayer.NetGraphPref, 0) != 0;
             player.Help = Options.Controls;
             player.Mode = Options.View switch
             {
@@ -165,8 +173,6 @@ namespace Lattice.Game
             if (!worldReady && world != null && world.Ready)
             {
                 worldReady = true;
-                if (pendingCoverOff)
-                    world.transform.Find("Cover")?.gameObject.SetActive(false);
                 WorldBuiltAt = Time.realtimeSinceStartup - started;
                 Frames.Restart(2f);
             }
@@ -239,20 +245,25 @@ namespace Lattice.Game
                                         f.SetActive(false);
                         break;
                     }
+                    case "fpview":
+                        Lattice.Combat.ViewModelFeature.Off = true;
+                        break;
                     case "bloom":
                         foreach (var v in FindObjectsByType<UnityEngine.Rendering.Volume>(FindObjectsSortMode.None))
                             if (v.sharedProfile != null && v.sharedProfile.TryGet(out UnityEngine.Rendering.Universal.Bloom bloom))
                                 bloom.active = false;
                         break;
                     case "cover":
-                        pendingCoverOff = true;
+                        Lattice.World.WorldView.NoCover = true;
+                        break;
+                    case "rocks":
+                        Lattice.World.WorldView.NoRocks = true;
                         break;
                 }
                 Debug.Log($"Lattice: off: {what}");
             }
         }
 
-        static bool pendingCoverOff;
 
         /// <summary>The report's lines on loading and on corrections' timing.</summary>
         static string SessionSection()

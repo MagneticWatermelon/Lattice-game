@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
@@ -56,24 +55,21 @@ namespace Lattice.Net
         {
             try
             {
-                var psi = new ProcessStartInfo("wsl.exe", "-e hostname -I")
+                var wsl = System.IO.Path.Combine(Environment.SystemDirectory, "wsl.exe");
+                if (!System.IO.File.Exists(wsl))
+                    return null;
+                var output = HiddenProcess.Run($"\"{wsl}\" -e hostname -I", 5000);
+                if (output == null)
                 {
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true,
-                };
-                using var p = Process.Start(psi);
-                if (p == null)
+                    UnityEngine.Debug.LogWarning("Lattice: no WSL address (wsl.exe didn't answer)");
                     return null;
-                var output = p.StandardOutput.ReadToEnd();
-                if (!p.WaitForExit(5000))
-                    return null;
+                }
                 var m = Regex.Match(output, @"\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b");
                 return m.Success ? m.Groups[1].Value : null;
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                UnityEngine.Debug.LogWarning($"Lattice: no WSL address ({e.GetType().Name}: {e.Message})");
                 return null;
             }
         }
@@ -100,8 +96,11 @@ namespace Lattice.Net
     public class Options
     {
         public string Server, TokenKey, Invite, View, Spectate, Screenshot;
+        /// <summary>--profile PATH: a development build records the profiler from its
+        /// first frame into PATH (.raw, for the editor's Profiler to load).</summary>
+        public string Profile;
         /// <summary>Features to turn off, to measure what each costs (comma-separated:
-        /// grass, ssao, shadows, clouds, bloom, cover).</summary>
+        /// grass, ssao, shadows, clouds, bloom, cover, rocks, fpview).</summary>
         public string Off = "";
         /// <summary>The render scale (URP's, 0.1-2): 2 makes the GPU the bottleneck, so
         /// it runs at full clock and its times compare between runs.</summary>
@@ -110,7 +109,7 @@ namespace Lattice.Net
         public float NearMs, NearMaxMs, MidMs;
         public float After = 5f, ExitAfter = -1f, ShotEvery = 1f;
         public int Shots = 1;
-        public bool NoVsync, Ghosts, Autoplay, Autofire, Autoaim, Autotarget, HudTest, NoAudio, Windowed, FactionColors, TierColors, Controls, Pump;
+        public bool NoVsync, Ghosts, Autoplay, Autofire, Autoaim, Autotarget, HudTest, NoAudio, Windowed, FactionColors, TierColors, Controls, Pump, NetGraph;
         /// <summary>Main-thread stalls to stage (--freeze AT:MS,...): at AT seconds after
         /// start, the frame stops for MS milliseconds. U3's self-check.</summary>
         public (float at, int ms)[] Freezes = new (float, int)[0];
@@ -155,6 +154,7 @@ namespace Lattice.Net
                     case "--faction-colors": o.FactionColors = true; break;
                     case "--tier-colors": o.TierColors = true; break;
                     case "--controls": o.Controls = true; break;
+                    case "--net-graph": o.NetGraph = true; break;
                     case "--off": o.Off = Val(); break;
                     case "--render-scale": o.RenderScale = F(); break;
                     case "--pump": o.Pump = true; break;
@@ -177,6 +177,7 @@ namespace Lattice.Net
                     case "--shots": o.Shots = System.Math.Max(1, (int)F()); break;
                     case "--shot-every": o.ShotEvery = F(); break;
                     case "--exit-after": o.ExitAfter = F(); break;
+                    case "--profile": o.Profile = Val(); break;
                     // Unity's own flags (and their values) pass through.
                     default:
                         if (a.StartsWith("-") && !a.StartsWith("--") && i + 1 < args.Length && !args[i + 1].StartsWith("-"))

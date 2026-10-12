@@ -111,9 +111,18 @@ namespace Lattice.Players
         void BakePoses()
         {
             poses = new Mesh[3];
-            poses[(int)Pose.Stand] = own.Bake(0f, false, Look.Rifle);
-            poses[(int)Pose.Run] = own.Bake(4.5f, false, Look.Rifle);
+            var rifle = Look.RifleLow != null ? Look.RifleLow : Look.Rifle;
+            poses[(int)Pose.Stand] = own.Bake(0f, false, rifle);
+            poses[(int)Pose.Run] = own.Bake(4.5f, false, rifle);
             poses[(int)Pose.Dead] = own.Bake(0f, true, null);
+            // A wrong bake leaves the crowd invisible (only the rich soldiers drawn),
+            // which nothing else would show: say so, loudly.
+            foreach (var m in poses)
+            {
+                float size = m.GetSubMesh(0).bounds.size.magnitude;
+                if (size < 1f || size > 4f)
+                    Debug.LogError($"Lattice: the crowd's pose '{m.name}' baked to {size:F2} m across, not a soldier's size");
+            }
         }
 
         void OnEnable() => NetDriver.FrameReady += Place;

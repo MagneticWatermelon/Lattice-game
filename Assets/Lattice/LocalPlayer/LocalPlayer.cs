@@ -55,8 +55,10 @@ namespace Lattice.LocalPlayer
         public bool Autotarget;
         public IGun Gun;
 
-        /// <summary>Toggles the HUD reads: server ghosts, tier colors, net graph.</summary>
-        public bool Ghosts, TierColors, NetGraph = true, Help;
+        /// <summary>Toggles the HUD reads: server ghosts, tier colors, net graph (closed
+        /// until opened, remembered between games), the controls card.</summary>
+        public bool Ghosts, TierColors, NetGraph, Help;
+        public const string NetGraphPref = "Lattice.NetGraph";
         /// <summary>Standing still, not firing, whatever the keys say: while the world is
         /// still being built behind the join card (set by the game each frame).</summary>
         public bool Held;
@@ -148,7 +150,11 @@ namespace Lattice.LocalPlayer
                     Iff = !Iff;
                     PlayerPrefs.SetInt(IffPref, Iff ? 1 : 0);
                 }
-                if (kb.nKey.wasPressedThisFrame) NetGraph = !NetGraph;
+                if (kb.nKey.wasPressedThisFrame)
+                {
+                    NetGraph = !NetGraph;
+                    PlayerPrefs.SetInt(NetGraphPref, NetGraph ? 1 : 0);
+                }
                 if (kb.f1Key.wasPressedThisFrame) Help = !Help;
             }
 

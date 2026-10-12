@@ -1,0 +1,9 @@
+<!-- Kept from code stripping: members the client reaches only by reflection. -->
+<linker>
+  <!-- Lattice.Players.GpuDriven: keeps moving renderers out of the GPU Resident Drawer. -->
+  <assembly fullname="UnityEngine.CoreModule">
+    <type fullname="UnityEngine.Renderer">
+      <property name="allowGPUDrivenRendering"/>
+    </type>
+  </assembly>
+</linker>

@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using Lattice.Native;
 using UnityEngine;
-using UnityEngine.Rendering;
 using Debug = UnityEngine.Debug;
 
 namespace Lattice.World
@@ -10,21 +9,19 @@ namespace Lattice.World
     /// <summary>
     /// Every cover box of the world, drawn as its kind's model fitted exactly
     /// to the box (GDD §14.3: what you see is what blocks you): walls tiled
-    /// along their length, the rest stretched once. Each piece is a level of
+    /// along their length, the rest stretched once. Each piece has levels of
     /// detail: the model near, a plain box in the model's own color farther,
-    /// nothing once it's a speck. Static renderers: the GPU Resident Drawer
-    /// instances them. Made a few boxes per step, for the caller to run steps
-    /// within a frame's budget (all at once held a frame for seconds).
+    /// nothing once it's a speck. Drawn by the world's <see cref="StaticField"/>
+    /// (no GameObject each). Made a few boxes per step, for the caller to run
+    /// steps within a frame's budget.
     /// </summary>
     public static class CoverBuilder
     {
         /// <summary>The cover, nearest <paramref name="near"/> (Unity) first; each step
         /// yields the share made so far.</summary>
-        public static IEnumerator<float> Build(LtWorldHandle world, WorldLook look, Transform parent, Vector3 near)
+        public static IEnumerator<float> Build(LtWorldHandle world, WorldLook look, StaticField field, Vector3 near)
         {
             var clock = Stopwatch.StartNew();
-            var root = new GameObject("Cover");
-            root.transform.SetParent(parent, false);
             var boxes = world.Boxes();
             var g = Coords.ToGame(near);
             var dist = new float[boxes.Length];
@@ -35,6 +32,21 @@ namespace Lattice.World
             }
             System.Array.Sort(dist, boxes);
             var cube = CubeMesh();
+            // A kind per cover model (its model near, its plain box far), and the plain box
+            // for any kind without one, always drawn.
+            var kinds = new int[look.Cover.Length];
+            for (int k = 0; k < look.Cover.Length; k++)
+            {
+                var model = look.Cover[k];
+                if (model.Mesh == null)
+                    continue;
+                if (model.Mesh.subMeshCount > 1 || model.Materials.Length > 1)
+                    Debug.LogWarning($"Lattice: cover model {model.Mesh.name} has {model.Mesh.subMeshCount} submeshes: only the first is drawn");
+                kinds[k] = field.AddKind(
+                    new StaticField.Level { Mesh = model.Mesh, Material = model.Materials[0], MinHeight = look.CoverDetailHeight, ViewCull = true },
+                    new StaticField.Level { Mesh = cube, Material = model.Far != null ? model.Far : look.PlainCover, MinHeight = look.CoverFarHeight });
+            }
+            int plain = field.AddKind(new StaticField.Level { Mesh = cube, Material = look.PlainCover, MinHeight = 0f });
             int models = 0;
             for (int i = 0; i < boxes.Length; i++)
             {
@@ -43,9 +55,9 @@ namespace Lattice.World
                 var center = Coords.ToUnity((b.min.x + b.max.x) * 0.5f, (b.min.y + b.max.y) * 0.5f, b.min.z);
                 var size = new Vector3(b.max.x - b.min.x, b.max.z - b.min.z, b.max.y - b.min.y);
                 if (model.Mesh != null)
-                    models += Place(root.transform, model, look, b, center, size, cube);
+                    models += Place(field, kinds[b.kind], model, b, center, size, cube);
                 else
-                    Plain(root.transform, look.PlainCover, cube, center, size, b.kind);
+                    Plain(field, plain, cube, center, size);
                 if ((i & 15) == 15)
                     yield return (i + 1f) / boxes.Length;
             }
@@ -55,7 +67,7 @@ namespace Lattice.World
         /// <summary>A model fitted into box <paramref name="b"/>: its long side along
         /// the box's long side, its front to the box's facing (or, for a model whose
         /// front is an end, like a container's doors, to one end); walls tile it.</summary>
-        static int Place(Transform root, CoverModel model, WorldLook look, LtBox b, Vector3 bottomCenter, Vector3 size, Mesh cube)
+        static int Place(StaticField field, int kind, CoverModel model, LtBox b, Vector3 bottomCenter, Vector3 size, Mesh cube)
         {
             bool alongX = size.x >= size.z;
             float length = alongX ? size.x : size.z, depth = alongX ? size.z : size.x;
@@ -72,47 +84,34 @@ namespace Lattice.World
             var rot = Quaternion.Euler(0f, yaw, 0f);
             // The piece in the model's own axes: x across its front, z front to back.
             var scale = model.FrontOnEnd ? new Vector3(depth, size.y, piece) : new Vector3(piece, size.y, depth);
+            // The levels share the piece's transform; its size and center for them are a
+            // LOD group's: the model's and the box's bounds together, in the piece's frame.
+            var local = Scaled(model.Mesh.bounds, scale);
+            local.Encapsulate(Scaled(cube.bounds, scale));
             for (int i = 0; i < pieces; i++)
             {
-                var go = new GameObject("Cover");
-                go.transform.SetParent(root, false);
-                go.transform.SetPositionAndRotation(bottomCenter + dir * ((i + 0.5f) * piece - length * 0.5f), rot);
-                var near = Piece(go.transform, "Model", model.Mesh, model.Materials, scale);
-                var far = Piece(go.transform, "Far", cube, model.Far != null ? new[] { model.Far } : new[] { look.PlainCover }, scale);
-                var lods = go.AddComponent<LODGroup>();
-                lods.SetLODs(new[]
-                {
-                    new LOD(look.CoverDetailHeight, new Renderer[] { near }),
-                    new LOD(look.CoverFarHeight, new Renderer[] { far }),
-                });
-                lods.fadeMode = LODFadeMode.None;
-                lods.RecalculateBounds();
+                var m = Matrix4x4.TRS(bottomCenter + dir * ((i + 0.5f) * piece - length * 0.5f), rot, Vector3.one);
+                field.Add(kind, m * Matrix4x4.Scale(scale), World(m, local), Mathf.Max(local.size.x, Mathf.Max(local.size.y, local.size.z)));
             }
             return pieces;
         }
 
-        static MeshRenderer Piece(Transform parent, string name, Mesh mesh, Material[] materials, Vector3 scale)
+        static void Plain(StaticField field, int kind, Mesh cube, Vector3 bottomCenter, Vector3 size)
         {
-            var go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            go.transform.localScale = scale;
-            go.AddComponent<MeshFilter>().sharedMesh = mesh;
-            var mr = go.AddComponent<MeshRenderer>();
-            mr.sharedMaterials = materials;
-            mr.shadowCastingMode = ShadowCastingMode.On;
-            return mr;
+            var m = Matrix4x4.TRS(bottomCenter, Quaternion.identity, size);
+            field.Add(kind, m, World(m, cube.bounds), Mathf.Max(size.x, Mathf.Max(size.y, size.z)));
         }
 
-        static void Plain(Transform root, Material mat, Mesh cube, Vector3 bottomCenter, Vector3 size, byte kind)
+        static Bounds Scaled(Bounds b, Vector3 s) => new Bounds(Vector3.Scale(b.center, s), Vector3.Scale(b.size, s));
+
+        /// <summary>Box <paramref name="b"/> (in <paramref name="m"/>'s frame) as world bounds.</summary>
+        public static Bounds World(in Matrix4x4 m, Bounds b)
         {
-            var go = new GameObject("Cover");
-            go.transform.SetParent(root, false);
-            go.transform.position = bottomCenter;
-            go.transform.localScale = size;
-            go.AddComponent<MeshFilter>().sharedMesh = cube;
-            var mr = go.AddComponent<MeshRenderer>();
-            mr.sharedMaterial = mat;
-            mr.shadowCastingMode = ShadowCastingMode.On;
+            var w = new Bounds(m.MultiplyPoint3x4(b.center), Vector3.zero);
+            var e = b.extents;
+            for (int i = 0; i < 8; i++)
+                w.Encapsulate(m.MultiplyPoint3x4(b.center + new Vector3((i & 1) == 0 ? -e.x : e.x, (i & 2) == 0 ? -e.y : e.y, (i & 4) == 0 ? -e.z : e.z)));
+            return w;
         }
 
         static Mesh cubeMesh;

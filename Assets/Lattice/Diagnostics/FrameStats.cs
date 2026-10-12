@@ -25,6 +25,10 @@ namespace Lattice.Diagnostics
         readonly long[] histogram = new long[Buckets + 1];
         public long Frames;
         public float MaxMs;
+        /// <summary>When the longest frame ended (seconds after <see cref="Since"/>), and how
+        /// many frames took over 20 ms (hitches: a held frame, a stall).</summary>
+        public float MaxAt;
+        public long Hitches;
         public float Fps, P50, P99;
 
         /// <summary>Frames (after warm-up) that allocated on the managed heap,
@@ -77,7 +81,8 @@ namespace Lattice.Diagnostics
         public void Restart(float warmupSeconds)
         {
             Frames = TimedFrames = 0;
-            MaxMs = PluginMaxMs = 0f;
+            MaxMs = PluginMaxMs = MaxAt = 0f;
+            Hitches = 0;
             Array.Clear(histogram, 0, histogram.Length);
             Array.Clear(pluginHistogram, 0, pluginHistogram.Length);
             Array.Clear(gpuHistogram, 0, gpuHistogram.Length);
@@ -95,7 +100,10 @@ namespace Lattice.Diagnostics
             if (ms <= 0f)
                 return;
             Frames++;
-            MaxMs = Mathf.Max(MaxMs, ms);
+            if (ms > MaxMs)
+                (MaxMs, MaxAt) = (ms, Time.realtimeSinceStartup - Since);
+            if (ms > 20f)
+                Hitches++;
             histogram[Mathf.Min((int)(ms / BucketMs), Buckets)]++;
             pluginHistogram[Mathf.Min((int)(pluginMs / BucketMs), Buckets)]++;
             PluginMaxMs = Mathf.Max(PluginMaxMs, pluginMs);

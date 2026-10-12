@@ -298,26 +298,7 @@ namespace Lattice.EditorTools
         /// soldiers and the folds of the ground.</summary>
         static void Ssao(UniversalRendererData data)
         {
-            ScreenSpaceAmbientOcclusion ssao = null;
-            foreach (var f in data.rendererFeatures)
-                if (f is ScreenSpaceAmbientOcclusion s)
-                    ssao = s;
-            if (ssao == null)
-            {
-                ssao = ScriptableObject.CreateInstance<ScreenSpaceAmbientOcclusion>();
-                ssao.name = "SSAO";
-                AssetDatabase.AddObjectToAsset(ssao, data);
-                data.rendererFeatures.Add(ssao);
-                var so = new SerializedObject(data);
-                var map = so.FindProperty("m_RendererFeatureMap");
-                map.arraySize = data.rendererFeatures.Count;
-                for (int i = 0; i < data.rendererFeatures.Count; i++)
-                {
-                    AssetDatabase.TryGetGUIDAndLocalFileIdentifier(data.rendererFeatures[i], out _, out long id);
-                    map.GetArrayElementAtIndex(i).longValue = id;
-                }
-                so.ApplyModifiedPropertiesWithoutUndo();
-            }
+            var ssao = Feature<ScreenSpaceAmbientOcclusion>(data, "SSAO");
             var sso = new SerializedObject(ssao);
             var s2 = sso.FindProperty("m_Settings");
             void F(string n, float v) { var p = s2?.FindPropertyRelative(n); if (p != null) p.floatValue = v; else Debug.LogWarning($"Lattice setup: SSAO has no {n}"); }
@@ -330,6 +311,40 @@ namespace Lattice.EditorTools
             B("AfterOpaque", false);
             sso.ApplyModifiedPropertiesWithoutUndo();
             ssao.SetActive(true);
+        }
+
+        /// <summary>The renderer's feature of type T, added (as a sub-asset) if it has none.</summary>
+        static T Feature<T>(UniversalRendererData data, string name) where T : ScriptableRendererFeature
+        {
+            foreach (var f in data.rendererFeatures)
+                if (f is T t)
+                    return t;
+            var feature = ScriptableObject.CreateInstance<T>();
+            feature.name = name;
+            AssetDatabase.AddObjectToAsset(feature, data);
+            data.rendererFeatures.Add(feature);
+            var so = new SerializedObject(data);
+            var map = so.FindProperty("m_RendererFeatureMap");
+            map.arraySize = data.rendererFeatures.Count;
+            for (int i = 0; i < data.rendererFeatures.Count; i++)
+            {
+                AssetDatabase.TryGetGUIDAndLocalFileIdentifier(data.rendererFeatures[i], out _, out long id);
+                map.GetArrayElementAtIndex(i).longValue = id;
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return feature;
+        }
+
+        /// <summary>The first-person view: drawn by its own pass in the world camera
+        /// (<see cref="Lattice.Combat.ViewModelFeature"/>), so the renderer's own
+        /// passes leave its layer out.</summary>
+        static void ViewModel(UniversalRendererData data)
+        {
+            Feature<Lattice.Combat.ViewModelFeature>(data, "First-person view").SetActive(true);
+            int notView = ~(1 << Lattice.Combat.Gun.ViewLayer);
+            data.prepassLayerMask &= notView;
+            data.opaqueLayerMask &= notView;
+            data.transparentLayerMask &= notView;
         }
 
         /// <summary>URP for a big, sunny outdoor world with crowds: Forward+, the GPU
@@ -358,7 +373,9 @@ namespace Lattice.EditorTools
             var so = new SerializedObject(asset);
             so.FindProperty("m_SoftShadowsSupported").boolValue = true;
             so.FindProperty("m_SoftShadowQuality").intValue = 3;
-            so.FindProperty("m_GPUResidentDrawerEnableOcclusionCullingInCameras").boolValue = true;
+            // GPU occlusion culling cost more than it saved: open ground hides little
+            // (measured in a 1,000-player fight: frame p99 0.15-0.2 ms lower without).
+            so.FindProperty("m_GPUResidentDrawerEnableOcclusionCullingInCameras").boolValue = false;
             so.ApplyModifiedPropertiesWithoutUndo();
             asset.supportsCameraDepthTexture = true;
             asset.supportsCameraOpaqueTexture = false;
@@ -369,6 +386,7 @@ namespace Lattice.EditorTools
                 {
                     u.renderingMode = RenderingMode.ForwardPlus;
                     Ssao(u);
+                    ViewModel(u);
                     EditorUtility.SetDirty(u);
                 }
             }

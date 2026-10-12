@@ -33,6 +33,7 @@ namespace Lattice.EditorTools
             for (int f = 0; f < 3; f++)
                 look.Factions[f] = SoldierMaterial(FactionNames[f], SoldierLook.FactionColors[f]);
             look.Rifle = AssetDatabase.LoadAllAssetsAtPath($"{RifleDir}/Rifle.fbx").OfType<Mesh>().First();
+            look.RifleLow = AssetDatabase.LoadAllAssetsAtPath($"{RifleDir}/RifleLow.fbx").OfType<Mesh>().FirstOrDefault();
             look.RifleMaterial = RifleMaterial("Rifle", 0.62f);
             RifleMaterial("RifleView", 0.62f);
             look.Holo = AssetDatabase.LoadAllAssetsAtPath($"{RifleDir}/HoloSight.fbx").OfType<Mesh>().First();

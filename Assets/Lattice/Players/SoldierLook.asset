@@ -19,6 +19,7 @@ MonoBehaviour:
   - {fileID: 2100000, guid: 16dc71be395b94c4492c964fe01cdd1e, type: 2}
   - {fileID: 2100000, guid: 9aa09d6ef47a3a24385ab7e7145d7086, type: 2}
   Rifle: {fileID: 624270676327525987, guid: acfaa12c1f9d40041aea9b5b3f759f6d, type: 3}
+  RifleLow: {fileID: -4423922550080184455, guid: 269b234d5d3e9fc46a72fa3b5763fbaf, type: 3}
   RifleMaterial: {fileID: 2100000, guid: 7075e5178711db348bdf2045d4d7f92b, type: 2}
   Holo: {fileID: 2594999250697716090, guid: 0d9fb592e60271145a8e1ca72fcd71d6, type: 3}
   HoloBody: {fileID: 2100000, guid: 1bd58e7503d0d6d4d94d5b432121c853, type: 2}

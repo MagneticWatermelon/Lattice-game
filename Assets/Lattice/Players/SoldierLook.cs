@@ -16,6 +16,9 @@ namespace Lattice.Players
         /// faction's color on the armor plates.</summary>
         public Material[] Factions = new Material[3];
         public Mesh Rifle;
+        /// <summary>The crowd's rifle: the same, 600 triangles (Tools/Blender/rifle_fbx.py),
+        /// for soldiers tens of pixels tall.</summary>
+        public Mesh RifleLow;
         public Material RifleMaterial;
         /// <summary>The holographic sight on the rifle's rail (modeled in the rifle mesh's
         /// space): its body, the hood's matte inside, and its glass as others see it (no reticle).</summary>

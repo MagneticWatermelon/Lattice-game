@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using Lattice.Native;
 using UnityEngine;
-using UnityEngine.Rendering;
 using Debug = UnityEngine.Debug;
 
 namespace Lattice.World
@@ -12,7 +11,8 @@ namespace Lattice.World
     /// off the sites and clear of cover. Cosmetic: too low to look like cover,
     /// and nothing in the game collides with them. Placed by the Bevy client's
     /// hash (client/src/models.rs, spawn_rocks), so both clients draw them in
-    /// the same places. Made a row of cells per step, for the caller's frame budget.
+    /// the same places, and drawn by the world's <see cref="StaticField"/>. Made a
+    /// row of cells per step, for the caller's frame budget.
     /// </summary>
     public static class RockScatter
     {
@@ -21,13 +21,14 @@ namespace Lattice.World
         const float Clear = 2f;
 
         /// <summary>Each step (a row of cells) yields the share made so far.</summary>
-        public static IEnumerator<float> Build(LtWorldHandle world, WorldLook look, Transform parent)
+        public static IEnumerator<float> Build(LtWorldHandle world, WorldLook look, StaticField field)
         {
             if (look.RockMesh == null)
                 yield break;
             var clock = Stopwatch.StartNew();
-            var root = new GameObject("Rocks");
-            root.transform.SetParent(parent, false);
+            int kind = field.AddKind(new StaticField.Level { Mesh = look.RockMesh, Material = look.RockMaterial, MinHeight = look.RockCullHeight, ViewCull = true });
+            var meshBounds = look.RockMesh.bounds;
+            float meshSize = Mathf.Max(meshBounds.size.x, Mathf.Max(meshBounds.size.y, meshBounds.size.z));
             var sites = world.Sites();
             var boxes = world.Boxes();
             int cells = (int)(LtConst.WorldSize / Cell);
@@ -46,18 +47,10 @@ namespace Lattice.World
                         continue;
                     float w = 0.8f + 0.8f * Next(ref h), tall = 0.35f + 0.3f * Next(ref h), yaw = Next(ref h) * 2f * Mathf.PI;
                     float depth = w * (0.8f + 0.4f * Next(ref h));
-                    var go = new GameObject("Rock");
-                    go.transform.SetParent(root.transform, false);
-                    go.transform.SetPositionAndRotation(Coords.ToUnity(x, y, world.Height(x, y) - 0.08f), Quaternion.Euler(0f, yaw * Mathf.Rad2Deg, 0f));
-                    go.transform.localScale = new Vector3(w, tall, depth);
-                    go.AddComponent<MeshFilter>().sharedMesh = look.RockMesh;
-                    var mr = go.AddComponent<MeshRenderer>();
-                    mr.sharedMaterial = look.RockMaterial;
-                    mr.shadowCastingMode = ShadowCastingMode.On;
-                    var lods = go.AddComponent<LODGroup>();
-                    lods.SetLODs(new[] { new LOD(look.RockCullHeight, new Renderer[] { mr }) });
-                    lods.fadeMode = LODFadeMode.None;
-                    lods.RecalculateBounds();
+                    // Sized as a LOD group on the rock would be: the mesh's largest side
+                    // times its largest scale.
+                    var m = Matrix4x4.TRS(Coords.ToUnity(x, y, world.Height(x, y) - 0.08f), Quaternion.Euler(0f, yaw * Mathf.Rad2Deg, 0f), new Vector3(w, tall, depth));
+                    field.Add(kind, m, CoverBuilder.World(m, meshBounds), meshSize * Mathf.Max(w, Mathf.Max(tall, depth)));
                     n++;
                 }
                 yield return (cy + 1f) / cells;
