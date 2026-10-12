@@ -127,6 +127,7 @@ namespace Lattice.Game
             Report.Sections.Add(SessionSection);
             HelpCard.Create(hud.transform);
             world = FindAnyObjectByType<Lattice.World.WorldView>();
+            JoinCard.Create(transform, world);
         }
 
         void Start()
@@ -155,6 +156,8 @@ namespace Lattice.Game
             Frames.Record(Time.unscaledDeltaTime, NetDriver.Frame.PluginMs);
             Lattice.Players.SoldierColors.Mode = player.Iff ? Lattice.Players.SoldierColors.Scheme.Iff : Lattice.Players.SoldierColors.Scheme.Faction;
             Lattice.Players.SoldierColors.Tiers = player.TierColors;
+            // No control until the world is built (the join card covers it).
+            player.Held = world != null && !world.Ready;
             // The session's numbers count from when the world is built (loading is
             // slow by design, and allocates).
             if (!worldReady && world != null && world.Ready)

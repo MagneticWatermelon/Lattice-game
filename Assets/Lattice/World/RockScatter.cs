@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Lattice.Native;
@@ -21,7 +20,8 @@ namespace Lattice.World
         /// <summary>How far clear of a cover box a rock stays (m).</summary>
         const float Clear = 2f;
 
-        public static IEnumerator Build(LtWorldHandle world, WorldLook look, Transform parent)
+        /// <summary>Each step (a row of cells) yields the share made so far.</summary>
+        public static IEnumerator<float> Build(LtWorldHandle world, WorldLook look, Transform parent)
         {
             if (look.RockMesh == null)
                 yield break;
@@ -60,7 +60,7 @@ namespace Lattice.World
                     lods.RecalculateBounds();
                     n++;
                 }
-                yield return null;
+                yield return (cy + 1f) / cells;
             }
             Debug.Log($"Lattice: {n} rocks in {clock.Elapsed.TotalSeconds:F2} s");
         }

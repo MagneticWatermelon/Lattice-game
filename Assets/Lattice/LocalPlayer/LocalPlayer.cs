@@ -57,6 +57,9 @@ namespace Lattice.LocalPlayer
 
         /// <summary>Toggles the HUD reads: server ghosts, tier colors, net graph.</summary>
         public bool Ghosts, TierColors, NetGraph = true, Help;
+        /// <summary>Standing still, not firing, whatever the keys say: while the world is
+        /// still being built behind the join card (set by the game each frame).</summary>
+        public bool Held;
         /// <summary>Soldiers colored by relation (ours blue-white, enemies orange and
         /// magenta), else by faction: I, remembered between games.</summary>
         public bool Iff = true;
@@ -169,7 +172,9 @@ namespace Lattice.LocalPlayer
             float fwd = Axis(Key.W, Key.S), right = Axis(Key.D, Key.A);
             byte buttons = 0;
             bool trigger = false, aim = false;
-            if (Autoplay)
+            if (Held)
+                fwd = right = 0f;
+            else if (Autoplay)
             {
                 wander.Step(Time.realtimeSinceStartup, dt, ref Yaw, out fwd, out right, out bool sprint, out bool jump);
                 if (sprint) buttons |= (byte)LtCode.ButtonSprint;
@@ -192,7 +197,7 @@ namespace Lattice.LocalPlayer
 
             if (mouse == null || !mouse.leftButton.isPressed)
                 swallow = false;
-            bool alive = NetDriver.Frame.Welcomed && NetDriver.Frame.Own.dead == 0;
+            bool alive = NetDriver.Frame.Welcomed && NetDriver.Frame.Own.dead == 0 && !Held;
             bool onTarget = Autotarget && alive && Mode != ViewMode.Spectator && Target(dt);
             if (Mode != ViewMode.Spectator && alive)
             {

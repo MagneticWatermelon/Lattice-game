@@ -44,6 +44,8 @@ namespace Lattice.World
         public float GapP99 { get; private set; }
         public float GapMax { get; private set; }
         public bool Done => next >= Tiles * Tiles;
+        /// <summary>The share of the tiles made (each in three steps).</summary>
+        public float Progress => (next * 3 + phase) / (3f * Tiles * Tiles);
         /// <summary>Once done: the game's heights (m, one texel per 4 m sample) and the
         /// ground's grass (4 m texels: r how much is grass or meadow, g the meadow's
         /// share). Whoever takes them destroys them.</summary>

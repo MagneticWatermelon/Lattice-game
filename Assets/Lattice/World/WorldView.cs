@@ -1,4 +1,4 @@
-using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using Lattice.Native;
 using Lattice.Net;
@@ -28,7 +28,13 @@ namespace Lattice.World
         /// <summary>How much of a frame building may take, past the terrain's slice (s).</summary>
         const double Budget = 0.008;
         LtWorldHandle preview;
-        IEnumerator cover, rocks;
+        IEnumerator<float> cover, rocks;
+        float coverDone, rocksDone;
+
+        /// <summary>How much of the world is built, 0 to 1 (the cover is most of the work).</summary>
+        public float Progress => Terrain == null ? 0f
+            : Ready ? 1f
+            : 0.25f * Terrain.Progress + 0.6f * coverDone + 0.15f * rocksDone;
         bool grassTried;
 
         void OnEnable()
@@ -76,11 +82,19 @@ namespace Lattice.World
             }
             // The cover, then the rocks, while the frame's budget lasts.
             while (cover != null && Spent(start) < Budget)
-                if (!cover.MoveNext())
-                    cover = null;
+            {
+                if (cover.MoveNext())
+                    coverDone = cover.Current;
+                else
+                    (cover, coverDone) = (null, 1f);
+            }
             while (cover == null && rocks != null && Spent(start) < Budget)
-                if (!rocks.MoveNext())
-                    rocks = null;
+            {
+                if (rocks.MoveNext())
+                    rocksDone = rocks.Current;
+                else
+                    (rocks, rocksDone) = (null, 1f);
+            }
         }
 
         static double Spent(long start) => (Stopwatch.GetTimestamp() - start) / (double)Stopwatch.Frequency;

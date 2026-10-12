@@ -1,4 +1,4 @@
-using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using Lattice.Native;
 using UnityEngine;
@@ -18,8 +18,9 @@ namespace Lattice.World
     /// </summary>
     public static class CoverBuilder
     {
-        /// <summary>The cover, nearest <paramref name="near"/> (Unity) first.</summary>
-        public static IEnumerator Build(LtWorldHandle world, WorldLook look, Transform parent, Vector3 near)
+        /// <summary>The cover, nearest <paramref name="near"/> (Unity) first; each step
+        /// yields the share made so far.</summary>
+        public static IEnumerator<float> Build(LtWorldHandle world, WorldLook look, Transform parent, Vector3 near)
         {
             var clock = Stopwatch.StartNew();
             var root = new GameObject("Cover");
@@ -46,7 +47,7 @@ namespace Lattice.World
                 else
                     Plain(root.transform, look.PlainCover, cube, center, size, b.kind);
                 if ((i & 15) == 15)
-                    yield return null;
+                    yield return (i + 1f) / boxes.Length;
             }
             Debug.Log($"Lattice: {boxes.Length} cover boxes ({models} model pieces) in {clock.Elapsed.TotalSeconds:F2} s");
         }
