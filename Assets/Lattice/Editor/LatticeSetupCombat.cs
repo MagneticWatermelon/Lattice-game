@@ -71,7 +71,8 @@ namespace Lattice.EditorTools
             m.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
             m.SetFloat("_DstBlend", (float)(additive ? BlendMode.One : BlendMode.OneMinusSrcAlpha));
             m.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
-            m.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
+            // (As URP's own validation sets it: anything else and it rewrites the asset.)
+            m.SetFloat("_DstBlendAlpha", (float)(additive ? BlendMode.One : BlendMode.OneMinusSrcAlpha));
             m.SetOverrideTag("RenderType", "Transparent");
             m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             if (additive)
