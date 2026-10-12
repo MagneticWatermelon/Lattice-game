@@ -25,6 +25,11 @@ namespace Lattice.Net
         public string invite = "";
         /// <summary>Render delays, ms (0: the defaults, 67 → 133 near and 200 mid/far).</summary>
         public float nearMs, nearMaxMs, midMs;
+        /// <summary>The session runs on the plugin's net thread (U3, GDD §12.3): it
+        /// receives, makes inputs from the latest intent and sends about a thousand
+        /// times a second, so a stalled frame costs no inputs. Off (--pump): the
+        /// frame's own calls do it (U1-U2's pump mode).</summary>
+        public bool netThread = true;
 
         public const int Port = 40000;
 
@@ -84,6 +89,7 @@ namespace Lattice.Net
             if (o.NearMs > 0) nearMs = o.NearMs;
             if (o.NearMaxMs > 0) nearMaxMs = o.NearMaxMs;
             if (o.MidMs > 0) midMs = o.MidMs;
+            if (o.Pump) netThread = false;
         }
     }
 
@@ -104,7 +110,10 @@ namespace Lattice.Net
         public float NearMs, NearMaxMs, MidMs;
         public float After = 5f, ExitAfter = -1f, ShotEvery = 1f;
         public int Shots = 1;
-        public bool NoVsync, Ghosts, Autoplay, Autofire, Autoaim, Autotarget, HudTest, NoAudio, Windowed, FactionColors, TierColors, Controls;
+        public bool NoVsync, Ghosts, Autoplay, Autofire, Autoaim, Autotarget, HudTest, NoAudio, Windowed, FactionColors, TierColors, Controls, Pump;
+        /// <summary>Main-thread stalls to stage (--freeze AT:MS,...): at AT seconds after
+        /// start, the frame stops for MS milliseconds. U3's self-check.</summary>
+        public (float at, int ms)[] Freezes = new (float, int)[0];
         public string Errors = "";
 
         public static Options Parse(string[] args)
@@ -148,6 +157,21 @@ namespace Lattice.Net
                     case "--controls": o.Controls = true; break;
                     case "--off": o.Off = Val(); break;
                     case "--render-scale": o.RenderScale = F(); break;
+                    case "--pump": o.Pump = true; break;
+                    case "--freeze":
+                    {
+                        var list = new System.Collections.Generic.List<(float, int)>();
+                        foreach (var part in Val().Split(','))
+                        {
+                            var kv = part.Split(':');
+                            if (kv.Length == 2 && float.TryParse(kv[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var at) && int.TryParse(kv[1], out var ms))
+                                list.Add((at, ms));
+                            else
+                                o.Errors += $"--freeze: {part} isn't AT:MS; ";
+                        }
+                        o.Freezes = list.ToArray();
+                        break;
+                    }
                     case "--screenshot": o.Screenshot = Val(); break;
                     case "--after": o.After = F(); break;
                     case "--shots": o.Shots = System.Math.Max(1, (int)F()); break;

@@ -15,7 +15,7 @@ namespace Lattice.Native
         /// <summary>
         /// The plugin API's version (lt_version).
         /// </summary>
-        public const uint Version = 1;
+        public const uint Version = 2;
         /// <summary>
         /// The layout hash of these bindings (lt_layout_hash).
         /// </summary>
@@ -353,6 +353,10 @@ namespace Lattice.Native
         /// No shooter (a distant fight's shot from no one drawn).
         /// </summary>
         public const int Nobody = 65535;
+        /// <summary>
+        /// Run the session on the plugin's net thread (U3): it receives, runs the input clock with the latest intent and sends about a thousand times a second, so the connection and the inputs keep going while the caller's frames stall. lt_poll and lt_flush then do nothing, and lt_inputs only sets the intent.
+        /// </summary>
+        public const int ConfigNetThread = 1;
     }
 
     /// <summary>
@@ -368,7 +372,7 @@ namespace Lattice.Native
 
     /// <summary>
     /// How to connect: the render delays (0 = the defaults: near 67 ms,
-    /// growing up to 133 ms; mid and far 200 ms).
+    /// growing up to 133 ms; mid and far 200 ms), and how to run.
     /// </summary>
     [StructLayout(LayoutKind.Explicit, Size = 16)]
     public unsafe partial struct LtConfig
@@ -377,7 +381,7 @@ namespace Lattice.Native
         [FieldOffset(4)] public float nearDelayMaxMs;
         [FieldOffset(8)] public float midDelayMs;
         /// <summary>
-        /// Reserved, 0.
+        /// `LT_CONFIG_*`.
         /// </summary>
         [FieldOffset(12)] public uint flags;
     }
@@ -830,7 +834,8 @@ namespace Lattice.Native
         /// </summary>
         [NonSerialized] public delegate* unmanaged[Cdecl]<byte*, LtConfig*, IntPtr> lt_connect_invite;
         /// <summary>
-        /// Disconnects (the server hears at once) and frees the session.
+        /// Disconnects (the server hears at once) and frees the session (its net
+        /// thread stopped first).
         /// (IntPtr s)
         /// </summary>
         [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, void> lt_close;
@@ -847,7 +852,8 @@ namespace Lattice.Native
         [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, double, double> lt_begin_frame_at;
         /// <summary>
         /// Receives and delivers everything that arrived; returns the state
-        /// (`LT_STATE_*`).
+        /// (`LT_STATE_*`). On the net thread, the thread receives: this only
+        /// returns the state.
         /// (IntPtr s)
         /// </summary>
         [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, int> lt_poll;
@@ -866,7 +872,8 @@ namespace Lattice.Native
         [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtFire*, LtShot*, int> lt_fire;
         /// <summary>
         /// This frame's intent to the input clock: inputs (with any shot) go out
-        /// at the server's pace.
+        /// at the server's pace. On the net thread, the thread makes them from
+        /// the latest intent, every tick, frames or not.
         /// (IntPtr s, LtIntent* intent)
         /// </summary>
         [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtIntent*, void> lt_inputs;
@@ -920,7 +927,8 @@ namespace Lattice.Native
         /// </summary>
         [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtVec3*, void> lt_set_others_muzzle;
         /// <summary>
-        /// End of the frame: packets out.
+        /// End of the frame: packets out. On the net thread, the thread sends:
+        /// this does nothing.
         /// (IntPtr s)
         /// </summary>
         [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, void> lt_flush;

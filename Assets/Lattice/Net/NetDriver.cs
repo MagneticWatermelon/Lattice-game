@@ -70,6 +70,8 @@ namespace Lattice.Net
         public static event Action FrameReady;
         /// <summary>Where we connected, for the HUD and the report.</summary>
         public static string Address { get; private set; } = "";
+        /// <summary>The session runs on the plugin's net thread (see NetSettings.netThread).</summary>
+        public static bool NetThread { get; private set; }
         public static string LastError { get; private set; } = "";
 
         struct LatticeEarly { }
@@ -88,7 +90,14 @@ namespace Lattice.Net
         public static bool Start(NetSettings settings, out string error)
         {
             Stop();
-            var cfg = new LtConfig { nearDelayMs = settings.nearMs, nearDelayMaxMs = settings.nearMaxMs, midDelayMs = settings.midMs };
+            var cfg = new LtConfig
+            {
+                nearDelayMs = settings.nearMs,
+                nearDelayMaxMs = settings.nearMaxMs,
+                midDelayMs = settings.midMs,
+                flags = settings.netThread ? (uint)LtCode.ConfigNetThread : 0u,
+            };
+            NetThread = settings.netThread;
             LtSession s;
             if (!string.IsNullOrEmpty(settings.invite))
             {

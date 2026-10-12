@@ -33,6 +33,8 @@ namespace Lattice.Game
         float started;
         bool reported;
         int shots;
+        /// <summary>How many of the --freeze stalls are done.</summary>
+        int freezesDone;
         /// <summary>The burst's file names, made at start: a shot mid-fight allocates nothing.</summary>
         string[] shotPaths;
         CameraRig rig;
@@ -177,6 +179,14 @@ namespace Lattice.Game
                 lastCorrections = corrections;
             }
             float t = Time.realtimeSinceStartup - started;
+            // --freeze: the main thread stalls (no frames, no plugin calls), as a
+            // shader compile or a scene load would stall it.
+            if (freezesDone < Options.Freezes.Length && t >= Options.Freezes[freezesDone].at)
+            {
+                int ms = Options.Freezes[freezesDone++].ms;
+                Debug.Log($"Lattice: freezing the main thread for {ms} ms at {t:F1} s");
+                System.Threading.Thread.Sleep(ms);
+            }
             if (shotPaths != null && shots < shotPaths.Length && t >= Options.After + shots * Options.ShotEvery)
                 ScreenCapture.CaptureScreenshot(shotPaths[shots++]);
             if (Options.ExitAfter > 0f && t >= Options.ExitAfter)
@@ -248,6 +258,14 @@ namespace Lattice.Game
         static string SessionSection()
         {
             var sb = new System.Text.StringBuilder();
+            sb.Append(NetDriver.NetThread ? "  session on the plugin's net thread" : "  session pumped by the frames (--pump)");
+            if (Options.Freezes.Length > 0)
+            {
+                sb.Append("; main thread frozen");
+                foreach (var (at, ms) in Options.Freezes)
+                    sb.Append(string.Format(CultureInfo.InvariantCulture, " {0} ms at {1:F0} s", ms, at));
+            }
+            sb.Append('\n');
             sb.Append(WorldBuiltAt >= 0f
                 ? string.Format(CultureInfo.InvariantCulture, "  world built {0:F1} s in (the frame numbers above count from then)\n", WorldBuiltAt)
                 : "  world never built\n");
