@@ -73,6 +73,18 @@ namespace Lattice.Combat
         // The color scheme the kill feed was written in (IFF or faction: SoldierColors).
         SoldierColors.Scheme feedScheme;
 
+        // The rounds: the cell's count and what's carried, a segment per round (they
+        // refill as the reload runs), and a prompt under the reticle when low or out.
+        RectTransform ammoPanel;
+        Image ammoAccent;
+        TextMeshProUGUI ammoLabel, ammoCount, ammoPrompt;
+        Image[] rounds;
+        readonly CharBuf ammoBuf = new CharBuf(48);
+        int shownMag = -1, shownReserve = -1, shownFill = -1, shownAmmoState = -1, shownPrompt = -1;
+        static readonly Color Low = new Color(0.98f, 0.72f, 0.22f);
+        static readonly Color Out = new Color(0.95f, 0.3f, 0.24f);
+        static readonly Color Spent = new Color(1f, 1f, 1f, 0.09f);
+
         RectTransform deathPanel;
         Image deathDim, deathBar;
         TextMeshProUGUI deathTitle, deathKiller, deathTime;
@@ -96,6 +108,7 @@ namespace Lattice.Combat
             BuildMarker();
             BuildArcs();
             BuildHealth();
+            BuildAmmo();
             BuildFeed();
             BuildDeath();
             for (int i = 0; i < FeedLines; i++)
@@ -217,6 +230,60 @@ namespace Lattice.Combat
             }
         }
 
+        /// <summary>The rounds, bottom right: the health panel's mirror.</summary>
+        void BuildAmmo()
+        {
+            ammoPanel = UiKit.Rect("Rounds", root, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-44f, 40f), new Vector2(300f, 58f));
+            var bg = UiKit.Box("Panel", ammoPanel, UiKit.Panel);
+            UiKit.Fill(bg.rectTransform);
+            ammoAccent = UiKit.Box("Faction", ammoPanel, SoldierColors.Ink(0));
+            var ar = ammoAccent.rectTransform;
+            ar.anchorMin = new Vector2(1f, 0f);
+            ar.anchorMax = new Vector2(1f, 1f);
+            ar.pivot = new Vector2(1f, 0.5f);
+            ar.sizeDelta = new Vector2(4f, 0f);
+            ar.anchoredPosition = Vector2.zero;
+            ammoLabel = UiKit.Text("Label", ammoPanel, UiKit.Display, 17f, UiKit.Muted);
+            ammoLabel.characterSpacing = 6f;
+            UiKit.Warm(ammoLabel, 16);
+            var lr = ammoLabel.rectTransform;
+            lr.anchorMin = lr.anchorMax = new Vector2(0f, 1f);
+            lr.pivot = new Vector2(0f, 1f);
+            lr.anchoredPosition = new Vector2(14f, -6f);
+            lr.sizeDelta = new Vector2(150f, 22f);
+            ammoCount = UiKit.Text("Value", ammoPanel, UiKit.Mono, 30f, UiKit.Ink, TextAlignmentOptions.Right);
+            UiKit.Warm(ammoCount, 48);
+            var cr = ammoCount.rectTransform;
+            cr.anchorMin = cr.anchorMax = new Vector2(1f, 1f);
+            cr.pivot = new Vector2(1f, 1f);
+            cr.anchoredPosition = new Vector2(-18f, -2f);
+            cr.sizeDelta = new Vector2(180f, 34f);
+            var track = UiKit.Rect("Track", ammoPanel, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
+            track.anchorMin = new Vector2(0f, 0f);
+            track.anchorMax = new Vector2(1f, 0f);
+            track.pivot = new Vector2(0f, 0f);
+            track.offsetMin = new Vector2(14f, 12f);
+            track.offsetMax = new Vector2(-18f, 20f);
+            int n = Mathf.Max(1, LtConst.Magazine);
+            rounds = new Image[n];
+            for (int i = 0; i < n; i++)
+            {
+                var seg = UiKit.Box($"Round {i}", track, UiKit.Ink);
+                var r = seg.rectTransform;
+                // A sliver of gap between rounds, as a cell's charge marks.
+                float gap = 0.18f / n;
+                r.anchorMin = new Vector2(i / (float)n + gap * 0.5f, 0f);
+                r.anchorMax = new Vector2((i + 1) / (float)n - gap * 0.5f, 1f);
+                r.offsetMin = r.offsetMax = Vector2.zero;
+                rounds[i] = seg;
+            }
+            ammoPrompt = UiKit.Text("Prompt", root, UiKit.Display, 19f, Low, TextAlignmentOptions.Center);
+            ammoPrompt.characterSpacing = 5f;
+            UiKit.Warm(ammoPrompt, 64);
+            Place(ammoPrompt.rectTransform, new Vector2(0f, -64f), new Vector2(300f, 26f));
+            ammoPrompt.gameObject.SetActive(false);
+        }
+
         void BuildFeed()
         {
             for (int i = 0; i < FeedLines; i++)
@@ -300,6 +367,7 @@ namespace Lattice.Combat
             Marker(now);
             DamageArcs(p, now, dt);
             Vitals(f, body, dead, now, dt);
+            Rounds(f, p, body, dead, now);
             Feed(f, now);
             Death(f, dead, now, dt);
         }
@@ -484,6 +552,87 @@ namespace Lattice.Combat
                 shownHealth = f.Own.health;
                 healthBuf.Clear().Append(shownHealth);
                 healthText.SetCharArray(healthBuf.Chars, 0, healthBuf.Length);
+            }
+        }
+
+        /// <summary>
+        /// The rounds: the cell's count over what's carried; a segment per round, amber
+        /// when a quarter or less is left; reloading, the label says so and the
+        /// segments refill as it runs. Under the reticle, RELOAD when low, NO AMMO
+        /// when there's nothing left to reload with (and as the trigger clicks dry).
+        /// </summary>
+        void Rounds(NetFrame f, Lattice.LocalPlayer.LocalPlayer p, bool shown, bool dead, float now)
+        {
+            bool on = shown && !dead;
+            if (ammoPanel.gameObject.activeSelf != on)
+                ammoPanel.gameObject.SetActive(on);
+            int mag = f.Own.mag, reserve = f.Own.reserve;
+            bool reloading = f.Own.reload > 0f;
+            bool low = mag * 4 <= LtConst.Magazine;
+            bool empty = mag == 0 && reserve == 0 && !reloading;
+            // The prompt: 0 none, 1 RELOAD, 2 NO AMMO.
+            bool dry = Gun != null && now - Gun.DryAt < 0.7f;
+            int prompt = !on || p == null || p.Mode == ViewMode.Spectator ? 0 : empty || dry ? 2 : low && !reloading && reserve > 0 ? 1 : 0;
+            if (prompt != shownPrompt)
+            {
+                shownPrompt = prompt;
+                ammoPrompt.gameObject.SetActive(prompt != 0);
+                if (prompt != 0)
+                {
+                    ammoPrompt.text = prompt == 1 ? "RELOAD  <color=#C8CFCC><size=80%>R</size></color>" : "NO AMMO";
+                    ammoPrompt.color = prompt == 1 ? Low : Out;
+                }
+            }
+            if (prompt != 0)
+            {
+                // Breathes when low; pulses hard as the trigger clicks dry.
+                float a = prompt == 2 && dry ? 0.55f + 0.45f * Mathf.Cos((now - Gun.DryAt) * 18f) : 0.7f + 0.3f * Mathf.Sin(now * 4f);
+                ammoPrompt.alpha = a;
+            }
+            if (!on)
+                return;
+            ammoAccent.color = SoldierColors.Ink(f.Own.faction);
+            int state = reloading ? 1 : empty ? 2 : low ? 3 : 0;
+            if (state != shownAmmoState)
+            {
+                shownAmmoState = state;
+                ammoLabel.text = state == 1 ? "RELOADING" : state == 2 ? "EMPTY" : "CELL";
+                ammoLabel.color = state == 1 ? UiKit.Accent : state == 2 ? Out : UiKit.Muted;
+                shownFill = -1;
+            }
+            if (mag != shownMag || reserve != shownReserve)
+            {
+                (shownMag, shownReserve) = (mag, reserve);
+                ammoBuf.Clear().Append(mag).Append("<size=60%><color=#8E9A99>  / ").Append(reserve).Append("</color></size>");
+                ammoCount.SetCharArray(ammoBuf.Chars, 0, ammoBuf.Length);
+                ammoCount.color = mag == 0 ? Out : low ? Low : UiKit.Ink;
+                shownFill = -1;
+            }
+            // Reloading, the segments fill as it runs (as far as the reserve goes).
+            int n = rounds.Length;
+            int fill;
+            if (reloading)
+            {
+                var r = Gun != null ? Gun.Reloading : null;
+                float progress = r != null && r.Active && r.Total > 0f ? Mathf.Clamp01(r.T / r.Total) : 0f;
+                int coming = Mathf.Min(n, mag + reserve);
+                fill = 1000 + Mathf.Clamp(Mathf.FloorToInt(progress * coming), 0, coming);
+            }
+            else
+                fill = mag;
+            if (fill != shownFill)
+            {
+                shownFill = fill;
+                var full = mag == 0 ? Out : low ? Low : UiKit.Ink;
+                for (int i = 0; i < n; i++)
+                {
+                    Color c;
+                    if (fill >= 1000)
+                        c = i < fill - 1000 ? new Color(UiKit.Accent.r, UiKit.Accent.g, UiKit.Accent.b, 0.75f) : Spent;
+                    else
+                        c = i < fill ? full : Spent;
+                    rounds[i].color = c;
+                }
             }
         }
 

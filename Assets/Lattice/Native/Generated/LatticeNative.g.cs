@@ -15,11 +15,11 @@ namespace Lattice.Native
         /// <summary>
         /// The plugin API's version (lt_version).
         /// </summary>
-        public const uint Version = 2;
+        public const uint Version = 3;
         /// <summary>
         /// The layout hash of these bindings (lt_layout_hash).
         /// </summary>
-        public const ulong LayoutHash = 0xC00768BD2AB96F40;
+        public const ulong LayoutHash = 0xD332BD40BEB7DD10;
         /// <summary>
         /// Game steps a second.
         /// </summary>
@@ -61,6 +61,18 @@ namespace Lattice.Native
         /// </summary>
         public const float Height = 1.8f;
         /// <summary>
+        /// Crouched: m/s,
+        /// </summary>
+        public const float CrouchSpeed = 3.0f;
+        /// <summary>
+        /// the collider, m,
+        /// </summary>
+        public const float CrouchHeight = 1.2f;
+        /// <summary>
+        /// and the eyes above the feet, m.
+        /// </summary>
+        public const float CrouchEyeHeight = 1.15f;
+        /// <summary>
         /// Eyes (and the muzzle) above the feet, m.
         /// </summary>
         public const float EyeHeight = 1.6f;
@@ -94,9 +106,29 @@ namespace Lattice.Native
         public const float ConeHip = 2.0f;
         public const float ConeHipMoving = 2.75f;
         /// <summary>
-        /// In the air the cone is this many times wider.
+        /// In the air the cone is this many times wider;
         /// </summary>
         public const float ConeAir = 2.5f;
+        /// <summary>
+        /// crouched, this many times.
+        /// </summary>
+        public const float ConeCrouch = 0.75f;
+        /// <summary>
+        /// Rounds in the rifle's magazine,
+        /// </summary>
+        public const int Magazine = 30;
+        /// <summary>
+        /// and carried for it (refilled on respawning).
+        /// </summary>
+        public const int Reserve = 180;
+        /// <summary>
+        /// A reload, steps;
+        /// </summary>
+        public const int ReloadSteps = 66;
+        /// <summary>
+        /// from empty (a round to chamber).
+        /// </summary>
+        public const int ReloadEmptySteps = 81;
         /// <summary>
         /// Each shot kicks the view up this much, degrees.
         /// </summary>
@@ -141,6 +173,11 @@ namespace Lattice.Native
         /// </summary>
         public const float HeadRadius = 0.2f;
         public const float HeadAt = 1.6f;
+        /// <summary>
+        /// Crouched: the body segment's top and the head's center, m.
+        /// </summary>
+        public const float CrouchBodyHigh = 0.7f;
+        public const float CrouchHeadAt = 1.15f;
         /// <summary>
         /// A player's faction is its entity id mod this.
         /// </summary>
@@ -238,6 +275,14 @@ namespace Lattice.Native
         /// </summary>
         public const int ButtonAds = 8;
         /// <summary>
+        /// Crouch while held: lower, slower, no sprint or jump, a tighter cone.
+        /// </summary>
+        public const int ButtonCrouch = 16;
+        /// <summary>
+        /// Reload the rifle (an empty magazine reloads by itself).
+        /// </summary>
+        public const int ButtonReload = 32;
+        /// <summary>
         /// 30 Hz, within 150 m (plus squad and contacts).
         /// </summary>
         public const int TierNear = 0;
@@ -277,6 +322,14 @@ namespace Lattice.Native
         /// Aiming down sights (near tier only).
         /// </summary>
         public const int FlagAds = 4;
+        /// <summary>
+        /// Crouched.
+        /// </summary>
+        public const int FlagCrouched = 8;
+        /// <summary>
+        /// Reloading (near tier only).
+        /// </summary>
+        public const int FlagReloading = 16;
         /// <summary>
         /// Our shot hit `a` for `amount`.
         /// </summary>
@@ -455,7 +508,7 @@ namespace Lattice.Native
     /// <summary>
     /// Our own player.
     /// </summary>
-    [StructLayout(LayoutKind.Explicit, Size = 52)]
+    [StructLayout(LayoutKind.Explicit, Size = 60)]
     public unsafe partial struct LtOwn
     {
         /// <summary>
@@ -493,6 +546,19 @@ namespace Lattice.Native
         /// Changes with every death and respawn.
         /// </summary>
         [FieldOffset(51)] public byte life;
+        /// <summary>
+        /// Crouching (predicted, like the position).
+        /// </summary>
+        [FieldOffset(52)] public byte crouched;
+        /// <summary>
+        /// The rifle's rounds (predicted): in the magazine, and carried.
+        /// </summary>
+        [FieldOffset(53)] public byte mag;
+        [FieldOffset(54)] public ushort reserve;
+        /// <summary>
+        /// Seconds left of the reload under way; 0: none.
+        /// </summary>
+        [FieldOffset(56)] public float reload;
     }
 
     /// <summary>
@@ -512,7 +578,7 @@ namespace Lattice.Native
         /// </summary>
         [FieldOffset(4)] public byte how;
         /// <summary>
-        /// `LT_FLAG_*`: airborne, dead, aiming down sights.
+        /// `LT_FLAG_*`: airborne, dead, aiming down sights, crouched, reloading.
         /// </summary>
         [FieldOffset(5)] public byte flags;
         [FieldOffset(6)] public byte health;
@@ -622,7 +688,7 @@ namespace Lattice.Native
     /// <summary>
     /// The connection and the client's numbers, for the net graph.
     /// </summary>
-    [StructLayout(LayoutKind.Explicit, Size = 424)]
+    [StructLayout(LayoutKind.Explicit, Size = 432)]
     public unsafe partial struct LtStats
     {
         /// <summary>
@@ -673,37 +739,41 @@ namespace Lattice.Native
         [FieldOffset(112)] public ulong snapshots;
         [FieldOffset(120)] public ulong corrections;
         [FieldOffset(128)] public ulong pushCorrections;
-        [FieldOffset(136)] public ulong resyncs;
-        [FieldOffset(144)] public ulong shotsDropped;
-        [FieldOffset(152)] public ulong lifeEvents;
-        [FieldOffset(160)] public ulong shots;
-        [FieldOffset(168)] public ulong hitsConfirmed;
-        [FieldOffset(176)] public ulong killsConfirmed;
-        [FieldOffset(184)] public ulong hurts;
-        [FieldOffset(192)] public ulong damageTaken;
-        [FieldOffset(200)] public ulong killsHeard;
-        [FieldOffset(208)] public ulong shotsSeen;
-        [FieldOffset(216)] public ulong activityCells;
-        [FieldOffset(224)] public ulong activityShots;
-        [FieldOffset(232)] public ulong ambient;
-        [FieldOffset(240)] public ulong clockSnaps;
-        [FieldOffset(248)] public ulong nearDecodeErrors;
-        [FieldOffset(256)] public ulong badMessages;
+        /// <summary>
+        /// Snapshots whose rifle rounds disagreed with ours (replayed).
+        /// </summary>
+        [FieldOffset(136)] public ulong ammoCorrections;
+        [FieldOffset(144)] public ulong resyncs;
+        [FieldOffset(152)] public ulong shotsDropped;
+        [FieldOffset(160)] public ulong lifeEvents;
+        [FieldOffset(168)] public ulong shots;
+        [FieldOffset(176)] public ulong hitsConfirmed;
+        [FieldOffset(184)] public ulong killsConfirmed;
+        [FieldOffset(192)] public ulong hurts;
+        [FieldOffset(200)] public ulong damageTaken;
+        [FieldOffset(208)] public ulong killsHeard;
+        [FieldOffset(216)] public ulong shotsSeen;
+        [FieldOffset(224)] public ulong activityCells;
+        [FieldOffset(232)] public ulong activityShots;
+        [FieldOffset(240)] public ulong ambient;
+        [FieldOffset(248)] public ulong clockSnaps;
+        [FieldOffset(256)] public ulong nearDecodeErrors;
+        [FieldOffset(264)] public ulong badMessages;
         /// <summary>
         /// Entity-frames per tier (near, mid, far) and how they were drawn
         /// (interpolated, extrapolated, held, new): [tier * 4 + how].
         /// </summary>
-        [FieldOffset(264)] public fixed ulong frames[12];
+        [FieldOffset(272)] public fixed ulong frames[12];
         /// <summary>
         /// Entity-frames drawn moving faster than any player runs, per tier.
         /// </summary>
-        [FieldOffset(360)] public fixed ulong streaks[3];
+        [FieldOffset(368)] public fixed ulong streaks[3];
         /// <summary>
         /// Samples that moved what's on screen by more than 5 cm, and the
         /// largest such pop (mm), per tier.
         /// </summary>
-        [FieldOffset(384)] public fixed ulong pops[3];
-        [FieldOffset(408)] public fixed uint popMaxMm[3];
+        [FieldOffset(392)] public fixed ulong pops[3];
+        [FieldOffset(416)] public fixed uint popMaxMm[3];
     }
 
     /// <summary>

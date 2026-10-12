@@ -35,6 +35,20 @@ namespace Lattice.Combat
         /// <summary>The muzzle, in the rifle's frame at size 1.</summary>
         public Vector3 Muzzle = new Vector3(0f, 0.069f, 0.5f);
 
+        [Header("The ammo cell")]
+        /// <summary>The rifle's cell (Tools/Blender/cell_fbx.py): a canister across the
+        /// receiver's round bay that a reload takes out and puts back. Centered on its
+        /// own middle, its axis the mesh's y (the rifle's left-right once turned by
+        /// <see cref="ViewRifleEuler"/>); submeshes body, trim, glow.</summary>
+        public Mesh Cell;
+        public Material CellBody, CellTrim, CellGlow;
+        /// <summary>The bay's center in the rifle's frame at size 1, and the cell's
+        /// half-length (its caps' faces, out along the frame's x).</summary>
+        public Vector3 CellSeat = new Vector3(0f, -0.0716f, -0.1887f);
+        public float CellHalf = 0.0962f;
+        /// <summary>The charge's glow at full: the faction's color times this (HDR, for the bloom).</summary>
+        public float CellGlowStrength = 1.1f;
+
         [Header("First-person arms")]
         /// <summary>The soldier's arms alone (Combat/Arms), held by <see cref="ViewArms"/>.</summary>
         public GameObject Arms;

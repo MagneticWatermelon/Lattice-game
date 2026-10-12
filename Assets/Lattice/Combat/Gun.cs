@@ -1,3 +1,4 @@
+using System;
 using Lattice.LocalPlayer;
 using Lattice.Native;
 using Lattice.Net;
@@ -12,9 +13,11 @@ namespace Lattice.Combat
     /// client's gun.rs): aiming down sights (zoom, slower mouse and movement,
     /// a tight cone), recoil that kicks the view and drifts back after the
     /// burst, and the first-person rifle: to the sights, its kick, bob,
-    /// sway behind the mouse, lowered while sprinting, its flash and light.
-    /// The rules (cone, rates, recoil numbers) are the game's, from the
-    /// generated constants; the shot itself is the plugin's (lt_fire).
+    /// sway behind the mouse, lowered while sprinting, its flash and light;
+    /// its ammo cell, whose glow is the rounds left, and the reload that
+    /// swaps it (<see cref="Reload"/>). The rules (cone, rates, recoil
+    /// numbers, rounds) are the game's, from the generated constants; the
+    /// shot itself is the plugin's (lt_fire), and so are the rounds (LtOwn).
     ///
     /// The first-person rifle is drawn in the world camera's render with its
     /// own field of view, after the world with depth cleared
@@ -37,32 +40,61 @@ namespace Lattice.Combat
         public SoldierLook Soldier;
 
         /// <summary>Raised when one of our shots fires (sound, HUD).</summary>
-        public event System.Action Fired;
+        public event Action Fired;
+        /// <summary>Raised as a reload's motion passes each of its sounds.</summary>
+        public event Action<Reload.Cue> ReloadCue;
+        /// <summary>The trigger pulled with no rounds left at all (a reload can't help).</summary>
+        public event Action DryFire;
+        /// <summary>A spent cell hit the ground (Unity space; how hard, 0..1).</summary>
+        public event Action<Vector3, float> CellLanded;
 
         public bool Ads { get; private set; }
         /// <summary>0 from the hip, 1 down the sights (eased between).</summary>
         public float Blend { get; private set; }
         public float SensitivityScale => 1f - Blend * (1f - 1f / LtConst.AdsZoom);
         public float LastShot { get; private set; } = -10f;
+        /// <summary>When the trigger was last pulled dry (no rounds at all), for the HUD; how often (the report).</summary>
+        public float DryAt { get; private set; } = -10f;
+        public int DryPulls { get; private set; }
         /// <summary>The first-person muzzle in the world (for effects), as drawn.</summary>
         public Vector3 MuzzleWorld { get; private set; }
+        /// <summary>The reload's motion (the plugin's predicted reload times it).</summary>
+        public Reload Reloading { get; private set; }
 
         /// <summary>The first-person view's root: on the world camera, as the view is drawn from it.</summary>
         Transform view;
         /// <summary>The view's vertical field of view now, degrees.</summary>
         float viewFov;
-        Transform rifle, flash;
+        Transform rifle, flash, cell;
         Light flashLight;
-        Renderer[] viewRenderers;
         ViewArms arms;
-        float sprint, bobPhase, kick, kickRoll, flashUntil, dip, airTime;
+        MeshRenderer cellRenderer;
+        MaterialPropertyBlock cellProps;
+        static readonly int EmissionId = Shader.PropertyToID("_EmissionColor");
+        float sprint, bobPhase, kick, kickRoll, flashUntil, dip, airTime, cellPulse, cellGlow;
         float sunlit = 1f;
         Vector2 debt;          // recoil not yet recovered: degrees (up, right)
         Vector2 sway, swayVel; // degrees (yaw, pitch) the rifle lags the view
         float lastYaw, lastPitch;
-        bool wasGrounded = true;
+        bool wasGrounded = true, wasCrouched, triggerWas;
         uint rng = 0x5EED6A11u;
         Vector3 muzzleView;    // the muzzle in the world camera's view space (m)
+        Reload.CellState cellState;
+        Vector3 cellWorld, cellVel;
+
+        /// <summary>A spent cell, tossed: it falls in the world, bounces and lies a while.</summary>
+        sealed class Spent
+        {
+            public GameObject Go;
+            public MeshRenderer Renderer;
+            public Vector3 Pos, Vel, Spin;
+            public Quaternion Rot;
+            public float Age, Glow;
+            public bool InWorld, Down;
+        }
+        readonly Spent[] spent = new Spent[3];
+        int nextSpent;
+        const float SpentLife = 8f;
 
         float Rand()
         {
@@ -105,6 +137,23 @@ namespace Lattice.Combat
                 GpuDriven.Exclude(hr);
             }
 
+            cellProps = new MaterialPropertyBlock();
+            if (Look.Cell != null)
+            {
+                cellRenderer = CellRenderer("Ammo cell", go.transform, ViewLayer);
+                cell = cellRenderer.transform;
+                for (int i = 0; i < spent.Length; i++)
+                {
+                    var s = CellRenderer($"Spent cell {i}", null, ViewLayer);
+                    s.gameObject.SetActive(false);
+                    spent[i] = new Spent { Go = s.gameObject, Renderer = s };
+                }
+            }
+            Reloading = new Reload(Look.CellSeat, Look.CellHalf);
+            Reloading.Cued += c => ReloadCue?.Invoke(c);
+            if (Soldier != null)
+                Reloading.Prepare(Soldier.LeftGrip, Soldier.LeftFingers, Soldier.LeftBack);
+
             var f = new GameObject("Flash");
             f.layer = ViewLayer;
             flash = f.transform;
@@ -126,16 +175,32 @@ namespace Lattice.Combat
             flashLight.intensity = 0f;
             flashLight.shadows = LightShadows.None;
             flashLight.enabled = false;
-            viewRenderers = new Renderer[] { mr };
 
             if (Look.Arms != null && Soldier != null)
                 arms = new ViewArms(Look.Arms, go.transform, ViewLayer, Soldier);
+        }
+
+        MeshRenderer CellRenderer(string name, Transform parent, int layer)
+        {
+            var c = new GameObject(name) { layer = layer };
+            if (parent != null)
+                c.transform.SetParent(parent, false);
+            c.AddComponent<MeshFilter>().sharedMesh = Look.Cell;
+            var r = c.AddComponent<MeshRenderer>();
+            r.sharedMaterials = new[] { Look.CellBody, Look.CellTrim, Look.CellGlow };
+            r.shadowCastingMode = parent == null ? ShadowCastingMode.On : ShadowCastingMode.Off;
+            r.receiveShadows = true;
+            GpuDriven.Exclude(r);
+            return r;
         }
 
         void OnDestroy()
         {
             ViewModelFeature.Camera = null;
             ViewModelFeature.Fov = 0f;
+            foreach (var s in spent)
+                if (s?.Go != null)
+                    Destroy(s.Go);
         }
 
         static float Ease(float t) => t * t * (3f - 2f * t);
@@ -144,7 +209,10 @@ namespace Lattice.Combat
         public void Frame(LtSession session, Lattice.LocalPlayer.LocalPlayer player, bool trigger, bool aim)
         {
             float t = Time.unscaledTime, dt = Mathf.Min(Time.unscaledDeltaTime, 0.1f);
-            Ads = aim;
+            var own = NetDriver.Frame.Own;
+            // No sights while the cell is out: the hands are busy.
+            bool reloading = own.reload > 0f || (Reloading != null && Reloading.Weight > 0.05f);
+            Ads = aim && !reloading;
             Blend = Mathf.MoveTowards(Blend, Ads ? 1f : 0f, dt / AdsTime);
             if (Rig != null)
                 Rig.Zoom = Mathf.Lerp(1f, LtConst.AdsZoom, Ease(Blend));
@@ -160,7 +228,15 @@ namespace Lattice.Combat
                 };
                 if (session.Fire(fire, out _))
                     Shot(player, t);
+                else if (!triggerWas && own.mag == 0 && own.reload <= 0f && own.dead == 0)
+                {
+                    // Nothing in the cell and nothing to reload with: the trigger clicks.
+                    DryAt = t;
+                    DryPulls++;
+                    DryFire?.Invoke();
+                }
             }
+            triggerWas = trigger;
 
             // Recoil drifts back down once the burst is over.
             if (t - LastShot > LtConst.RecoilDelay && debt.x > 0f)
@@ -174,7 +250,7 @@ namespace Lattice.Combat
         }
 
         /// <summary>A shot fired: the view kicks (the first of a burst harder), the
-        /// rifle kicks back, the muzzle flashes.</summary>
+        /// rifle kicks back, the muzzle flashes, the cell pulses.</summary>
         void Shot(Lattice.LocalPlayer.LocalPlayer player, float t)
         {
             bool first = t - LastShot > LtConst.BurstGap;
@@ -187,6 +263,7 @@ namespace Lattice.Combat
             kick = 1f;
             kickRoll = (Rand() - 0.5f) * 2f;
             flashUntil = t + FlashSecs;
+            cellPulse = 1f;
             Fired?.Invoke();
         }
 
@@ -196,30 +273,41 @@ namespace Lattice.Combat
                 return;
             var p = Lattice.LocalPlayer.LocalPlayer.Instance;
             var f = NetDriver.Frame;
-            bool show = p != null && p.Mode == ViewMode.FirstPerson && f.Welcomed && f.Own.dead == 0;
+            float t = Time.unscaledTime, dt = Mathf.Min(Time.unscaledDeltaTime, 0.1f);
+            // The reload runs whatever the view (its sounds play in every view).
+            if (Soldier != null)
+                Reloading.Follow(f.Welcomed && f.Own.dead == 0 ? f.Own.reload : 0f, t, Soldier.LeftGrip, Soldier.LeftFingers, Soldier.LeftBack);
+            UpdateSpent(dt);
+            // (Not while the debug camera follows someone else.)
+            bool show = p != null && p.Mode == ViewMode.FirstPerson && f.Welcomed && f.Own.dead == 0 && CameraRig.Follow == 0;
             if (rifle.gameObject.activeSelf != show)
                 rifle.gameObject.SetActive(show);
             arms?.Show(show);
-            float t = Time.unscaledTime, dt = Mathf.Min(Time.unscaledDeltaTime, 0.1f);
             if (!show)
             {
                 flash.gameObject.SetActive(false);
                 flashLight.enabled = false;
+                if (cell != null && cell.gameObject.activeSelf)
+                    cell.gameObject.SetActive(false);
+                cellState = Reload.CellState.Seated;
                 ViewModelFeature.Fov = 0f;
                 return;
             }
             float a = Ease(Blend);
             viewFov = 2f * Mathf.Atan(Mathf.Tan(Look.ViewFov * 0.5f * Mathf.Deg2Rad) / Mathf.Lerp(1f, 1.12f, a)) * Mathf.Rad2Deg;
             ViewModelFeature.Fov = viewFov;
+            float busy = Reloading.Weight;
 
-            // Movement: bob while walking, lowered while sprinting, a dip on landing.
+            // Movement: bob while walking, lowered while sprinting, a dip on landing
+            // and as we crouch or stand.
             var v = f.Own.vel;
             float speed = Mathf.Sqrt(v.x * v.x + v.y * v.y);
             bool grounded = f.Own.grounded != 0;
+            bool crouched = f.Own.crouched != 0;
             bool sprinting = speed > 7.5f && !Ads && grounded;
-            sprint = Mathf.Lerp(sprint, sprinting ? 1f : 0f, 1f - Mathf.Exp(-dt / 0.12f));
+            sprint = Mathf.Lerp(sprint, sprinting ? 1f - busy : 0f, 1f - Mathf.Exp(-dt / 0.12f));
             if (grounded)
-                bobPhase += speed * dt / 2.4f * Mathf.PI * 2f;
+                bobPhase += speed * dt / (crouched ? 1.7f : 2.4f) * Mathf.PI * 2f;
             if (!grounded)
                 airTime += dt;
             else
@@ -228,9 +316,12 @@ namespace Lattice.Combat
                     dip = Mathf.Clamp01(airTime * 1.2f);
                 airTime = 0f;
             }
+            if (crouched != wasCrouched)
+                dip = Mathf.Max(dip, crouched ? 0.32f : 0.22f);
             wasGrounded = grounded;
+            wasCrouched = crouched;
             dip *= Mathf.Exp(-dt / 0.12f);
-            float moving = Mathf.Min(speed / 6f, 1f) * (1f - 0.85f * a) * (grounded ? 1f : 0f);
+            float moving = Mathf.Min(speed / 6f, 1f) * (1f - 0.85f * a) * (grounded ? 1f : 0f) * (1f - 0.6f * busy);
             var bob = new Vector3(Mathf.Sin(bobPhase) * 0.012f, -Mathf.Abs(Mathf.Sin(bobPhase * 2f)) * 0.009f, 0f) * moving;
             float bobRoll = Mathf.Sin(bobPhase) * 1.2f * moving;
 
@@ -251,6 +342,10 @@ namespace Lattice.Combat
             var rot = Quaternion.Euler(-kb.y * kick - sway.y + 2.5f * dip, sway.x, kickRoll * kick * 2f + bobRoll)
                       * Quaternion.Euler(Look.SprintEuler * sprint)
                       * Quaternion.Slerp(Quaternion.Euler(Look.HipEuler), Quaternion.identity, a);
+            // The reload's own motion, over all that.
+            Reloading.Rifle(out var reloadOffset, out var reloadTurn);
+            pos += reloadOffset;
+            rot *= reloadTurn;
             rifle.localPosition = pos;
             rifle.localRotation = rot * Quaternion.Euler(Look.ViewRifleEuler);
             rifle.localScale = Vector3.one * size;
@@ -270,19 +365,28 @@ namespace Lattice.Combat
             }
             ViewModelFeature.Sun = sunlit;
 
-            // Both hands on it, as soldiers hold it.
+            // Both hands on it, as soldiers hold it; the left one off to swap the cell.
+            bool reloadHand = Reloading.Hand(pos, rot, size, out var handPos, out var handGrip, out float handWeight);
             if (arms != null)
             {
                 var cam = view;
                 var frame = cam.rotation * rot;
                 var center = cam.TransformPoint(pos);
+                var lWrist = center + frame * (Soldier.LeftGrip * size);
+                var lGrip = SoldierLook.Grip(frame, Soldier.LeftFingers, Soldier.LeftBack);
+                if (reloadHand)
+                {
+                    lWrist = Vector3.Lerp(lWrist, cam.TransformPoint(handPos), handWeight);
+                    lGrip = Quaternion.Slerp(lGrip, cam.rotation * handGrip, handWeight);
+                }
                 arms.Body(Lattice.Players.SoldierColors.Material(f.Own.faction));
                 arms.Hold(cam.TransformPoint(Look.RightCollar), cam.TransformPoint(Look.RightElbow),
                           center + frame * (Soldier.RightGrip * size), SoldierLook.Grip(frame, Soldier.RightFingers, Soldier.RightBack),
                           cam.TransformPoint(Look.LeftCollar), cam.TransformPoint(Look.LeftElbow),
-                          center + frame * (Soldier.LeftGrip * size), SoldierLook.Grip(frame, Soldier.LeftFingers, Soldier.LeftBack),
-                          Look.ShoulderSwing);
+                          lWrist, lGrip, Look.ShoulderSwing);
             }
+
+            Cell(f, pos, rot, size, reloadHand, handPos, handGrip, dt);
 
             // Where the tracer leaves from: the drawn muzzle, as the world camera
             // sees that point (the view's field of view differs from the world's).
@@ -306,6 +410,152 @@ namespace Lattice.Combat
             {
                 flashLight.transform.position = MuzzleWorld + Rig.Camera.transform.forward * 0.3f;
                 flashLight.intensity = 6f * (0.7f + 0.6f * Rand());
+            }
+        }
+
+        /// <summary>
+        /// The cell: seated in the rifle (its glow the rounds left, a flash with each
+        /// shot), or wherever the reload has it; let go, it's tossed into the world.
+        /// </summary>
+        void Cell(NetFrame f, Vector3 pos, Quaternion rot, float size, bool reloadHand, Vector3 handPos, Quaternion handGrip, float dt)
+        {
+            if (cell == null)
+                return;
+            int mag = f.Own.mag;
+            float charge = mag == 0 ? 0.04f : 0.3f + 0.7f * mag / (float)LtConst.Magazine;
+            var state = Reloading.Cell(charge, out float pulled, out _, out float glow);
+            Vector3 cp;
+            Quaternion cr;
+            switch (state)
+            {
+                case Reload.CellState.InHand when reloadHand:
+                    Reloading.CellInHand(handPos, handGrip, size, Look.ViewRifleEuler, out cp, out cr);
+                    break;
+                case Reload.CellState.Dropped:
+                case Reload.CellState.Gone:
+                    if (cellState == Reload.CellState.InHand)
+                        Toss(dt);
+                    if (cell.gameObject.activeSelf)
+                        cell.gameObject.SetActive(false);
+                    cellState = state;
+                    return;
+                default:
+                    cp = pos + rot * ((Look.CellSeat + new Vector3(-pulled, 0f, 0f)) * size);
+                    cr = rot * Quaternion.AngleAxis(Reloading.CapTurn, Vector3.right) * Quaternion.Euler(Look.ViewRifleEuler);
+                    break;
+            }
+            if (!cell.gameObject.activeSelf)
+                cell.gameObject.SetActive(true);
+            cell.localPosition = cp;
+            cell.localRotation = cr;
+            cell.localScale = Vector3.one * size;
+            // Its world motion, for the toss.
+            var w = view.TransformPoint(cp);
+            if (dt > 0f && cellState == state)
+                cellVel = Vector3.Lerp(cellVel, (w - cellWorld) / dt, 0.5f);
+            else
+                cellVel = Vector3.zero;
+            cellWorld = w;
+            cellState = state;
+            // The glow: eased to its level, a flash with each shot.
+            cellPulse *= Mathf.Exp(-dt / 0.07f);
+            cellGlow = Mathf.Lerp(cellGlow, glow, 1f - Mathf.Exp(-dt / 0.08f));
+            Glow(cellRenderer, cellGlow + 0.45f * cellPulse, f.Own.faction);
+        }
+
+        void Glow(MeshRenderer r, float level, int faction)
+        {
+            var c = SoldierColors.Body(faction).linear * (Look.CellGlowStrength * level * level);
+            cellProps.SetColor(EmissionId, new Color(c.r, c.g, c.b, 1f));
+            r.SetPropertyBlock(cellProps, 2);
+        }
+
+        /// <summary>The cell leaves the hand where it is, with the hand's motion and a flick down and out.</summary>
+        void Toss(float dt)
+        {
+            var s = spent[nextSpent++ % spent.Length];
+            if (s == null)
+                return;
+            s.Pos = cell.position;
+            s.Rot = cell.rotation;
+            var camRot = view.rotation;
+            s.Vel = cellVel + camRot * new Vector3(-0.6f, -0.9f, 0.25f);
+            s.Spin = camRot * new Vector3(4f + 3f * Rand(), 1.5f * (Rand() - 0.5f), 7f + 4f * Rand());
+            s.Age = 0f;
+            s.Glow = cellGlow;
+            s.InWorld = false;
+            s.Down = false;
+            s.Go.layer = ViewLayer;
+            s.Go.transform.SetPositionAndRotation(s.Pos, s.Rot);
+            s.Go.transform.localScale = Vector3.one * Look.ViewScale;
+            s.Go.SetActive(true);
+        }
+
+        /// <summary>Spent cells fall, bounce off the ground and cover as the game has
+        /// them, and lie a while. Drawn with the rifle until they're out of the world
+        /// camera's view, then in the world (depth-tested, shadowed).</summary>
+        void UpdateSpent(float dt)
+        {
+            var world = NetDriver.World;
+            var cam = Rig != null ? Rig.Camera : null;
+            foreach (var s in spent)
+            {
+                if (s == null || !s.Go.activeSelf)
+                    continue;
+                s.Age += dt;
+                if (s.Age > SpentLife || world == null || cam == null)
+                {
+                    s.Go.SetActive(false);
+                    continue;
+                }
+                if (!s.Down)
+                {
+                    s.Vel += Physics.gravity * dt;
+                    var next = s.Pos + s.Vel * dt;
+                    var from = Coords.ToGame(s.Pos);
+                    // A little past where it's going: the cell's own half-width.
+                    var dir = (next - s.Pos).normalized * 0.03f;
+                    var toPad = Coords.ToGame(next + dir);
+                    if (world.Raycast(from, toPad, out var hit))
+                    {
+                        float hard = Mathf.Clamp01(s.Vel.magnitude / 6f);
+                        var n = new Vector3(hit.normal.x, hit.normal.z, hit.normal.y);
+                        var at = Coords.ToUnity(hit.pos.x, hit.pos.y, hit.pos.z);
+                        next = at + n * 0.03f;
+                        var vn = Vector3.Dot(s.Vel, n) * n;
+                        s.Vel = (s.Vel - vn) * 0.55f - vn * 0.32f;
+                        s.Spin *= 0.5f;
+                        if (hard > 0.15f)
+                            CellLanded?.Invoke(at, hard);
+                        if (s.Vel.magnitude < 0.6f)
+                        {
+                            s.Down = true;
+                            // Lying on its side, along the ground.
+                            var along = Vector3.ProjectOnPlane(s.Rot * Vector3.up, n);
+                            if (along.sqrMagnitude < 1e-4f)
+                                along = Vector3.ProjectOnPlane(Vector3.forward, n);
+                            s.Rot = Quaternion.FromToRotation(s.Rot * Vector3.up, along.normalized) * s.Rot;
+                        }
+                    }
+                    s.Pos = next;
+                    if (!s.Down)
+                        s.Rot = Quaternion.Euler(s.Spin * (Mathf.Rad2Deg * dt)) * s.Rot;
+                }
+                s.Glow = Mathf.MoveTowards(s.Glow, 0f, dt / 0.5f);
+                // Into the world once the world camera can't see it (no jump between
+                // the two fields of view on screen), or once it's down there.
+                if (!s.InWorld)
+                {
+                    var local = cam.transform.InverseTransformPoint(s.Pos);
+                    float edge = -local.z * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) - 0.05f;
+                    if (local.z <= 0.05f || local.y < -Mathf.Abs(edge) || s.Age > 0.6f)
+                    {
+                        s.InWorld = true;
+                        s.Go.layer = 0;
+                    }
+                }
+                s.Go.transform.SetPositionAndRotation(s.Pos, s.Rot);
+                Glow(s.Renderer, s.Glow, NetDriver.Frame.Own.faction);
             }
         }
     }

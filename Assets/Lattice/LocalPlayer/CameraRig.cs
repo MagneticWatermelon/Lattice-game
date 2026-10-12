@@ -21,6 +21,11 @@ namespace Lattice.LocalPlayer
         /// <summary>The eye this frame, game space (where shots leave from in first person).</summary>
         public Vector3 Eye { get; private set; }
         public bool HasBody { get; private set; }
+        /// <summary>The eyes above the feet now: down as we crouch, up as we stand, eased
+        /// over <see cref="CrouchTime"/> (the game's eye moves at once; the view follows).</summary>
+        public float EyeHeight { get; private set; } = LtConst.EyeHeight;
+        const float CrouchTime = 0.16f;
+        float crouch;
 
         Vector3 chase;
         bool chaseInit;
@@ -53,7 +58,9 @@ namespace Lattice.LocalPlayer
                 return;
             HasBody = f.Welcomed;
             var feet = f.Own.pos;
-            var eye = new Vector3(feet.x, feet.y, feet.z + LtConst.EyeHeight);
+            crouch = Mathf.MoveTowards(crouch, f.Own.crouched != 0 && f.Own.dead == 0 ? 1f : 0f, Time.unscaledDeltaTime / CrouchTime);
+            EyeHeight = Mathf.Lerp(LtConst.EyeHeight, LtConst.CrouchEyeHeight, crouch * crouch * (3f - 2f * crouch));
+            var eye = new Vector3(feet.x, feet.y, feet.z + EyeHeight);
             Vector3 camPos;
             Quaternion camRot;
             if (Follow != 0 && FollowCamera(f, out camPos, out camRot))

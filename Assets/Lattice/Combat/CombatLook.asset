@@ -23,6 +23,13 @@ MonoBehaviour:
   SightDistance: 0.11
   ViewHoloGlass: {fileID: 2100000, guid: 493cbc67a95cd314198c57268ccc689d, type: 2}
   Muzzle: {x: 0, y: 0.069, z: 0.5}
+  Cell: {fileID: 5264201581553841347, guid: 7a202e327b6cdb34291c37d988b8e1c6, type: 3}
+  CellBody: {fileID: 2100000, guid: b9ecceed03635c8458d08bb33af18e5d, type: 2}
+  CellTrim: {fileID: 2100000, guid: d5d42af6ba213b24e89800101087cbb9, type: 2}
+  CellGlow: {fileID: 2100000, guid: 2439bcd3bb5347f4e95754299fd5d8d1, type: 2}
+  CellSeat: {x: 0, y: -0.0716, z: -0.1887}
+  CellHalf: 0.0962
+  CellGlowStrength: 1.1
   Arms: {fileID: 919132149155446097, guid: afdaa8a21a8e4c448ab3c0cb6df37c8d, type: 3}
   RightCollar: {x: 0.04, y: -0.24, z: -0.02}
   LeftCollar: {x: -0.14, y: -0.3, z: -0.02}

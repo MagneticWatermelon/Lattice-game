@@ -15,8 +15,11 @@ namespace Lattice.Audio
     /// air takes the top) the farther, and late by the speed of sound. Slugs
     /// passing close crack. Impacts near us thud or ring. Our rifle, hits
     /// (body, head, kill), hurts (from the shooter's side), death and respawn
-    /// play in the head; footsteps ours and near soldiers'. Distant fights are
-    /// a bed of far gunfire per direction, as loud as the shooting there.
+    /// play in the head; footsteps ours and near soldiers'. Handling: our
+    /// reload as its motion passes each sound, the trigger pulled dry, a spent
+    /// cell landing, crouching down and up; near soldiers' reloads where they
+    /// stand. Distant fights are a bed of far gunfire per direction, as loud as
+    /// the shooting there.
     ///
     /// Voices are pooled (made once, stolen by priority when all are busy);
     /// nothing allocates per frame.
@@ -56,10 +59,12 @@ namespace Lattice.Audio
         readonly Vector3[] lastFeet = new Vector3[65536];
         readonly float[] seenAt = new float[65536];
 
-        bool wasAds, wasDead;
+        bool wasAds, wasDead, wasCrouched;
+        // Near soldiers seen reloading (per entity id), so each reload sounds once.
+        readonly bool[] reloadHeard = new bool[65536];
 
         // For the report: what played, and what came out.
-        int nOwn, nNear, nFar, nCrack, nImpact, nFeedback, nSteps, nStolen, nFarBedded;
+        int nOwn, nNear, nFar, nCrack, nImpact, nFeedback, nSteps, nStolen, nFarBedded, nHandling, nOthersReload;
         MasterBus bus;
         float busMaxDb;
         // Far shots heard one by one, at most so many a second; the rest are the bed's.
@@ -100,7 +105,12 @@ namespace Lattice.Audio
                 bedLarge[s] = Loop($"Battle {s} large", Look.BattleLarge, true);
             }
             if (Gun != null)
+            {
                 Gun.Fired += OnOwnShot;
+                Gun.ReloadCue += OnReload;
+                Gun.DryFire += OnDryFire;
+                Gun.CellLanded += OnCellLanded;
+            }
             var listener = FindAnyObjectByType<AudioListener>();
             if (listener != null && !listener.TryGetComponent(out bus))
                 bus = listener.gameObject.AddComponent<MasterBus>();
@@ -111,10 +121,11 @@ namespace Lattice.Audio
         {
             float rms = meterFrames > 0 ? rmsSum / meterFrames : 0f;
             return string.Format(System.Globalization.CultureInfo.InvariantCulture,
-                "  audio: played own {0}, near {1}, far {2} (+{13} left to the bed), cracks {3}, impacts {4}, feedback {5}, steps {6}; voices stolen {7}\n" +
+                "  audio: played own {0}, near {1}, far {2} (+{13} left to the bed), cracks {3}, impacts {4}, feedback {5}, steps {6}, handling {15} (+{16} others' reloads); voices stolen {7}\n" +
                 "  audio out: peak {8:F1} dBFS, mean rms {9:F1} dBFS over {10} frames; frames over -1 dBFS {11}, over -6 dBFS {12}; the bus took off at most {14:F1} dB\n",
                 nOwn, nNear, nFar, nCrack, nImpact, nFeedback, nSteps, nStolen,
-                20f * Mathf.Log10(Mathf.Max(outPeak, 1e-6f)), 20f * Mathf.Log10(Mathf.Max(rms, 1e-6f)), meterFrames, clipFrames, loudFrames, nFarBedded, busMaxDb);
+                20f * Mathf.Log10(Mathf.Max(outPeak, 1e-6f)), 20f * Mathf.Log10(Mathf.Max(rms, 1e-6f)), meterFrames, clipFrames, loudFrames, nFarBedded, busMaxDb,
+                nHandling, nOthersReload);
         }
 
         /// <summary>The mix as it leaves: peak and loudness, for the report.</summary>
@@ -144,7 +155,12 @@ namespace Lattice.Audio
         void OnDestroy()
         {
             if (Gun != null)
+            {
                 Gun.Fired -= OnOwnShot;
+                Gun.ReloadCue -= OnReload;
+                Gun.DryFire -= OnDryFire;
+                Gun.CellLanded -= OnCellLanded;
+            }
             // (The report is written on quitting, before anything is destroyed.)
             Report.Sections.Remove(Summary);
         }
@@ -255,6 +271,37 @@ namespace Lattice.Audio
             PlayHead(Pick(Look.ShotOwn), Look.OwnShot, 0.97f + 0.06f * Rand());
         }
 
+        /// <summary>Our reload, as its motion passes each sound: a little left of
+        /// middle, where the left hand works.</summary>
+        void OnReload(Reload.Cue cue)
+        {
+            (AudioClip clip, float gain) = cue switch
+            {
+                Reload.Cue.Release => (Look.CellRelease, 0.8f),
+                Reload.Cue.Out => (Look.CellOut, 0.7f),
+                Reload.Cue.Pouch => (Look.CellPouch, 0.45f),
+                Reload.Cue.In => (Look.CellIn, 0.7f),
+                Reload.Cue.Seat => (Look.CellSeat, 0.95f),
+                _ => (Look.CellCharge, 0.7f),
+            };
+            nHandling++;
+            PlayHead(clip, Look.Handling * gain, 0.98f + 0.04f * Rand(), -0.15f);
+        }
+
+        void OnDryFire()
+        {
+            nHandling++;
+            PlayHead(Look.DryFire, Look.Handling * 0.8f, 0.97f + 0.06f * Rand());
+        }
+
+        void OnCellLanded(Vector3 pos, float hard)
+        {
+            var cam = Camera.main;
+            float d = cam != null ? Vector3.Distance(cam.transform.position, pos) : 2f;
+            nHandling++;
+            PlayAt(Pick(Look.CellClink), pos, Look.Handling * (0.3f + 0.7f * hard) * Mathf.Clamp01(1.6f / Mathf.Max(d, 0.5f)), Air(d * 4f), 0f, 0.94f + 0.12f * Rand());
+        }
+
         float Air(float d) => Mathf.Clamp(22000f * Mathf.Exp(-d / Look.AirDistance), 700f, 22000f);
 
         // ---- each frame ---------------------------------------------------------
@@ -282,6 +329,7 @@ namespace Lattice.Audio
             Events(f, p);
             Vitals(f);
             Steps(f, p, ear, now, dt);
+            OthersReloading(f, ear);
             Beds(ear, dt);
             Meter();
         }
@@ -402,6 +450,14 @@ namespace Lattice.Audio
                     PlayHead(Gun.Ads ? Look.SightsUp : Look.SightsDown, Look.Feedback * 0.45f, 0.95f + 0.1f * Rand());
                 wasAds = Gun.Ads;
             }
+            // Getting down or up: gear and cloth, the knee on the ground.
+            bool crouched = f.Own.crouched != 0 && !dead;
+            if (crouched != wasCrouched && !dead)
+            {
+                nHandling++;
+                PlayHead(crouched ? Look.CrouchDown : Look.CrouchUp, Look.Footsteps * 0.95f, 0.95f + 0.1f * Rand());
+            }
+            wasCrouched = crouched;
         }
 
         void Steps(NetFrame f, Lattice.LocalPlayer.LocalPlayer p, Vector3 ear, float now, float dt)
@@ -456,6 +512,40 @@ namespace Lattice.Audio
                     stride[id] -= every;
                     PlayAt(Pick(Look.Footstep), feet, Look.Footsteps * Mathf.Clamp01(2f / Mathf.Max(d, 1f)), Air(d * 6f), 0f, 0.85f + 0.2f * Rand());
                 }
+            }
+        }
+
+        /// <summary>
+        /// Near soldiers' reloads, where each stands as it starts: the cell released,
+        /// pulled, the fresh one in and seated, on the first-person reload's beats.
+        /// Others' rounds aren't known, so it's a tactical reload's.
+        /// </summary>
+        void OthersReloading(NetFrame f, Vector3 ear)
+        {
+            float reach = Look.HandlingDistance;
+            for (int i = 0; i < f.EntityCount; i++)
+            {
+                var e = f.Entities[i];
+                bool reloading = (e.flags & LtCode.FlagReloading) != 0 && (e.flags & LtCode.FlagDead) == 0;
+                if (!reloading)
+                {
+                    reloadHeard[e.id] = false;
+                    continue;
+                }
+                if (reloadHeard[e.id])
+                    continue;
+                reloadHeard[e.id] = true;
+                var at = Coords.ToUnity(e.pos.x, e.pos.y, e.pos.z + 1.1f);
+                float d = Vector3.Distance(at, ear);
+                if (d > reach)
+                    continue;
+                nOthersReload++;
+                float level = Look.Handling * 0.75f * Mathf.Clamp01(1.5f / Mathf.Max(d, 0.5f));
+                float air = Air(d * 6f), late = d / Look.SoundSpeed;
+                PlayAt(Look.CellRelease, at, level * 0.8f, air, late + 0.33f, 1f);
+                PlayAt(Look.CellOut, at, level * 0.7f, air, late + 0.43f, 1f);
+                PlayAt(Look.CellIn, at, level * 0.7f, air, late + 1.5f, 1f);
+                PlayAt(Look.CellSeat, at, level, air, late + 1.7f, 1f);
             }
         }
 

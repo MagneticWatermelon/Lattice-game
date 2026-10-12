@@ -87,6 +87,7 @@ namespace Lattice.Game
             player.Autofire = Options.Autofire;
             player.Autoaim = Options.Autoaim;
             player.Autotarget = Options.Autotarget;
+            player.AutoCrouch = Options.Crouch;
             if (Options.NoAudio)
                 AudioListener.volume = 0f;
             player.Ghosts = Options.Ghosts;
@@ -128,7 +129,8 @@ namespace Lattice.Game
                 {
                     var o = NetDriver.Frame.Own;
                     // Seen from outside in the chase and spectator views, and in the death view.
-                    return (new Vector3(o.pos.x, o.pos.y, o.pos.z), lp.Yaw, lp.Pitch, o.grounded == 0, o.dead != 0, lp.Gun != null && lp.Gun.Ads, lp.Mode != ViewMode.FirstPerson || o.dead != 0);
+                    return (new Vector3(o.pos.x, o.pos.y, o.pos.z), lp.Yaw, lp.Pitch, o.grounded == 0, o.dead != 0, lp.Gun != null && lp.Gun.Ads,
+                        o.crouched != 0, o.reload > 0f, lp.Mode != ViewMode.FirstPerson || o.dead != 0);
                 };
             }
 
@@ -277,6 +279,11 @@ namespace Lattice.Game
                     sb.Append(string.Format(CultureInfo.InvariantCulture, " {0} ms at {1:F0} s", ms, at));
             }
             sb.Append('\n');
+            // The rifle's rounds: predicted exactly (no corrections), and what the reloads did.
+            var gun = FindAnyObjectByType<Lattice.Combat.Gun>();
+            if (gun != null && gun.Reloading != null)
+                sb.Append(string.Format(CultureInfo.InvariantCulture, "  rounds: ammo corrections {0}; reloads {1} ({2} from empty); dry trigger {3}\n",
+                    NetDriver.Frame.Stats.ammoCorrections, gun.Reloading.Started, gun.Reloading.StartedEmpty, gun.DryPulls));
             sb.Append(WorldBuiltAt >= 0f
                 ? string.Format(CultureInfo.InvariantCulture, "  world built {0:F1} s in (the frame numbers above count from then)\n", WorldBuiltAt)
                 : "  world never built\n");

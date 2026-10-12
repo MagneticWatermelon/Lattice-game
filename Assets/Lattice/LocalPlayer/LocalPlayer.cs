@@ -71,12 +71,20 @@ namespace Lattice.LocalPlayer
         public bool Grabbed { get; private set; }
         /// <summary>This frame's movement wish, for animation and the viewmodel.</summary>
         public float Forward, Right;
-        public bool Sprinting, Jumping;
+        public bool Sprinting, Jumping, Crouching;
+        /// <summary>Self-check (--crouch): crouched whenever it plays (with --autotarget, it
+        /// fights crouched).</summary>
+        public bool AutoCrouch;
 
-        bool swallow;
+        bool swallow, crouchToggle, jumpHeld;
+        float reloadUntil;
         Wander wander = new Wander { seed = 0x9E3779B9u };
 
         const float MaxPitch = Mathf.PI / 2f - 0.01f;
+        /// <summary>How long a reload press is held out to the plugin at most (its net
+        /// thread makes an input every 33 ms from the latest intent): until the reload
+        /// shows as under way, or this long (a full cell: nothing to do).</summary>
+        const float ReloadPress = 0.25f;
 
         void OnEnable()
         {
@@ -194,17 +202,49 @@ namespace Lattice.LocalPlayer
                 float s = Mathf.Sin(SpecYaw), c = Mathf.Cos(SpecYaw);
                 SpecEye += new Vector3((c * fwd + s * right) * speed, (s * fwd - c * right) * speed, up * speed);
                 fwd = right = 0f;
+                // Our player stays as it was: crouched, if it was toggled so.
+                if (crouchToggle || AutoCrouch)
+                    buttons |= (byte)LtCode.ButtonCrouch;
             }
             else
             {
-                if (kb != null && kb.leftShiftKey.isPressed) buttons |= (byte)LtCode.ButtonSprint;
-                if (kb != null && kb.spaceKey.isPressed) buttons |= (byte)LtCode.ButtonJump;
+                bool sprintKey = kb != null && kb.leftShiftKey.isPressed;
+                bool jumpKey = kb != null && kb.spaceKey.isPressed;
+                // C toggles a crouch, Ctrl holds one. From a toggled crouch, sprinting
+                // or jumping stands up (the jump waits for the key to come back up).
+                if (kb != null && kb.cKey.wasPressedThisFrame)
+                    crouchToggle = !crouchToggle;
+                if (crouchToggle && kb != null && ((kb.leftShiftKey.wasPressedThisFrame && fwd > 0f) || kb.spaceKey.wasPressedThisFrame))
+                {
+                    crouchToggle = false;
+                    jumpHeld = kb.spaceKey.wasPressedThisFrame;
+                }
+                if (!jumpKey)
+                    jumpHeld = false;
+                bool crouch = crouchToggle || AutoCrouch || (kb != null && kb.leftCtrlKey.isPressed);
+                if (sprintKey) buttons |= (byte)LtCode.ButtonSprint;
+                if (jumpKey && !jumpHeld) buttons |= (byte)LtCode.ButtonJump;
+                // Crouched: no sprint, no jump (the game's rule; sent so, the input says what happens).
+                if (crouch)
+                    buttons = (byte)((buttons | LtCode.ButtonCrouch) & ~(LtCode.ButtonSprint | LtCode.ButtonJump));
+                if (kb != null && kb.rKey.wasPressedThisFrame)
+                    reloadUntil = Time.unscaledTime + ReloadPress;
             }
 
             if (mouse == null || !mouse.leftButton.isPressed)
                 swallow = false;
-            bool alive = NetDriver.Frame.Welcomed && NetDriver.Frame.Own.dead == 0 && !Held;
+            var own = NetDriver.Frame.Own;
+            bool alive = NetDriver.Frame.Welcomed && own.dead == 0 && !Held;
             bool onTarget = Autotarget && alive && Mode != ViewMode.Spectator && Target(dt);
+            // The self-check tops up between fights, as a player would.
+            if (Autotarget && alive && !onTarget && targetId == LtCode.Nobody && own.reload <= 0f && own.reserve > 0 && own.mag < LtConst.Magazine / 3)
+                reloadUntil = Time.unscaledTime + ReloadPress;
+            // The press is held out until the reload shows as under way: held past
+            // the reload's end, the next shot would start another.
+            if (own.reload > 0f || !alive)
+                reloadUntil = 0f;
+            if (Time.unscaledTime < reloadUntil && Mode != ViewMode.Spectator)
+                buttons |= (byte)LtCode.ButtonReload;
             if (Mode != ViewMode.Spectator && alive)
             {
                 trigger = Autofire || onTarget || (Grabbed && !swallow && mouse != null && mouse.leftButton.isPressed);
@@ -217,6 +257,7 @@ namespace Lattice.LocalPlayer
             (Forward, Right) = (fwd, right);
             Sprinting = (buttons & LtCode.ButtonSprint) != 0 && fwd > 0f;
             Jumping = (buttons & LtCode.ButtonJump) != 0;
+            Crouching = (buttons & LtCode.ButtonCrouch) != 0;
             intent.yaw = Yaw;
             intent.pitch = Pitch;
             intent.forward = fwd;
@@ -266,7 +307,10 @@ namespace Lattice.LocalPlayer
             float flight = Mathf.Sqrt(tx * tx + ty * ty) / LtConst.MuzzleSpeed;
             tx += targetVel.x * flight;
             ty += targetVel.y * flight;
-            float tz = at.z + 1.2f + 0.5f * LtConst.Gravity * flight * flight - (me.z + LtConst.EyeHeight);
+            // The chest, standing or crouched; from our own eyes, standing or crouched.
+            float chest = (t.flags & LtCode.FlagCrouched) != 0 ? 0.8f : 1.2f;
+            float eye = f.Own.crouched != 0 ? LtConst.CrouchEyeHeight : LtConst.EyeHeight;
+            float tz = at.z + chest + 0.5f * LtConst.Gravity * flight * flight - (me.z + eye);
             float wantYaw = Mathf.Atan2(ty, tx);
             float wantPitch = Mathf.Atan2(tz, Mathf.Sqrt(tx * tx + ty * ty));
             float dYaw = Mathf.DeltaAngle(Yaw * Mathf.Rad2Deg, wantYaw * Mathf.Rad2Deg);

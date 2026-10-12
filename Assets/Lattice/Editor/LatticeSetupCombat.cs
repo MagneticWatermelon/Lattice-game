@@ -27,6 +27,14 @@ namespace Lattice.EditorTools
             look.ViewRifleMaterial = AssetDatabase.LoadAssetAtPath<Material>($"{Dir}/Rifle/RifleView.mat");
             look.Arms = AssetDatabase.LoadAssetAtPath<GameObject>($"{Dir}/Arms/SoldierArms.fbx");
             look.ViewHoloGlass = LatticeSetupPlayers.HoloGlass($"{Dir}/Rifle/HoloGlassView.mat", true);
+            look.Cell = AssetDatabase.LoadAllAssetsAtPath($"{Dir}/Rifle/Cell.fbx").OfType<Mesh>().FirstOrDefault();
+            // Gunmetal and machined steel, near the rifle's own dark metal; the glow
+            // is lit per renderer in the faction's color, as bright as the charge.
+            look.CellBody = CellMaterial("CellBody", new Color(0.085f, 0.09f, 0.1f), 0.85f, 0.62f, false);
+            look.CellTrim = CellMaterial("CellTrim", new Color(0.24f, 0.25f, 0.27f), 1f, 0.66f, false);
+            look.CellGlow = CellMaterial("CellGlow", new Color(0.02f, 0.02f, 0.02f), 0f, 0.86f, true);
+            // Bright enough to bloom a little, not so bright the color washes out to white.
+            look.CellGlowStrength = 1.1f;
             look.Tracer = ShaderMaterial($"{Dir}/Tracer.mat", "Lattice/Tracer");
             look.Flash = ShaderMaterial($"{Dir}/Flash.mat", "Lattice/Flash");
             look.Flash.enableInstancing = true;
@@ -56,6 +64,29 @@ namespace Lattice.EditorTools
                 AssetDatabase.CreateAsset(m, path);
             }
             m.shader = Shader.Find(shader);
+            EditorUtility.SetDirty(m);
+            return m;
+        }
+
+        /// <summary>A flat Lattice/Lit material for the cell (no maps: its parts are plain
+        /// metal), with emission on for the glow.</summary>
+        static Material CellMaterial(string name, Color color, float metallic, float smoothness, bool glow)
+        {
+            var m = ShaderMaterial($"{Dir}/Rifle/{name}.mat", "Lattice/Lit");
+            m.SetColor("_BaseColor", color);
+            m.SetFloat("_Metallic", metallic);
+            m.SetFloat("_Smoothness", smoothness);
+            m.SetFloat("_TintStrength", 0f);
+            if (glow)
+            {
+                m.EnableKeyword("_EMISSION");
+                // (URP's material validation turns the keyword off again unless the GI
+                // flags say the emission is used: nothing here is baked, so it costs nothing.)
+                m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                m.SetColor("_EmissionColor", Color.white);
+            }
+            else
+                m.DisableKeyword("_EMISSION");
             EditorUtility.SetDirty(m);
             return m;
         }

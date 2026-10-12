@@ -61,6 +61,16 @@ namespace Lattice.Players
         public Vector3 LeftElbowHint = new Vector3(-0.3f, -0.45f, 0.1f);
         /// <summary>The most the upper body twists from the legs, degrees.</summary>
         public float MaxTwist = 75f;
+
+        [Header("Crouch (there's no crouch clip: the hips go down, the legs fold by IK)")]
+        /// <summary>The hips' height (m) crouched still (a kneel, the right knee down) and
+        /// moving (a low walk): set so the head sits on the crouched head hitbox.</summary>
+        public float CrouchHipsStill = 0.52f, CrouchHipsMoving = 0.58f;
+        /// <summary>How far the body leans forward, still and moving, degrees.</summary>
+        public float CrouchLeanStill = 8f, CrouchLeanMoving = 18f;
+        /// <summary>The kneel's feet, from the hips' point on the ground (m: forward, right,
+        /// up): the left foot forward and flat, the right one back on its toes.</summary>
+        public Vector3 KneelLeftFoot = new Vector3(0.24f, -0.13f, 0.09f), KneelRightFoot = new Vector3(-0.35f, 0.12f, 0.12f);
         /// <summary>LOD screen heights (fraction of the screen) below which each LOD gives way.</summary>
         public float[] LodHeights = { 0.30f, 0.11f, 0.035f, 0.004f };
         /// <summary>The levels of detail that get the full rig: the hands on the rifle and

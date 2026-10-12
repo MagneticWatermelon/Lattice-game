@@ -30,6 +30,7 @@ The numpy-only scripts run on Blender's bundled Python (`...\Blender 5.1\5.1\pyt
 |---|---|---|
 | `Blender/soldier_fbx.py` (with `hands.py`) | `Players/Soldier/Soldier.fbx`: one armature, every clip as a take, four LODs; the hands closed into grips in the mesh (the rig has no finger bones). `Combat/Arms/SoldierArms.fbx`: the first-person arms, cut from the collarbones out, skinned to the arm bones only, upper arm and forearm lengthened (they must reach a rifle held out in front) | `src_dir soldier.fbx arms.fbx` |
 | `Blender/rifle_fbx.py` | `Combat/Rifle/Rifle.fbx`, `RifleView.fbx`: the GLB as one mesh, its folding iron sights folded down. With the last three args, also `RifleLow.fbx`: welded and decimated to 600 triangles, the crowd's rifle | `in.glb out.fbx Name [low.fbx LowName triangles]` |
+| `Blender/cell_fbx.py` | `Combat/Rifle/Cell.fbx`: the rifle's ammo cell, which the reload takes out and puts back. A canister across the receiver's round bay (measured from the rifle: its dark disc at x 0.1887, z -0.0716, r 0.032, on a dome to y 0.0945), centered on its own middle, its axis along the rifle's left-right; looks the same every 60 degrees (the empty reload's twist hands it back unturned); body, trim and glow materials; renders previews seated and out | `rifle_view.glb out.fbx preview_dir` |
 | `Blender/holo_fbx.py` | `Combat/Rifle/HoloSight.fbx`: the holographic sight, in the rifle mesh's own frame (body, matte hood inside, glass); renders previews | `rifle_view.glb out.fbx preview_dir` |
 | `Blender/prop_fbx.py` | `World/Cover/*.fbx`: a static GLB as one FBX mesh, in Unity's axes (the client draws the bare mesh, not the FBX's transform), with its textures beside it (then `mr_to_urp.py` for `_metal.png`) | `in.glb out.fbx Name` |
 
@@ -49,8 +50,10 @@ The numpy-only scripts run on Blender's bundled Python (`...\Blender 5.1\5.1\pyt
 `Audio/sfx.py OUT_DIR [PREVIEW_DIR]` synthesizes every sound effect in
 `Audio/Clips` (numpy only: nothing recorded, nothing to license): the rifle
 (own, others' near and far), supersonic cracks, impacts, hit, head and kill
-confirms, hurts, death, respawn, sights up/down, footsteps, wind and the
-distant battle beds, with an open-field reverb whose tail is set in dB below
+confirms, hurts, death, respawn, sights up/down, footsteps, the reload's
+handling (the cell released, pulled out, the pouch, the fresh one slid in,
+seated, charged from empty), the dry trigger, a spent cell's clink,
+crouching down and up, wind and the distant battle beds, with an open-field reverb whose tail is set in dB below
 the direct sound. `SFX_ONLY=Shot_Own,Crack` remakes some. `PREVIEW_DIR` gets a
 waveform/spectrogram sheet; `Audio/sfx_stats.py DIR [names]` prints each
 clip's envelope (dB below peak at 5-800 ms), spectral centroid and low-end

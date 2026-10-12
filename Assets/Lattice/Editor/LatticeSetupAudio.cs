@@ -39,6 +39,16 @@ namespace Lattice.EditorTools
             look.Respawn = One("Respawn");
             look.SightsUp = One("Sights_Up");
             look.SightsDown = One("Sights_Down");
+            look.CellRelease = One("Cell_Release");
+            look.CellOut = One("Cell_Out");
+            look.CellPouch = One("Cell_Pouch");
+            look.CellIn = One("Cell_In");
+            look.CellSeat = One("Cell_Seat");
+            look.CellCharge = One("Cell_Charge");
+            look.CellClink = Many("Cell_Clink");
+            look.DryFire = One("Dry_Fire");
+            look.CrouchDown = One("Crouch_Down");
+            look.CrouchUp = One("Crouch_Up");
             look.Wind = One("Wind");
             look.BattleSmall = One("Battle_Small");
             look.BattleLarge = One("Battle_Large");

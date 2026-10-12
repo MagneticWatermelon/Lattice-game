@@ -58,6 +58,18 @@ MonoBehaviour:
   Respawn: {fileID: 8300000, guid: 7af72275439f34742a2b6e0cbec825de, type: 3}
   SightsUp: {fileID: 8300000, guid: 943196bb07340014686f5a30215a7772, type: 3}
   SightsDown: {fileID: 8300000, guid: 288626cebee0af74196f755310a18cdc, type: 3}
+  CellRelease: {fileID: 8300000, guid: 01314925ca855a44f9fe00a0718c6752, type: 3}
+  CellOut: {fileID: 8300000, guid: 4907357fe9c9a0041bb48abb69cf616d, type: 3}
+  CellPouch: {fileID: 8300000, guid: 94f0339c967d7394495cb50a42591dd6, type: 3}
+  CellIn: {fileID: 8300000, guid: 6bc29df05378e9b4f932db8dcb5db430, type: 3}
+  CellSeat: {fileID: 8300000, guid: 5f5d3c1f2d08f2d4da09643c3f03cd88, type: 3}
+  CellCharge: {fileID: 8300000, guid: 1555fb12295080d4ba72e6ae6af29b16, type: 3}
+  DryFire: {fileID: 8300000, guid: 4c233b68fdd856349bd4b590aaf3042a, type: 3}
+  CrouchDown: {fileID: 8300000, guid: b21766c911928c249bfb434e5f99cc9a, type: 3}
+  CrouchUp: {fileID: 8300000, guid: 93e8e3d48df592b4fa6c3c115bf5c351, type: 3}
+  CellClink:
+  - {fileID: 8300000, guid: a2fc7d0608cbf8d43936d288c5d60e80, type: 3}
+  - {fileID: 8300000, guid: 7e3a0ce7abd4c0645bcfc8a15ffaca46, type: 3}
   Wind: {fileID: 8300000, guid: fcb659dca13d1214694d9cdaaf0ddffe, type: 3}
   BattleSmall: {fileID: 8300000, guid: b39aa30e84da68545a505062ec1cd9fc, type: 3}
   BattleLarge: {fileID: 8300000, guid: daf4edea1157fb44ab99cf66f7e20742, type: 3}
@@ -68,6 +80,8 @@ MonoBehaviour:
   Footsteps: 0.45
   Ambience: 0.28
   Battle: 0.55
+  Handling: 0.6
+  HandlingDistance: 18
   ShotNearDistance: 10
   FarFrom: 70
   Audible: 900

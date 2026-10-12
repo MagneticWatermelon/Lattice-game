@@ -8,7 +8,7 @@ namespace Lattice.Players
     /// <summary>
     /// One soldier drawn in full: the skinned model, animated from what the
     /// plugin draws (lt_render: position, aim, airborne, dead, aiming down
-    /// sights) and from its shots.
+    /// sights, crouched, reloading) and from its shots.
     ///
     /// The clips are forward gaits only, so direction is made here: the legs
     /// turn toward where it moves (backpedaling plays the gait in reverse)
@@ -16,6 +16,9 @@ namespace Lattice.Players
     /// Aim pitch bends the spine. The rifle is placed by the aim, stock in the
     /// shoulder, and both hands are put on it by IK, so it points exactly
     /// where the player aims. Sprinting, it rides the right hand instead.
+    /// Crouched (there's no crouch clip), the hips go down so the head sits on the
+    /// crouched head hitbox and the legs fold by IK: a kneel standing still, a low
+    /// walk moving. Reloading, the rifle cants and the left hand works its bay.
     /// </summary>
     public sealed class SoldierView : MonoBehaviour
     {
@@ -38,6 +41,7 @@ namespace Lattice.Players
         MeshRenderer rifleRenderer, holoRenderer;
         Transform spine, chest, upperChest, neck, head;
         Transform rUpper, rLower, rHand, lUpper, lLower, lHand;
+        Transform hips, lThigh, lShin, lFoot, rThigh, rShin, rFoot;
         HandGrip rGrip, lGrip;
         static readonly int SpeedId = Animator.StringToHash("Speed");
         static readonly int PlayRateId = Animator.StringToHash("PlayRate");
@@ -49,8 +53,11 @@ namespace Lattice.Players
         Vector3 lastPos;
         Vector2 vel;
         float legsYaw, aimYaw, aimPitch, aimWeight, sprint;
-        bool reverse, dead, airborne, hasLast;
+        bool reverse, dead, airborne, hasLast, crouched;
         float firedAt = -10f;
+        /// <summary>How crouched it's drawn (eased); how far into a reload (s; -1: none) and
+        /// how much of its pose shows (eased in and out with the flag).</summary>
+        float crouch, reloadAt = -1f, reloadWeight;
         bool shadowsOnly, alwaysAnimate;
         Material body;
 
@@ -105,6 +112,13 @@ namespace Lattice.Players
             lUpper = animator.GetBoneTransform(HumanBodyBones.LeftUpperArm);
             lLower = animator.GetBoneTransform(HumanBodyBones.LeftLowerArm);
             lHand = animator.GetBoneTransform(HumanBodyBones.LeftHand);
+            hips = animator.GetBoneTransform(HumanBodyBones.Hips);
+            lThigh = animator.GetBoneTransform(HumanBodyBones.LeftUpperLeg);
+            lShin = animator.GetBoneTransform(HumanBodyBones.LeftLowerLeg);
+            lFoot = animator.GetBoneTransform(HumanBodyBones.LeftFoot);
+            rThigh = animator.GetBoneTransform(HumanBodyBones.RightUpperLeg);
+            rShin = animator.GetBoneTransform(HumanBodyBones.RightLowerLeg);
+            rFoot = animator.GetBoneTransform(HumanBodyBones.RightFoot);
             // Still in the bind pose (nothing has animated yet): how each hand is bound.
             var bodyRight = (rUpper.position - lUpper.position).normalized;
             var bodyUp = head.position - animator.GetBoneTransform(HumanBodyBones.Hips).position;
@@ -142,6 +156,9 @@ namespace Lattice.Players
             hasLast = false;
             firedAt = -10f;
             aimWeight = 1f;
+            crouch = 0f;
+            reloadAt = -1f;
+            reloadWeight = 0f;
             gameObject.SetActive(true);
         }
 
@@ -218,7 +235,7 @@ namespace Lattice.Players
         /// Places it where it's drawn (game space feet, aim in radians) and sets
         /// the animator for this frame: before animation runs.
         /// </summary>
-        public void Place(Vector3 feet, float yaw, float pitch, bool isAirborne, bool isDead, bool ads, float dt, float time)
+        public void Place(Vector3 feet, float yaw, float pitch, bool isAirborne, bool isDead, bool ads, bool isCrouched, bool isReloading, float dt, float time)
         {
             dt = Mathf.Max(dt, 1e-4f);
             bool teleport = !hasLast || (feet - lastPos).sqrMagnitude > LtConst.Teleport * LtConst.Teleport || (dead && !isDead);
@@ -241,6 +258,14 @@ namespace Lattice.Players
             }
             dead = isDead;
             airborne = isAirborne;
+            crouched = isCrouched && !isDead;
+            crouch = teleport ? (crouched ? 1f : 0f) : Mathf.MoveTowards(crouch, crouched ? 1f : 0f, dt / 0.16f);
+            bool reloading = isReloading && !isDead;
+            if (reloading)
+                reloadAt = reloadAt < 0f ? 0f : reloadAt + dt;
+            reloadWeight = Mathf.MoveTowards(reloadWeight, reloading ? 1f : 0f, dt / 0.25f);
+            if (reloadWeight <= 0f)
+                reloadAt = -1f;
 
             float speed = vel.magnitude;
             float twistMax = look.MaxTwist * Mathf.Deg2Rad;
@@ -273,8 +298,11 @@ namespace Lattice.Players
             bool combat = ads || time - firedAt < 1.5f || !sprinting;
             aimWeight = Mathf.MoveTowards(aimWeight, dead ? 0f : combat ? 1f : 0f, dt / 0.2f);
 
-            animator.SetFloat(SpeedId, speed);
-            animator.SetFloat(PlayRateId, (reverse ? -1f : 1f) * Mathf.Max(1f, speed / 9f));
+            // Crouched, a walk however fast (the legs fold over it), at the rate that keeps its feet.
+            float gait = crouched && speed > 0.3f ? Mathf.Min(speed, 2f) : speed;
+            float rate = crouched && speed > 2f ? speed / 2f : Mathf.Max(1f, speed / 9f);
+            animator.SetFloat(SpeedId, gait);
+            animator.SetFloat(PlayRateId, (reverse ? -1f : 1f) * rate);
             animator.SetFloat(AimRateId, 0f);
             animator.SetBool(AirborneId, airborne && !dead);
             animator.SetBool(DeadId, dead);
@@ -306,14 +334,16 @@ namespace Lattice.Players
                 visible |= r.isVisible;
             visible |= rifleRenderer.isVisible;
 
-            var aim = Coords.View(aimYaw, aimPitch);
-            var up = Vector3.up;
-            float twist = Mathf.DeltaAngle(90f - legsYaw * Mathf.Rad2Deg, 90f - aimYaw * Mathf.Rad2Deg);
-            twist = Mathf.Clamp(twist, -look.MaxTwist - 15f, look.MaxTwist + 15f);
             // Small on screen (past the full rig's levels of detail), the upper body
             // turns to the aim from one bone, and the hands stay where the aim layer
             // holds them: a hand there is a pixel or two.
             bool small = (lod < 0 || lod >= look.FullRigLods) && !alwaysAnimate;
+            if (crouch > 0.001f && (visible || alwaysAnimate))
+                Crouch(crouch, !small);
+            var aim = Coords.View(aimYaw, aimPitch);
+            var up = Vector3.up;
+            float twist = Mathf.DeltaAngle(90f - legsYaw * Mathf.Rad2Deg, 90f - aimYaw * Mathf.Rad2Deg);
+            twist = Mathf.Clamp(twist, -look.MaxTwist - 15f, look.MaxTwist + 15f);
             if (visible && small)
             {
                 var right = aim * Vector3.right;
@@ -344,6 +374,13 @@ namespace Lattice.Players
             float w = Mathf.Max(aimWeight, 1f - sprint);
             var pos = Vector3.Lerp(handPos, aimPos, w);
             var frame = Quaternion.Slerp(carry, aim, w);
+            // Reloading: the rifle comes down a little and cants, its bay up to the left hand.
+            float reload = Reloading(out var leftAt);
+            if (reload > 0f)
+            {
+                frame = Quaternion.Slerp(frame, frame * Quaternion.Euler(12f, -8f, -40f), reload);
+                pos += (-up * 0.06f - transform.right * 0.04f) * reload;
+            }
             rifle.SetPositionAndRotation(pos, frame * Quaternion.Euler(look.RifleEuler));
             Muzzle = pos + frame * (look.RifleMuzzle * size);
             MuzzleForward = frame * Vector3.forward;
@@ -354,6 +391,10 @@ namespace Lattice.Players
                 var fore = pos + frame * (look.LeftGrip * size);
                 TwoBoneIK.Solve(rUpper, rLower, rHand, grip, rUpper.position + aim * look.RightElbowHint, w);
                 rHand.rotation = Quaternion.Slerp(rHand.rotation, rGrip.Hold(SoldierLook.Grip(frame, look.RightFingers, look.RightBack)), w);
+                // Reloading, the left hand leaves the handguard: to the bay, out with the
+                // cell, down to the belt for another, back, home.
+                if (reload > 0f)
+                    fore = Vector3.Lerp(fore, LeftReload(pos, frame, size, leftAt), reload);
                 TwoBoneIK.Solve(lUpper, lLower, lHand, fore, lUpper.position + aim * look.LeftElbowHint, w);
                 lHand.rotation = Quaternion.Slerp(lHand.rotation, lGrip.Hold(SoldierLook.Grip(frame, look.LeftFingers, look.LeftBack)), w);
             }
@@ -365,13 +406,82 @@ namespace Lattice.Players
                 t.rotation = world * t.rotation;
         }
 
+        static float Smooth(float x)
+        {
+            x = Mathf.Clamp01(x);
+            return x * x * (3f - 2f * x);
+        }
+
+        /// <summary>
+        /// The crouch, over whatever the animator played: the hips down (to a kneel
+        /// standing still, a low walk moving), the body leaning in, and the legs folded
+        /// by IK onto where the feet go: moving, where the gait put them; still, the
+        /// kneel's (the left foot forward, the right knee down, its foot on its toes).
+        /// The feet keep their turn. <paramref name="legs"/>: fold them (off when the
+        /// soldier's a few pixels tall: the hips going down is what shows).
+        /// </summary>
+        void Crouch(float w, bool legs)
+        {
+            if (hips == null || lFoot == null || rFoot == null)
+                return;
+            var up = Vector3.up;
+            var root = transform.position;
+            var fwd = transform.forward;
+            var right = transform.right;
+            Vector3 lf = lFoot.position, rf = rFoot.position;
+            Quaternion lfr = lFoot.rotation, rfr = rFoot.rotation;
+            float still = 1f - Smooth(Mathf.InverseLerp(0.3f, 1.2f, vel.magnitude));
+            float want = Mathf.Lerp(look.CrouchHipsMoving, look.CrouchHipsStill, still);
+            float drop = Mathf.Max(0f, hips.position.y - root.y - want) * w;
+            hips.position -= up * drop;
+            Turn(spine, Quaternion.AngleAxis(Mathf.Lerp(look.CrouchLeanMoving, look.CrouchLeanStill, still) * w, right));
+            if (!legs)
+                return;
+            Vector3 Kneel(Vector3 k) => root + fwd * k.x + right * k.y + up * k.z;
+            var lTarget = Vector3.Lerp(lf, Kneel(look.KneelLeftFoot), still);
+            var rTarget = Vector3.Lerp(rf, Kneel(look.KneelRightFoot), still);
+            // Knees forward (the kneeling one forward and down, onto the ground).
+            TwoBoneIK.Solve(lThigh, lShin, lFoot, lTarget, lShin.position + fwd * 0.5f + up * 0.1f, w);
+            TwoBoneIK.Solve(rThigh, rShin, rFoot, rTarget, rShin.position + fwd * 0.5f - up * (0.3f * still), w);
+            lFoot.rotation = lfr;
+            rFoot.rotation = Quaternion.Slerp(rfr, Quaternion.AngleAxis(50f, right) * rfr, still * w);
+        }
+
+        /// <summary>How far into the reload's pose (0..1), eased in and out with the
+        /// flag (it lasts 2.2 s, or 2.7 from empty: the hand then waits at the bay),
+        /// and how far through its motion (s).</summary>
+        float Reloading(out float t)
+        {
+            t = Mathf.Max(reloadAt, 0f);
+            return dead ? 0f : Smooth(reloadWeight);
+        }
+
+        /// <summary>The left wrist through a reload (world): from the handguard to the bay
+        /// (the rifle's frame, as the first-person one has it), out with the cell, down to
+        /// the belt, back with another, into the bay, home.</summary>
+        Vector3 LeftReload(Vector3 pos, Quaternion frame, float size, float t)
+        {
+            var bay = pos + frame * (new Vector3(-0.17f, -0.07f, -0.19f) * size);
+            var outOf = bay - frame * (Vector3.right * (0.2f * size));
+            var belt = transform.position + Vector3.up * 0.95f - transform.right * 0.2f + transform.forward * 0.05f;
+            if (t < 0.35f)
+                return bay;
+            if (t < 0.6f)
+                return Vector3.Lerp(bay, outOf, Smooth((t - 0.35f) / 0.25f));
+            if (t < 1.05f)
+                return Vector3.Lerp(outOf, belt, Smooth((t - 0.6f) / 0.45f));
+            if (t < 1.45f)
+                return Vector3.Lerp(belt, outOf, Smooth((t - 1.05f) / 0.4f));
+            return Vector3.Lerp(outOf, bay, Smooth((t - 1.45f) / 0.25f));
+        }
+
         /// <summary>
         /// A plain mesh of this soldier posed (moving at <paramref name="speed"/>, or
         /// fallen), from its lightest LOD, with <paramref name="rifleMesh"/> in its
         /// hands as a second submesh: what the crowd draws, instanced. In the
         /// soldier's own space (facing +z), scale included.
         /// </summary>
-        public Mesh Bake(float speed, bool fallen, Mesh rifleMesh)
+        public Mesh Bake(float speed, bool fallen, Mesh rifleMesh, bool crouching = false)
         {
             gameObject.SetActive(true);
             transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
@@ -382,7 +492,12 @@ namespace Lattice.Players
             dead = fallen;
             aimWeight = fallen ? 0f : 1f;
             sprint = 0f;
-            animator.SetFloat(SpeedId, speed);
+            crouched = crouching;
+            crouch = crouching ? 1f : 0f;
+            reloadAt = -1f;
+            // (Moving along its facing: the crouch reads its speed from here.)
+            vel = new Vector2(0f, speed);
+            animator.SetFloat(SpeedId, crouching && speed > 0.3f ? Mathf.Min(speed, 2f) : speed);
             animator.SetFloat(PlayRateId, 1f);
             animator.SetFloat(AimRateId, 0f);
             animator.SetBool(DeadId, fallen);
@@ -414,13 +529,16 @@ namespace Lattice.Players
             };
             if (rifleMesh != null)
                 parts.Add(new CombineInstance { mesh = rifleMesh, transform = toRoot * rifle.localToWorldMatrix });
-            var mesh = new Mesh { name = fallen ? "Crowd fallen" : speed > 1f ? "Crowd running" : "Crowd standing" };
+            var mesh = new Mesh { name = (fallen ? "Crowd fallen" : speed > 1f ? "Crowd running" : "Crowd standing") + (crouching ? ", crouched" : "") };
             mesh.CombineMeshes(parts.ToArray(), false, true);
             mesh.RecalculateBounds();
             mesh.UploadMeshData(true);
             Destroy(body);
             animator.cullingMode = cull;
             dead = false;
+            crouched = false;
+            crouch = 0f;
+            vel = Vector2.zero;
             gameObject.SetActive(false);
             return mesh;
         }

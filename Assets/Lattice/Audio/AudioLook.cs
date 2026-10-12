@@ -21,12 +21,23 @@ namespace Lattice.Audio
         public AudioClip[] Footstep, Hurt;
         public AudioClip HitBody, HitHead, Kill, Death, Respawn, SightsUp, SightsDown;
 
+        [Header("Handling")]
+        /// <summary>The reload's sounds (the cell released, pulled out, the hand at the
+        /// pouch, the fresh one slid in, seated, charged from empty), the trigger pulled
+        /// dry, a spent cell landing, crouching down and getting up.</summary>
+        public AudioClip CellRelease, CellOut, CellPouch, CellIn, CellSeat, CellCharge, DryFire, CrouchDown, CrouchUp;
+        public AudioClip[] CellClink;
+
         [Header("Beds")]
         public AudioClip Wind, BattleSmall, BattleLarge;
 
         [Header("Mix")]
         [Range(0f, 1f)] public float Master = 0.9f;
         [Range(0f, 1f)] public float OwnShot = 0.8f, Shots = 0.8f, Feedback = 0.7f, Footsteps = 0.45f, Ambience = 0.28f, Battle = 0.55f;
+        /// <summary>Handling sounds (the reload, the trigger, crouching): ours, and others'
+        /// within <see cref="HandlingDistance"/> (m).</summary>
+        [Range(0f, 1f)] public float Handling = 0.6f;
+        public float HandlingDistance = 18f;
         /// <summary>Distance (m) inside which a shot plays at full level; past it, inverse distance.</summary>
         public float ShotNearDistance = 10f;
         /// <summary>Where the far shot's sound takes over from the near one, and where shots go unheard

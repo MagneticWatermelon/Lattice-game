@@ -358,6 +358,171 @@ def footstep(variant, surface="dirt"):
     return fade(normalize(out, -3.0), 0.001, 0.04)
 
 
+# ---- handling: the cell, the trigger, the body ------------------------------
+
+def close_space(x, seed):
+    """Handling sounds are at arm's length: dry, with just the field's first bounce."""
+    return convolve(x, outdoor_ir(0.3, seed, ground=0.0015, ground_gain=0.22, slaps=((0.07, -30.0),),
+                                  tail_db=-26.0, decay=0.08, bright=7000))[:len(x)]
+
+
+def latch(secs, seed, f=3700.0, level=1.0):
+    """A small steel latch snapping: a bright tick with a short ring."""
+    x = band(noise(secs, seed), 3000, 11000) * env_exp(secs, 0.0012, 0.0001)
+    x += ring(secs, [f, f * 1.65, f * 2.4], [0.011, 0.006, 0.0035], [0.45, 0.25, 0.12])
+    return x * level
+
+
+def scrape(secs, seed, lo=1500.0, hi=7500.0, rate=1100.0, modes=(2300.0, 3900.0, 5600.0)):
+    """Metal sliding on metal: a rough surface's micro-impacts, each ringing the
+    parts' modes, over a thin hiss; swelling in and out."""
+    r = np.random.default_rng(seed)
+    n = int(secs * SR)
+    imp = np.zeros(n)
+    k = r.poisson(rate * secs)
+    idx = r.integers(0, n, k)
+    imp[idx] = r.uniform(0.25, 1.0, k) * r.choice([-1.0, 1.0], k)
+    mode = ring(0.025, [m * r.uniform(0.96, 1.04) for m in modes], [0.004, 0.003, 0.002], [1.0, 0.6, 0.35])
+    body = band(convolve(imp, mode)[:n], lo, hi)
+    hiss = band(noise(secs, seed + 1), lo, hi) * 0.18
+    t = t_axis(secs)
+    swell = np.sin(np.pi * np.clip(t / secs, 0, 1)) ** 0.7
+    return (body / (np.max(np.abs(body)) + 1e-9) + hiss) * swell
+
+
+def cell_release():
+    """The cap pressed: the latch lets go (two ticks), the spring kicks the cell
+    out with a thunk and a puff of gas, and it slides the first few centimeters."""
+    secs = 0.34
+    out = np.zeros(int(secs * SR))
+    place(out, latch(0.06, 2000, 3700.0), 0.0, 0.9)
+    place(out, latch(0.05, 2001, 4300.0), 0.009, 0.45)
+    thunk = ring(0.12, [310.0, 470.0, 1150.0], [0.035, 0.02, 0.012], [0.5, 0.25, 0.12])
+    thunk += lowpass(noise(0.12, 2002), 700) * env_exp(0.12, 0.018, 0.0008) * 0.6
+    place(out, thunk, 0.011, 0.8)
+    puff = band(noise(0.16, 2003), 2500, 11000) * env_exp(0.16, 0.045, 0.006)
+    place(out, puff, 0.012, 0.28)
+    place(out, scrape(0.07, 2004, 1800.0, 8000.0, 1400.0), 0.03, 0.35)
+    return fade(normalize(close_space(out, 2005), -3.0), 0.0003, 0.05)
+
+
+def cell_out():
+    """Pulled out of the bay: a scrape that quickens, then the canister rings as it clears."""
+    secs = 0.36
+    out = np.zeros(int(secs * SR))
+    s = scrape(0.17, 2010, 1500.0, 8000.0, 1500.0)
+    s *= np.linspace(0.6, 1.0, len(s))
+    place(out, s, 0.0, 0.7)
+    clear = ring(0.2, [1130.0, 3240.0, 5100.0], [0.07, 0.035, 0.02], [0.35, 0.2, 0.1])
+    place(clear, latch(0.03, 2011, 2600.0), 0.0, 0.4)
+    place(out, clear, 0.165, 0.6)
+    return fade(normalize(close_space(out, 2012), -4.0), 0.002, 0.06)
+
+
+def cell_pouch():
+    """A hand at the belt: cloth and webbing, a buckle's click."""
+    secs = 0.38
+    t = t_axis(secs)
+    rustle = band(noise(secs, 2020), 600, 5000) * np.exp(-((t - 0.1) / 0.07) ** 2)
+    rustle += band(noise(secs, 2021), 1500, 7000) * np.exp(-((t - 0.22) / 0.05) ** 2) * 0.6
+    out = rustle * 0.55
+    place(out, latch(0.04, 2022, 2900.0, 0.35), 0.16)
+    return fade(normalize(close_space(out, 2023), -7.0), 0.003, 0.06)
+
+
+def cell_in():
+    """Slid into the bay: a darker scrape, slowing, and a soft bump at the stop."""
+    secs = 0.22
+    out = np.zeros(int(secs * SR))
+    s = scrape(0.12, 2030, 1100.0, 6000.0, 1000.0, (1900.0, 3300.0, 4800.0))
+    s *= np.linspace(1.0, 0.7, len(s))
+    place(out, s, 0.0, 0.7)
+    bump = lowpass(noise(0.08, 2031), 900) * env_exp(0.08, 0.012, 0.0008) + ring(0.08, [520.0], [0.02], [0.3])
+    place(out, bump, 0.115, 0.45)
+    return fade(normalize(close_space(out, 2032), -5.0), 0.002, 0.05)
+
+
+def cell_seat():
+    """Pushed home: a weighty ka-chunk (the cell's mass meeting the stop, two
+    latches catching) and the cell's contacts meeting, a small electric chirp."""
+    secs = 0.42
+    out = np.zeros(int(secs * SR))
+    chunk = lowpass(noise(0.2, 2040), 900) * env_exp(0.2, 0.017, 0.0006)
+    chunk += ring(0.2, [165.0, 410.0, 980.0, 2150.0], [0.05, 0.032, 0.016, 0.008], [0.4, 0.45, 0.28, 0.12])
+    place(out, softclip(chunk * 1.4, 1.3), 0.0, 1.0)
+    place(out, latch(0.05, 2041, 3500.0), 0.011, 0.75)
+    place(out, latch(0.05, 2042, 4100.0), 0.028, 0.5)
+    chirp = sweep(0.07, 900.0, 1900.0, 2.0) * env_exp(0.07, 0.025, 0.004)
+    chirp += 0.35 * sweep(0.07, 2700.0, 5700.0, 2.0) * env_exp(0.07, 0.02, 0.004)
+    crackle = band(noise(0.04, 2043) * (np.random.default_rng(2044).random(int(0.04 * SR)) < 0.03), 2000, 9000)
+    place(out, chirp, 0.045, 0.16)
+    place(out, crackle, 0.045, 0.25)
+    return fade(normalize(close_space(out, 2045), -2.0), 0.0003, 0.08)
+
+
+def cell_charge():
+    """From empty, the cap turned: a ratchet (three clicks), then the cell
+    charging, a whine rising, and a ping as it's ready."""
+    secs = 0.62
+    out = np.zeros(int(secs * SR))
+    for k, at in enumerate((0.0, 0.042, 0.086)):
+        place(out, latch(0.03, 2050 + k, 4400.0 - 300.0 * k, 0.8), at)
+    t = t_axis(0.42)
+    f = 210.0 * (2600.0 / 210.0) ** ((t / 0.42) ** 1.6)
+    ph = 2 * np.pi * np.cumsum(f * (1 + 0.004 * np.sin(2 * np.pi * 31 * t))) / SR
+    whine = np.sin(ph) + 0.3 * np.sin(2 * ph) + 0.12 * np.sin(3 * ph)
+    shape = np.clip(t / 0.06, 0, 1) * (0.35 + 0.65 * t / 0.42)
+    hum = lowpass(noise(0.42, 2054), 400) * 0.25 * shape
+    place(out, (whine * shape * 0.22 + hum) * np.clip((0.42 - t) / 0.02, 0, 1), 0.1)
+    place(out, ring(0.12, [2600.0, 5200.0, 7800.0], [0.05, 0.03, 0.015], [0.4, 0.18, 0.06]), 0.5, 0.7)
+    return fade(normalize(close_space(out, 2055), -5.0), 0.0005, 0.05)
+
+
+def dry_fire():
+    """The trigger with nothing in the cell: a hollow click and the dead cell's fizzle."""
+    secs = 0.22
+    out = np.zeros(int(secs * SR))
+    click = band(noise(0.04, 2060), 1500, 6500) * env_exp(0.04, 0.0018, 0.0001)
+    click += ring(0.04, [1900.0, 3150.0], [0.008, 0.005], [0.5, 0.25])
+    place(out, click, 0.0, 1.0)
+    place(out, lowpass(noise(0.05, 2061), 420) * env_exp(0.05, 0.01, 0.0008), 0.012, 0.35)
+    fizz = band(noise(0.1, 2062), 300, 2600) * env_exp(0.1, 0.035, 0.004)
+    fizz *= 0.6 + 0.4 * np.sign(np.sin(2 * np.pi * 120 * t_axis(0.1)))
+    place(out, fizz, 0.02, 0.18)
+    return fade(normalize(close_space(out, 2063), -4.0), 0.0003, 0.05)
+
+
+def cell_clink(variant):
+    """A spent cell hitting the ground: a thud in the dirt, the canister's ring,
+    a smaller bounce or two."""
+    seed = 2070 + variant * 10
+    r = np.random.default_rng(seed)
+    secs = 0.6
+    out = np.zeros(int(secs * SR))
+    f0 = 640.0 * r.uniform(0.92, 1.08)
+    for k, (at, g) in enumerate(((0.0, 1.0), (r.uniform(0.11, 0.15), 0.42), (r.uniform(0.21, 0.26), 0.16))):
+        thud = lowpass(noise(0.1, seed + k), 520) * env_exp(0.1, 0.016, 0.0006) * 0.55
+        grit = band(noise(0.05, seed + 5 + k), 2000, 8000) * env_exp(0.05, 0.006, 0.0003) * 0.3
+        tone = ring(0.3, [f0, f0 * 2.27, f0 * 4.6], [0.085, 0.05, 0.028], [0.42, 0.24, 0.1])
+        place(out, pad(thud, 0.3) + pad(grit, 0.3) + tone, at, g)
+    out = convolve(out, outdoor_ir(0.5, seed + 9, ground=0.002, slaps=((0.08, -26.0),), tail_db=-20.0, decay=0.15, bright=5000))[:len(out)]
+    return fade(normalize(out, -4.0), 0.0005, 0.08)
+
+
+def crouch(down):
+    """Getting down or up: webbing and cloth, a strap's click; down, the knee's soft thud."""
+    seed = 2090 + (0 if down else 5)
+    secs = 0.34
+    t = t_axis(secs)
+    out = band(noise(secs, seed), 500, 5000) * np.exp(-((t - 0.07) / 0.05) ** 2) * 0.6
+    out += band(noise(secs, seed + 1), 1800, 7500) * np.exp(-((t - (0.12 if down else 0.05)) / 0.035) ** 2) * 0.35
+    place(out, latch(0.04, seed + 2, 2700.0 if down else 3200.0, 0.22), 0.04 if down else 0.09)
+    if down:
+        knee = lowpass(noise(0.12, seed + 3), 260) * env_exp(0.12, 0.03, 0.004)
+        place(out, knee, 0.12, 0.9)
+    return fade(normalize(close_space(out, seed + 4), -6.0), 0.002, 0.06)
+
+
 # ---- beds (loops) -----------------------------------------------------------
 
 def loopify(x, xfade):
@@ -425,6 +590,17 @@ write("Death", death())
 write("Respawn", respawn())
 write("Sights_Up", gear(0, True))
 write("Sights_Down", gear(1, False))
+write("Cell_Release", cell_release())
+write("Cell_Out", cell_out())
+write("Cell_Pouch", cell_pouch())
+write("Cell_In", cell_in())
+write("Cell_Seat", cell_seat())
+write("Cell_Charge", cell_charge())
+write("Dry_Fire", dry_fire())
+for v in range(2):
+    write(f"Cell_Clink_{v}", cell_clink(v))
+write("Crouch_Down", crouch(True))
+write("Crouch_Up", crouch(False))
 write("Wind", wind(), stereo=True)
 write("Battle_Small", battle(rate=4.0, seed=1400))
 write("Battle_Large", battle(rate=18.0, seed=1500))

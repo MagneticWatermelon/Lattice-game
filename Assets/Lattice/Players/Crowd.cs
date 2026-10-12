@@ -12,7 +12,8 @@ namespace Lattice.Players
     /// Everyone else, drawn from lt_render (GDD §14.4): the nearest players as
     /// full soldiers (<see cref="SoldierView"/>, pooled: nothing is made during
     /// a fight), the rest as GPU-instanced soldiers in a pose baked from the
-    /// same model (standing, running, fallen), colored by SoldierColors. Our own body
+    /// same model (standing, running, crouched still or moving, fallen), colored
+    /// by SoldierColors. Our own body
     /// is a full soldier too: seen from outside in the chase and spectator
     /// views, and only as a shadow in first person.
     /// </summary>
@@ -28,7 +29,7 @@ namespace Lattice.Players
         public int RichPerFrame = 8;
 
         /// <summary>Our own player: drawn from the local player's view (set by the game).</summary>
-        public Func<(Vector3 feet, float yaw, float pitch, bool airborne, bool dead, bool ads, bool thirdPerson)> Own;
+        public Func<(Vector3 feet, float yaw, float pitch, bool airborne, bool dead, bool ads, bool crouched, bool reloading, bool thirdPerson)> Own;
 
         SoldierView[] pool;
         SoldierView own;
@@ -42,9 +43,10 @@ namespace Lattice.Players
         float[] keys = new float[4096];
         int[] order = new int[4096];
 
-        enum Pose { Stand, Run, Dead }
+        enum Pose { Stand, Run, Dead, CrouchStand, CrouchRun }
+        const int Poses = 5;
         Mesh[] poses;
-        readonly List<Matrix4x4>[,] batches = new List<Matrix4x4>[SoldierColors.Keys, 3];
+        readonly List<Matrix4x4>[,] batches = new List<Matrix4x4>[SoldierColors.Keys, Poses];
         Matrix4x4[] chunk = new Matrix4x4[1023];
         RenderParams[] crowdParams;
         RenderParams rifleParams;
@@ -91,7 +93,7 @@ namespace Lattice.Players
                 worldBounds = new Bounds(Vector3.zero, Vector3.one * 20000f),
             };
             for (int f = 0; f < SoldierColors.Keys; f++)
-            for (int p = 0; p < 3; p++)
+            for (int p = 0; p < Poses; p++)
                 batches[f, p] = new List<Matrix4x4>(1024);
         }
 
@@ -110,11 +112,15 @@ namespace Lattice.Players
         /// baked into plain meshes, with the rifle in its hands.</summary>
         void BakePoses()
         {
-            poses = new Mesh[3];
+            poses = new Mesh[Poses];
             var rifle = Look.RifleLow != null ? Look.RifleLow : Look.Rifle;
             poses[(int)Pose.Stand] = own.Bake(0f, false, rifle);
             poses[(int)Pose.Run] = own.Bake(4.5f, false, rifle);
             poses[(int)Pose.Dead] = own.Bake(0f, true, null);
+            // Crouched, as the full soldiers crouch: the crowd is who you aim at from
+            // afar, and a crouched one drawn standing would show a head where none is.
+            poses[(int)Pose.CrouchStand] = own.Bake(0f, false, rifle, true);
+            poses[(int)Pose.CrouchRun] = own.Bake(3f, false, rifle, true);
             // A wrong bake leaves the crowd invisible (only the rich soldiers drawn),
             // which nothing else would show: say so, loudly.
             foreach (var m in poses)
@@ -203,7 +209,7 @@ namespace Lattice.Players
             }
 
             for (int key = 0; key < SoldierColors.Keys; key++)
-            for (int p = 0; p < 3; p++)
+            for (int p = 0; p < Poses; p++)
                 batches[key, p].Clear();
             int crowd = 0, taken = 0;
             for (int k = 0; k < n; k++)
@@ -211,6 +217,7 @@ namespace Lattice.Players
                 var e = ents[order[k]];
                 var feet = new Vector3(e.pos.x, e.pos.y, e.pos.z);
                 bool deadE = (e.flags & LtCode.FlagDead) != 0;
+                bool crouchedE = (e.flags & LtCode.FlagCrouched) != 0;
                 if (k < richWanted)
                 {
                     if (!rich.TryGetValue(e.id, out var v) && taken < RichPerFrame && (v = Free()) != null)
@@ -222,7 +229,8 @@ namespace Lattice.Players
                     if (v != null)
                     {
                         v.Body(SoldierColors.Material(SoldierColors.Key(e)));
-                        v.Place(feet, e.yaw, e.pitch, (e.flags & LtCode.FlagAirborne) != 0, deadE, (e.flags & LtCode.FlagAds) != 0, dt, now);
+                        v.Place(feet, e.yaw, e.pitch, (e.flags & LtCode.FlagAirborne) != 0, deadE, (e.flags & LtCode.FlagAds) != 0,
+                                crouchedE, (e.flags & LtCode.FlagReloading) != 0, dt, now);
                         continue;
                     }
                 }
@@ -237,7 +245,8 @@ namespace Lattice.Players
                 }
                 lastPos[id] = feet;
                 seenAt[id] = now;
-                var pose = deadE ? Pose.Dead : velocity[id].sqrMagnitude > 1f ? Pose.Run : Pose.Stand;
+                bool moving = velocity[id].sqrMagnitude > 1f;
+                var pose = deadE ? Pose.Dead : crouchedE ? (moving ? Pose.CrouchRun : Pose.CrouchStand) : moving ? Pose.Run : Pose.Stand;
                 var m = Matrix4x4.TRS(Coords.ToUnity(feet.x, feet.y, feet.z), Coords.Yaw(e.yaw), Vector3.one);
                 batches[SoldierColors.Key(e), (int)pose].Add(m);
                 crowd++;
@@ -252,7 +261,7 @@ namespace Lattice.Players
                     own.Assign(f.Own.entity);
                 own.Body(SoldierColors.Material(f.Own.faction));
                 own.SetShadowsOnly(!o.thirdPerson);
-                own.Place(o.feet, o.yaw, o.pitch, o.airborne, o.dead, o.ads, dt, now);
+                own.Place(o.feet, o.yaw, o.pitch, o.airborne, o.dead, o.ads, o.crouched, o.reloading, dt, now);
             }
         }
 
@@ -289,7 +298,7 @@ namespace Lattice.Players
             }
             using var drawMarker = DrawMarker.Auto();
             for (int key = 0; key < SoldierColors.Keys; key++)
-            for (int p = 0; p < 3; p++)
+            for (int p = 0; p < Poses; p++)
             {
                 var list = batches[key, p];
                 for (int start = 0; start < list.Count; start += chunk.Length)
