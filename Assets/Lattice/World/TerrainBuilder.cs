@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 using Lattice.Native;
 using Unity.Burst;
 using Unity.Collections;
@@ -60,6 +61,12 @@ namespace Lattice.World
         NativeArray<float> gapMax;
         NativeArray<float4> sites;
         NativeArray<LtBox> boxes;
+        /// <summary>Kiln: what each height sample's ground is (<c>LT_GROUND_*</c>), and
+        /// each tile's layers (the materials it has, in order) and control maps.</summary>
+        readonly bool kiln;
+        NativeArray<byte> materials;
+        readonly int[][] tileLayers = new int[Tiles * Tiles][];
+        /// <summary>A tile's splat: a control map's texels after another's.</summary>
         readonly NativeArray<Color32>[] splats = new NativeArray<Color32>[Tiles * Tiles];
         NativeArray<byte> grassMap;
         JobHandle jobs, gapJob, grassJob;
@@ -112,6 +119,40 @@ namespace Lattice.World
             int grassTile = GrassMapSize / Tiles;
             grassMap = new NativeArray<byte>(GrassMapSize * GrassMapSize * 2, Allocator.Persistent);
             var all = new NativeArray<JobHandle>(Tiles * Tiles, Allocator.Temp);
+            kiln = world.Info.continent == LtCode.ContinentKiln;
+            if (kiln)
+            {
+                // Kiln says what its ground is: each tile gets a layer for each
+                // material it has (most need four or fewer: one control map).
+                materials = new NativeArray<byte>(n * n, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                world.Materials(0, 0, n, n, (byte*)materials.GetUnsafePtr());
+                for (int t = 0; t < Tiles * Tiles; t++)
+                {
+                    int x0 = (t % Tiles) * (TileSamples - 1), y0 = (t / Tiles) * (TileSamples - 1);
+                    var used = new bool[KilnMaterials];
+                    for (int y = 0; y < TileSamples; y++)
+                    for (int x = 0; x < TileSamples; x++)
+                        used[KilnMaterial(materials[(y0 + y) * n + x0 + x])] = true;
+                    tileLayers[t] = Enumerable.Range(0, KilnMaterials).Where(m => used[m] && look.KilnLayers[m] != null).ToArray();
+                    if (tileLayers[t].Length == 0)
+                        tileLayers[t] = new[] { LtCode.GroundSand };
+                    var channel = new NativeArray<int>(KilnMaterials, Allocator.TempJob);
+                    for (int m = 0; m < KilnMaterials; m++)
+                        channel[m] = System.Array.IndexOf(tileLayers[t], m);
+                    int maps = (tileLayers[t].Length + 3) / 4;
+                    splats[t] = new NativeArray<Color32>(res * res * maps, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                    all[t] = new KilnSplatJob
+                    {
+                        Materials = materials, N = n, Channel = channel, Maps = maps,
+                        OriginX = (t % Tiles) * TileSize, OriginY = (t / Tiles) * TileSize, Texel = TileSize / res, Width = res, Out = splats[t],
+                    }.Schedule(res * res, 2048);
+                    channel.Dispose(all[t]);
+                }
+                jobs = JobHandle.CombineDependencies(all);
+                all.Dispose();
+                JobHandle.ScheduleBatchedJobs();
+                return;
+            }
             for (int t = 0; t < Tiles * Tiles; t++)
             {
                 float ox = (t % Tiles) * TileSize, oy = (t / Tiles) * TileSize;
@@ -219,6 +260,35 @@ namespace Lattice.World
         void Splat(int t, TerrainData td)
         {
             int res = look.SplatResolution;
+            if (kiln)
+            {
+                td.terrainLayers = tileLayers[t].Select(m => look.KilnLayers[m]).ToArray();
+                int maps = (tileLayers[t].Length + 3) / 4;
+                var controls = td.alphamapTextures;
+                bool fast = controls.Length == maps && controls.All(c => c.format == TextureFormat.RGBA32 && c.width == res);
+                if (fast)
+                {
+                    for (int c = 0; c < maps; c++)
+                    {
+                        controls[c].SetPixelData(splats[t].GetSubArray(c * res * res, res * res), 0);
+                        controls[c].Apply(true);
+                    }
+                    td.SetBaseMapDirty();
+                    return;
+                }
+                int layers = tileLayers[t].Length;
+                var kmaps = new float[res, res, layers];
+                for (int c = 0; c < maps; c++)
+                for (int y = 0; y < res; y++)
+                for (int x = 0; x < res; x++)
+                {
+                    var p = splats[t][c * res * res + y * res + x];
+                    for (int ch = 0; ch < 4 && c * 4 + ch < layers; ch++)
+                        kmaps[y, x, c * 4 + ch] = (ch == 0 ? p.r : ch == 1 ? p.g : ch == 2 ? p.b : p.a) / 255f;
+                }
+                td.SetAlphamaps(0, 0, kmaps);
+                return;
+            }
             td.terrainLayers = look.Layers;
             // The splat straight into the control texture (layers 0-3 in RGBA),
             // or through the slow path if it isn't the format we write.
@@ -284,6 +354,7 @@ namespace Lattice.World
             gapJob.Complete();
             grassJob.Complete();
             if (grassMap.IsCreated) grassMap.Dispose();
+            if (materials.IsCreated) materials.Dispose();
             if (heights.IsCreated) heights.Dispose();
             if (gaps.IsCreated) gaps.Dispose();
             if (gapBins.IsCreated) gapBins.Dispose();
@@ -307,6 +378,76 @@ namespace Lattice.World
         }
 
         static byte Byte(float v) => (byte)math.clamp((int)math.round(v * 255f), 0, 255);
+
+        /// <summary>Kiln's ground materials (<c>LT_GROUND_*</c>, 0-8); a sample the world
+        /// says nothing about counts as sand.</summary>
+        const int KilnMaterials = 9;
+
+        static int KilnMaterial(byte g) => g < KilnMaterials ? g : LtCode.GroundSand;
+
+        /// <summary>
+        /// A Kiln tile's splat: at each texel, the materials of the four height samples
+        /// around it, weighted as the ground blends between them (bilinear), sharpened a
+        /// little (a road's edge, a cliff's foot) and broken up by noise, so the change
+        /// from one ground to the next is neither a stair of 4 m squares nor a smear.
+        /// </summary>
+        [BurstCompile]
+        struct KilnSplatJob : IJobParallelFor
+        {
+            [ReadOnly] public NativeArray<byte> Materials;
+            /// <summary>Each material's layer in this tile (-1: none).</summary>
+            [ReadOnly] public NativeArray<int> Channel;
+            public int N, Width, Maps;
+            public float OriginX, OriginY, Texel;
+            [NativeDisableParallelForRestriction, WriteOnly] public NativeArray<Color32> Out;
+
+            public void Execute(int i)
+            {
+                int px = i % Width, py = i / Width;
+                float x = OriginX + (px + 0.5f) * Texel, y = OriginY + (py + 0.5f) * Texel;
+                // Jitter where the samples are read: ragged, natural edges.
+                var p = new float2(x, y);
+                float2 jitter = new float2(noise.snoise(p / 9f), noise.snoise(p / 9f + 17.3f)) * 1.6f;
+                float fx = math.clamp((x + jitter.x) / LtConst.TerrainRes, 0f, N - 1), fy = math.clamp((y + jitter.y) / LtConst.TerrainRes, 0f, N - 1);
+                int ix = math.min((int)fx, N - 2), iy = math.min((int)fy, N - 2);
+                float tx = fx - ix, ty = fy - iy;
+                float4 w0 = 0f, w1 = 0f, w2 = 0f;
+                Add(ref w0, ref w1, ref w2, Materials[iy * N + ix], (1f - tx) * (1f - ty));
+                Add(ref w0, ref w1, ref w2, Materials[iy * N + ix + 1], tx * (1f - ty));
+                Add(ref w0, ref w1, ref w2, Materials[(iy + 1) * N + ix], (1f - tx) * ty);
+                Add(ref w0, ref w1, ref w2, Materials[(iy + 1) * N + ix + 1], tx * ty);
+                // Sharpen: squared, renormalized.
+                w0 *= w0;
+                w1 *= w1;
+                w2 *= w2;
+                float sum = math.csum(w0) + math.csum(w1) + math.csum(w2);
+                float k = sum > 0f ? 1f / sum : 0f;
+                w0 *= k;
+                w1 *= k;
+                w2 *= k;
+                int texels = Width * Width;
+                Out[i] = Pack(w0);
+                if (Maps > 1)
+                    Out[texels + i] = Pack(w1);
+                if (Maps > 2)
+                    Out[2 * texels + i] = Pack(w2);
+            }
+
+            void Add(ref float4 w0, ref float4 w1, ref float4 w2, byte material, float w)
+            {
+                int c = Channel[KilnMaterial(material)];
+                if (c < 0)
+                    c = 0;
+                if (c < 4)
+                    w0[c] += w;
+                else if (c < 8)
+                    w1[c - 4] += w;
+                else
+                    w2[c - 8] += w;
+            }
+
+            static Color32 Pack(float4 w) => new Color32(Byte(w.x), Byte(w.y), Byte(w.z), Byte(w.w));
+        }
 
         const int GapBins = 2000;
         const float GapBin = 0.0001f;

@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Lattice.Native;
 
 namespace Lattice.Net
 {
@@ -106,6 +107,11 @@ namespace Lattice.Net
         /// it runs at full clock and its times compare between runs.</summary>
         public float RenderScale;
         public ulong User, ServerId;
+        /// <summary>--world kiln|harrow|N|none: the world to build at start, on a thread of
+        /// its own, so joining a server on it doesn't stall the session while the
+        /// plugin builds it (Kiln takes ~0.6 s). Any world still works: one the server
+        /// names that isn't this is built when its Welcome arrives. [kiln]</summary>
+        public ulong World = (ulong)LtCode.WorldKiln;
         public float NearMs, NearMaxMs, MidMs;
         public float After = 5f, ExitAfter = -1f, ShotEvery = 1f;
         public int Shots = 1;
@@ -135,6 +141,10 @@ namespace Lattice.Net
                 switch (a)
                 {
                     case "--server": o.Server = Val(); break;
+                    case "--world":
+                        var w = Val();
+                        o.World = w == "kiln" ? (ulong)LtCode.WorldKiln : w == "harrow" ? 1UL : w == "none" ? 0UL : ulong.TryParse(w, out var id) ? id : 0UL;
+                        break;
                     case "--user": o.User = U(); break;
                     case "--token-key": o.TokenKey = Val(); break;
                     case "--server-id": o.ServerId = U(); break;

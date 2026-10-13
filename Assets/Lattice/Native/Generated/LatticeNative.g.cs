@@ -15,11 +15,11 @@ namespace Lattice.Native
         /// <summary>
         /// The plugin API's version (lt_version).
         /// </summary>
-        public const uint Version = 3;
+        public const uint Version = 4;
         /// <summary>
         /// The layout hash of these bindings (lt_layout_hash).
         /// </summary>
-        public const ulong LayoutHash = 0xD332BD40BEB7DD10;
+        public const ulong LayoutHash = 0x54B65F56DFA15E0C;
         /// <summary>
         /// Game steps a second.
         /// </summary>
@@ -403,6 +403,154 @@ namespace Lattice.Native
         /// </summary>
         public const int CoverBunker = 6;
         /// <summary>
+        /// A blockout volume: a building, wall, tower or deck (Kiln's sites until they have art).
+        /// </summary>
+        public const int CoverBlock = 7;
+        /// <summary>
+        /// Natural rock: a boulder, a hoodoo, a crag, an arch.
+        /// </summary>
+        public const int CoverRock = 8;
+        /// <summary>
+        /// Glass and crystal: fulgurite spikes, a Geode's crystals.
+        /// </summary>
+        public const int CoverCrystal = 9;
+        /// <summary>
+        /// The Dry Sea's bones.
+        /// </summary>
+        public const int CoverBone = 10;
+        /// <summary>
+        /// Kiln's world id (any other is a seed for Harrow).
+        /// </summary>
+        public const int WorldKiln = 1263094862;
+        /// <summary>
+        /// Harrow, the procedural hills.
+        /// </summary>
+        public const int ContinentHarrow = 0;
+        /// <summary>
+        /// Kiln, the desert continent.
+        /// </summary>
+        public const int ContinentKiln = 1;
+        /// <summary>
+        /// The world doesn't say what the ground is (Harrow).
+        /// </summary>
+        public const int GroundNone = 255;
+        /// <summary>
+        /// Sand.
+        /// </summary>
+        public const int GroundSand = 0;
+        /// <summary>
+        /// The Glasslands' fused glass.
+        /// </summary>
+        public const int GroundGlass = 1;
+        /// <summary>
+        /// The Dry Sea's salt.
+        /// </summary>
+        public const int GroundSalt = 2;
+        /// <summary>
+        /// Banded red and ochre rock: mesas and cliffs.
+        /// </summary>
+        public const int GroundOchre = 3;
+        /// <summary>
+        /// Dark basalt: the rift floors and the Hollow's.
+        /// </summary>
+        public const int GroundBasalt = 4;
+        /// <summary>
+        /// Pale stone: the Crown and the Spire layer.
+        /// </summary>
+        public const int GroundPale = 5;
+        /// <summary>
+        /// A lane's road.
+        /// </summary>
+        public const int GroundRoad = 6;
+        /// <summary>
+        /// A site's ground.
+        /// </summary>
+        public const int GroundPad = 7;
+        /// <summary>
+        /// Scree and gravel on steep slopes.
+        /// </summary>
+        public const int GroundScree = 8;
+        /// <summary>
+        /// Harrow's walled base.
+        /// </summary>
+        public const int SiteBase = 0;
+        /// <summary>
+        /// Harrow's open outpost.
+        /// </summary>
+        public const int SiteOutpost = 1;
+        /// <summary>
+        /// A faction's Landing (can't be taken).
+        /// </summary>
+        public const int SiteLanding = 2;
+        /// <summary>
+        /// Kiln's central crater.
+        /// </summary>
+        public const int SiteHollow = 3;
+        /// <summary>
+        /// A bridge fortress across a rift.
+        /// </summary>
+        public const int SiteSpan = 4;
+        /// <summary>
+        /// A fortress in a rift wall.
+        /// </summary>
+        public const int SiteCliffhold = 5;
+        /// <summary>
+        /// A crystal dome.
+        /// </summary>
+        public const int SiteGeode = 6;
+        /// <summary>
+        /// A walled town on a mesa.
+        /// </summary>
+        public const int SiteMesaCitadel = 7;
+        /// <summary>
+        /// A base across a knot of slot canyons.
+        /// </summary>
+        public const int SiteSlotHold = 8;
+        /// <summary>
+        /// A base on a ledge halfway down a rift wall.
+        /// </summary>
+        public const int SiteRiftLedge = 9;
+        /// <summary>
+        /// A base round a cenote.
+        /// </summary>
+        public const int SiteCenote = 10;
+        /// <summary>
+        /// A base in a petrified reef.
+        /// </summary>
+        public const int SiteReefWarren = 11;
+        /// <summary>
+        /// A base in a colossal skeleton.
+        /// </summary>
+        public const int SiteOssuary = 12;
+        /// <summary>
+        /// A base round a buried vault.
+        /// </summary>
+        public const int SiteGlassVault = 13;
+        /// <summary>
+        /// An outpost under a natural arch.
+        /// </summary>
+        public const int SiteArch = 14;
+        /// <summary>
+        /// An outpost at a vent.
+        /// </summary>
+        public const int SiteVent = 15;
+        /// <summary>
+        /// An outpost at a tunnel's mouth.
+        /// </summary>
+        public const int SiteTunnelMouth = 16;
+        /// <summary>
+        /// An outpost on a spire.
+        /// </summary>
+        public const int SiteSpirePerch = 17;
+        /// <summary>
+        /// An outpost at a small well.
+        /// </summary>
+        public const int SiteWellShrine = 18;
+        /// <summary>
+        /// An outpost in a crashed lattice ship.
+        /// </summary>
+        public const int SiteWreck = 19;
+        /// <summary>
         /// No shooter (a distant fight's shot from no one drawn).
         /// </summary>
         public const int Nobody = 65535;
@@ -774,14 +922,22 @@ namespace Lattice.Native
         /// </summary>
         [FieldOffset(392)] public fixed ulong pops[3];
         [FieldOffset(416)] public fixed uint popMaxMm[3];
+        /// <summary>
+        /// 1: the server's world differs from the one we built from its id
+        /// (its Welcome's digest): an older or newer plugin than the server.
+        /// </summary>
+        [FieldOffset(428)] public byte worldMismatch;
     }
 
     /// <summary>
     /// The world's size and contents.
     /// </summary>
-    [StructLayout(LayoutKind.Explicit, Size = 40)]
+    [StructLayout(LayoutKind.Explicit, Size = 56)]
     public unsafe partial struct LtWorldInfo
     {
+        /// <summary>
+        /// Its id: `LT_WORLD_KILN`, or a seed for Harrow.
+        /// </summary>
         [FieldOffset(0)] public ulong seed;
         /// <summary>
         /// Of the terrain and cover: two machines with the same digest built
@@ -802,6 +958,16 @@ namespace Lattice.Native
         [FieldOffset(24)] public uint samples;
         [FieldOffset(28)] public uint boxes;
         [FieldOffset(32)] public uint sites;
+        /// <summary>
+        /// `LT_CONTINENT_*`: which generator made it (how it's drawn).
+        /// </summary>
+        [FieldOffset(36)] public byte continent;
+        /// <summary>
+        /// Routes (`lt_world_lanes`), all their points, control points.
+        /// </summary>
+        [FieldOffset(40)] public uint lanes;
+        [FieldOffset(44)] public uint lanePoints;
+        [FieldOffset(48)] public uint points;
     }
 
     /// <summary>
@@ -829,7 +995,7 @@ namespace Lattice.Native
     }
 
     /// <summary>
-    /// A base or an outpost: a square of flattened ground.
+    /// A site: a base, an outpost, a great site or a Landing.
     /// </summary>
     [StructLayout(LayoutKind.Explicit, Size = 20)]
     public unsafe partial struct LtSite
@@ -837,17 +1003,48 @@ namespace Lattice.Native
         [FieldOffset(0)] public float x;
         [FieldOffset(4)] public float y;
         /// <summary>
-        /// Half the side of its flat square.
+        /// Half its size (Harrow's: the side of its flat square).
         /// </summary>
         [FieldOffset(8)] public float half;
         /// <summary>
-        /// The height it's flattened to.
+        /// The height of its main ground.
         /// </summary>
         [FieldOffset(12)] public float level;
         /// <summary>
-        /// A walled base (else an outpost).
+        /// A base (else an outpost or a great site).
         /// </summary>
         [FieldOffset(16)] public byte @base;
+        /// <summary>
+        /// `LT_SITE_*`.
+        /// </summary>
+        [FieldOffset(17)] public byte kind;
+        /// <summary>
+        /// Its sector, 0-2 (Kiln's factions' starting thirds); 255: none.
+        /// </summary>
+        [FieldOffset(18)] public byte sector;
+    }
+
+    /// <summary>
+    /// A route: a lane between two sites (`a` != `b`), or a way inside one.
+    /// Its points are `count` of `lt_world_lane_points` from `first`.
+    /// </summary>
+    [StructLayout(LayoutKind.Explicit, Size = 12)]
+    public unsafe partial struct LtLane
+    {
+        [FieldOffset(0)] public ushort a;
+        [FieldOffset(2)] public ushort b;
+        [FieldOffset(4)] public uint first;
+        [FieldOffset(8)] public uint count;
+    }
+
+    /// <summary>
+    /// A control point: holding it holds the site's tap.
+    /// </summary>
+    [StructLayout(LayoutKind.Explicit, Size = 16)]
+    public unsafe partial struct LtPoint
+    {
+        [FieldOffset(0)] public LtVec3 pos;
+        [FieldOffset(12)] public ushort site;
     }
 
     /// <summary>
@@ -1057,6 +1254,29 @@ namespace Lattice.Native
         /// </summary>
         [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtSite*, int, int> lt_world_sites;
         /// <summary>
+        /// Every route (lanes, and ways inside sites): fills `out` (up to `cap`),
+        /// returns how many there are. Their points are `lt_world_lane_points`.
+        /// (IntPtr w, LtLane* out, int cap)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtLane*, int, int> lt_world_lanes;
+        /// <summary>
+        /// Every route's points, one route after another (feet height in z):
+        /// fills `out` (up to `cap`), returns how many there are.
+        /// (IntPtr w, LtVec3* out, int cap)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtVec3*, int, int> lt_world_lane_points;
+        /// <summary>
+        /// Every control point: fills `out` (up to `cap`), returns how many.
+        /// (IntPtr w, LtPoint* out, int cap)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtPoint*, int, int> lt_world_points;
+        /// <summary>
+        /// What the ground is (`LT_GROUND_*`) at the `nx` × `ny` samples from
+        /// sample (`x0`, `y0`), row by row, into `out`. Returns how many it wrote.
+        /// (IntPtr w, int x0, int y0, int nx, int ny, byte* out)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, int, int, int, int, byte*, int> lt_world_materials;
+        /// <summary>
         /// The terrain's height at (`x`, `y`), as movement samples it.
         /// (IntPtr w, float x, float y)
         /// </summary>
@@ -1112,6 +1332,10 @@ namespace Lattice.Native
             p = proc("lt_world_heights"); if (p == IntPtr.Zero) missing.Append(" lt_world_heights"); lt_world_heights = (delegate* unmanaged[Cdecl]<IntPtr, int, int, int, int, float*, int>)(void*)p;
             p = proc("lt_world_boxes"); if (p == IntPtr.Zero) missing.Append(" lt_world_boxes"); lt_world_boxes = (delegate* unmanaged[Cdecl]<IntPtr, LtBox*, int, int>)(void*)p;
             p = proc("lt_world_sites"); if (p == IntPtr.Zero) missing.Append(" lt_world_sites"); lt_world_sites = (delegate* unmanaged[Cdecl]<IntPtr, LtSite*, int, int>)(void*)p;
+            p = proc("lt_world_lanes"); if (p == IntPtr.Zero) missing.Append(" lt_world_lanes"); lt_world_lanes = (delegate* unmanaged[Cdecl]<IntPtr, LtLane*, int, int>)(void*)p;
+            p = proc("lt_world_lane_points"); if (p == IntPtr.Zero) missing.Append(" lt_world_lane_points"); lt_world_lane_points = (delegate* unmanaged[Cdecl]<IntPtr, LtVec3*, int, int>)(void*)p;
+            p = proc("lt_world_points"); if (p == IntPtr.Zero) missing.Append(" lt_world_points"); lt_world_points = (delegate* unmanaged[Cdecl]<IntPtr, LtPoint*, int, int>)(void*)p;
+            p = proc("lt_world_materials"); if (p == IntPtr.Zero) missing.Append(" lt_world_materials"); lt_world_materials = (delegate* unmanaged[Cdecl]<IntPtr, int, int, int, int, byte*, int>)(void*)p;
             p = proc("lt_world_height"); if (p == IntPtr.Zero) missing.Append(" lt_world_height"); lt_world_height = (delegate* unmanaged[Cdecl]<IntPtr, float, float, float>)(void*)p;
             p = proc("lt_world_ground"); if (p == IntPtr.Zero) missing.Append(" lt_world_ground"); lt_world_ground = (delegate* unmanaged[Cdecl]<IntPtr, float, float, float, float, float>)(void*)p;
             p = proc("lt_world_raycast"); if (p == IntPtr.Zero) missing.Append(" lt_world_raycast"); lt_world_raycast = (delegate* unmanaged[Cdecl]<IntPtr, LtVec3*, LtVec3*, LtHit*, int>)(void*)p;

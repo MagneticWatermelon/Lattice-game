@@ -23,6 +23,10 @@ namespace Lattice.World
 
         public TerrainBuilder Terrain { get; private set; }
         public GrassField Grass { get; private set; }
+        /// <summary>Kiln: the desert has no grass and no meadow rocks; its lanes are
+        /// lit (<see cref="LatticeVeins"/>).</summary>
+        public bool Kiln { get; private set; }
+        public GameObject Veins { get; private set; }
         /// <summary>The cover and the rocks.</summary>
         public StaticField Statics { get; private set; }
         /// <summary>Measuring (--off cover, --off rocks): leave them out.</summary>
@@ -79,9 +83,11 @@ namespace Lattice.World
             var near = cam != null ? cam.transform.position : Vector3.zero;
             Terrain = new TerrainBuilder(world, Look, transform, near);
             Statics = new StaticField();
+            Kiln = world.Info.continent == LtCode.ContinentKiln;
+            Veins = LatticeVeins.Build(world, Look, transform);
             if (!NoCover)
                 cover = CoverBuilder.Build(world, Look, Statics, near);
-            if (!NoRocks)
+            if (!NoRocks && !Kiln)
                 rocks = RockScatter.Build(world, Look, Statics);
         }
 
@@ -94,7 +100,8 @@ namespace Lattice.World
             if (Terrain.Done && !grassTried)
             {
                 grassTried = true;
-                Grass = GrassField.Create(transform, Look, Terrain.HeightTexture, Terrain.GrassTexture);
+                if (!Kiln)
+                    Grass = GrassField.Create(transform, Look, Terrain.HeightTexture, Terrain.GrassTexture);
             }
             // The cover, then the rocks, while the frame's budget lasts.
             while (cover != null && Spent(start) < Budget)

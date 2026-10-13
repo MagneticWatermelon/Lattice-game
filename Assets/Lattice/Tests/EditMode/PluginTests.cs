@@ -60,5 +60,50 @@ namespace Lattice.Tests
             foreach (var b in boxes)
                 Assert.Less(b.min.z, b.max.z);
         }
+
+        [Test]
+        public void KilnWithItsLanes()
+        {
+            Assert.IsTrue(LtLibrary.EnsureLoaded(), LtLibrary.Error);
+            using var w = LtWorldHandle.FromSeed((ulong)LtCode.WorldKiln);
+            var info = w.Info;
+            Assert.AreEqual(LtCode.ContinentKiln, (int)info.continent);
+            // docs/kiln.md: 67 sites, three Landings (one a sector) round one Hollow.
+            var sites = w.Sites();
+            Assert.AreEqual(67, sites.Length);
+            int landings = 0, hollows = 0;
+            foreach (var s in sites)
+            {
+                landings += s.kind == LtCode.SiteLanding ? 1 : 0;
+                hollows += s.kind == LtCode.SiteHollow ? 1 : 0;
+            }
+            Assert.AreEqual(3, landings);
+            Assert.AreEqual(1, hollows);
+            // About 110 lanes, each joining sites through points of the world.
+            var lanes = w.Lanes();
+            var pts = w.LanePoints();
+            Assert.AreEqual(info.lanes, (uint)lanes.Length);
+            Assert.AreEqual(info.lanePoints, (uint)pts.Length);
+            int between = 0;
+            foreach (var l in lanes)
+            {
+                Assert.Less((int)l.a, sites.Length);
+                Assert.Less((int)l.b, sites.Length);
+                Assert.GreaterOrEqual(l.count, 2u);
+                Assert.LessOrEqual(l.first + l.count, (uint)pts.Length);
+                between += l.a != l.b ? 1 : 0;
+            }
+            Assert.That(between, Is.InRange(100, 125));
+            foreach (var p in pts)
+            {
+                Assert.IsTrue(p.x >= 0f && p.x <= info.size && p.y >= 0f && p.y <= info.size);
+                // On the ground or above it (a deck, a stair), never under it.
+                Assert.GreaterOrEqual(p.z, w.Height(p.x, p.y) - 0.5f);
+            }
+            var points = w.Points();
+            Assert.Greater(points.Length, 0);
+            foreach (var p in points)
+                Assert.Less((int)p.site, sites.Length);
+        }
     }
 }

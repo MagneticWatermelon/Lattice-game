@@ -53,6 +53,20 @@ namespace Lattice.World
         public float CoverDetailHeight = 0.004f, CoverFarHeight = 0.0003f;
         /// <summary>For kinds without a model.</summary>
         public Material PlainCover;
+
+        [Header("Kiln")]
+        /// <summary>Kiln's ground, a terrain layer per <c>LT_GROUND_*</c> (sand, glass, salt,
+        /// ochre, basalt, pale stone, road, pad, scree): what the plugin says each
+        /// height sample is made of (K0: the project's textures, recolored).</summary>
+        public TerrainLayer[] KilnLayers = new TerrainLayer[9];
+        /// <summary>Kiln's blockout boxes by kind (<c>LT_COVER_BLOCK</c>, <c>ROCK</c>,
+        /// <c>CRYSTAL</c>, <c>BONE</c>): plain boxes until they have art.</summary>
+        public Material[] Blockout = new Material[4];
+        /// <summary>The lattice's veins along the lanes (and dimmer along the ways
+        /// inside sites), and the control points' rings.</summary>
+        public Material VeinMaterial, PointMaterial;
+        /// <summary>How wide a vein is drawn (m), and how far above the ground.</summary>
+        public float VeinWidth = 1.1f, VeinLift = 0.12f;
     }
 
     [System.Serializable]

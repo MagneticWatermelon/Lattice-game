@@ -47,6 +47,9 @@ namespace Lattice.Game
         Lattice.World.WorldView world;
         bool worldReady;
 
+        /// <summary>The world built at start (<c>--world</c>), held so the plugin keeps it.</summary>
+        public static System.Threading.Tasks.Task<Lattice.Native.LtWorldHandle> Prewarmed { get; private set; }
+
         void Awake()
         {
             // Numbers in logs and reports read the same everywhere ("4.14 s", not "4,14 s").
@@ -65,6 +68,12 @@ namespace Lattice.Game
                 UnityEngine.Profiling.Profiler.enabled = true;
             }
             Application.runInBackground = true;
+            // The world we expect to play on, built meanwhile (held while we run).
+            if (Options.World != 0 && Lattice.Native.LtLibrary.EnsureLoaded())
+            {
+                ulong world = Options.World;
+                Prewarmed = System.Threading.Tasks.Task.Run(() => Lattice.Native.LtWorldHandle.FromSeed(world));
+            }
             QualitySettings.vSyncCount = Options.NoVsync ? 0 : 1;
             Application.targetFrameRate = -1;
             Frames = new FrameStats(5f);
@@ -321,6 +330,9 @@ namespace Lattice.Game
             NetDriver.Stop();
             Frames?.Dispose();
             Report.Sections.Remove(SessionSection);
+            if (Prewarmed != null && Prewarmed.IsCompletedSuccessfully)
+                Prewarmed.Result?.Dispose();
+            Prewarmed = null;
         }
     }
 }

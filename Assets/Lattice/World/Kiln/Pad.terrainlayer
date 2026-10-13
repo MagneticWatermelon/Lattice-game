@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1953259897 &8574412962073106934
+TerrainLayer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Pad
+  m_DiffuseTexture: {fileID: 2800000, guid: 707770ad79e01f34a8d23eefeb5b7325, type: 3}
+  m_NormalMapTexture: {fileID: 2800000, guid: 0f1e96fcbaa930048b09b91077ae5d5d, type: 3}
+  m_MaskMapTexture: {fileID: 2800000, guid: c5730b93f3bcaa14681055f54be69e2b, type: 3}
+  m_TileSize: {x: 2.5, y: 2.5}
+  m_TileOffset: {x: 0, y: 0}
+  m_Specular: {r: 0, g: 0, b: 0, a: 0}
+  m_Metallic: 0
+  m_Smoothness: 0.25
+  m_NormalScale: 0.8
+  m_DiffuseRemapMin: {x: 0.07030654, y: 0.060997475, z: 0.047679532, w: 0}
+  m_DiffuseRemapMax: {x: 1.030089, y: 1.0091941, z: 0.93865746, w: 1}
+  m_MaskMapRemapMin: {x: 0, y: 0, z: 0, w: 0}
+  m_MaskMapRemapMax: {x: 0, y: 1, z: 1, w: 0.25}
+  m_SmoothnessSource: 1

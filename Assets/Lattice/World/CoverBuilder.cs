@@ -47,6 +47,10 @@ namespace Lattice.World
                     new StaticField.Level { Mesh = cube, Material = model.Far != null ? model.Far : look.PlainCover, MinHeight = look.CoverFarHeight });
             }
             int plain = field.AddKind(new StaticField.Level { Mesh = cube, Material = look.PlainCover, MinHeight = 0f });
+            // Kiln's blockout kinds: a plain box each, in its own material.
+            var blockout = new int[look.Blockout?.Length ?? 0];
+            for (int k = 0; k < blockout.Length; k++)
+                blockout[k] = look.Blockout[k] != null ? field.AddKind(new StaticField.Level { Mesh = cube, Material = look.Blockout[k], MinHeight = 0f }) : plain;
             int models = 0;
             for (int i = 0; i < boxes.Length; i++)
             {
@@ -54,10 +58,11 @@ namespace Lattice.World
                 var model = b.kind < look.Cover.Length ? look.Cover[b.kind] : default;
                 var center = Coords.ToUnity((b.min.x + b.max.x) * 0.5f, (b.min.y + b.max.y) * 0.5f, b.min.z);
                 var size = new Vector3(b.max.x - b.min.x, b.max.z - b.min.z, b.max.y - b.min.y);
+                int block = b.kind - LtCode.CoverBlock;
                 if (model.Mesh != null)
                     models += Place(field, kinds[b.kind], model, b, center, size, cube);
                 else
-                    Plain(field, plain, cube, center, size);
+                    Plain(field, block >= 0 && block < blockout.Length ? blockout[block] : plain, cube, center, size);
                 if ((i & 15) == 15)
                     yield return (i + 1f) / boxes.Length;
             }

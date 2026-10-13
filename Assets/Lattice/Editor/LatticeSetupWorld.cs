@@ -35,6 +35,7 @@ namespace Lattice.EditorTools
             look.TerrainMaterial = TerrainMaterial();
             look.PlainCover = PlainCover();
             Cover(look);
+            Kiln(look);
             Grass(look);
             TerrainShadersInBuilds();
             EditorUtility.SetDirty(look);
@@ -196,6 +197,182 @@ namespace Lattice.EditorTools
             m.EnableKeyword("_NORMALMAP");
             m.EnableKeyword("_METALLICSPECGLOSSMAP");
             m.enableInstancing = true;
+            EditorUtility.SetDirty(m);
+            return m;
+        }
+
+        const string KilnDir = "Assets/Lattice/World/Kiln";
+
+        /// <summary>Kiln's grounds in <c>LT_GROUND_*</c> order: (name, the texture set it's
+        /// made from, its color (sRGB), tile size m, smoothness, normal strength). K0's
+        /// blockout recolors the project's own textures (Poly Haven) toward each.</summary>
+        static readonly (string name, string from, Color32 color, float tile, float smooth, float normal)[] KilnGrounds =
+        {
+            ("Sand", "Soil", new Color32(214, 180, 126, 255), 3.0f, 0.25f, 0.8f),
+            ("Glass", "Rock", new Color32(66, 100, 98, 255), 5.0f, 0.85f, 0.6f),
+            ("Salt", "Soil", new Color32(226, 222, 210, 255), 4.0f, 0.35f, 0.6f),
+            ("Ochre", "Rock", new Color32(178, 98, 58, 255), 6.0f, 0.3f, 1.2f),
+            ("Basalt", "Rock", new Color32(64, 60, 60, 255), 5.0f, 0.35f, 1.1f),
+            ("Pale", "Rock", new Color32(206, 198, 184, 255), 6.0f, 0.4f, 1.0f),
+            ("Road", "Gravel", new Color32(136, 116, 92, 255), 2.5f, 0.2f, 0.9f),
+            ("Pad", "Gravel", new Color32(160, 150, 134, 255), 2.5f, 0.25f, 0.8f),
+            ("Scree", "Gravel", new Color32(152, 118, 88, 255), 3.0f, 0.2f, 1.0f),
+        };
+
+        /// <summary>Kiln's blockout kinds (<c>LT_COVER_BLOCK</c> on): (name, color (sRGB), smoothness, glow).</summary>
+        static readonly (string name, Color32 color, float smooth, float glow)[] BlockoutKinds =
+        {
+            ("Block", new Color32(150, 146, 140, 255), 0.2f, 0f),
+            ("Rock", new Color32(150, 86, 54, 255), 0.15f, 0f),
+            ("Crystal", new Color32(90, 205, 196, 255), 0.85f, 0.35f),
+            ("Bone", new Color32(232, 224, 204, 255), 0.3f, 0f),
+        };
+
+        /// <summary>Kiln's look: its ground's layers, its blockout's materials, its lanes'
+        /// veins and its control points' rings.</summary>
+        static void Kiln(WorldLook look)
+        {
+            Directory.CreateDirectory(KilnDir);
+            look.KilnLayers = new TerrainLayer[KilnGrounds.Length];
+            for (int i = 0; i < KilnGrounds.Length; i++)
+                look.KilnLayers[i] = KilnLayer(KilnGrounds[i]);
+            look.Blockout = new Material[BlockoutKinds.Length];
+            for (int i = 0; i < BlockoutKinds.Length; i++)
+            {
+                var (name, color, smooth, glow) = BlockoutKinds[i];
+                var m = LitMaterial($"{KilnDir}/Blockout_{name}.mat");
+                m.SetColor("_BaseColor", color);
+                m.SetTexture("_BaseMap", null);
+                m.SetFloat("_Smoothness", smooth);
+                m.SetFloat("_Metallic", 0f);
+                m.SetFloat("_TintStrength", 0f);
+                if (glow > 0f)
+                {
+                    m.SetColor("_EmissionColor", (Color)color * glow);
+                    m.EnableKeyword("_EMISSION");
+                    m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+                }
+                else
+                    m.DisableKeyword("_EMISSION");
+                m.enableInstancing = true;
+                EditorUtility.SetDirty(m);
+                look.Blockout[i] = m;
+            }
+            var glowTex = VeinTexture();
+            look.VeinMaterial = Additive($"{KilnDir}/Vein.mat", glowTex, new Color(0.45f, 1.5f, 1.9f, 1f));
+            look.PointMaterial = Additive($"{KilnDir}/Point.mat", glowTex, new Color(2.2f, 1.5f, 0.55f, 1f));
+        }
+
+        static TerrainLayer KilnLayer((string name, string from, Color32 color, float tile, float smooth, float normal) g)
+        {
+            var path = $"{KilnDir}/{g.name}.terrainlayer";
+            var l = AssetDatabase.LoadAssetAtPath<TerrainLayer>(path);
+            if (l == null)
+            {
+                l = new TerrainLayer();
+                AssetDatabase.CreateAsset(l, path);
+            }
+            var src = $"{TerrainDir}/{g.from}/{g.from}";
+            l.diffuseTexture = AssetDatabase.LoadAssetAtPath<Texture2D>($"{src}_albedo.png");
+            l.normalMapTexture = AssetDatabase.LoadAssetAtPath<Texture2D>($"{src}_normal.jpg");
+            l.maskMapTexture = AssetDatabase.LoadAssetAtPath<Texture2D>($"{src}_mask.png");
+            l.tileSize = new Vector2(g.tile, g.tile);
+            l.tileOffset = Vector2.zero;
+            l.normalScale = g.normal;
+            l.metallic = 0f;
+            l.smoothness = g.smooth;
+            l.maskMapRemapMin = Vector4.zero;
+            l.maskMapRemapMax = new Vector4(0f, 1f, 1f, g.smooth);
+            // Recolored: the texture's own mean lands on the target color (linear),
+            // its variation kept at 80% around it.
+            var mean = MeanColor($"{src}_albedo.png");
+            Color target = g.color;
+            var lin = target.linear;
+            var min = Vector4.zero;
+            var max = Vector4.one;
+            for (int c = 0; c < 3; c++)
+            {
+                float t = lin[c], s = Mathf.Max(0.02f, mean.linear[c]);
+                min[c] = t * 0.2f;
+                max[c] = min[c] + 0.8f * t / s;
+            }
+            l.diffuseRemapMin = min;
+            l.diffuseRemapMax = max;
+            EditorUtility.SetDirty(l);
+            return l;
+        }
+
+        /// <summary>A texture's mean color (sRGB), from its file.</summary>
+        static Color MeanColor(string path)
+        {
+            var t = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            t.LoadImage(File.ReadAllBytes(path));
+            var px = t.GetPixels32();
+            double r = 0, gg = 0, b = 0;
+            int n = 0;
+            for (int i = 0; i < px.Length; i += 61)
+            {
+                r += px[i].r;
+                gg += px[i].g;
+                b += px[i].b;
+                n++;
+            }
+            Object.DestroyImmediate(t);
+            return new Color((float)(r / n / 255), (float)(gg / n / 255), (float)(b / n / 255));
+        }
+
+        /// <summary>The veins' soft edge: bright in the middle of a ribbon, nothing at
+        /// its sides (u), the same all along it (v).</summary>
+        static Texture2D VeinTexture()
+        {
+            var path = $"{KilnDir}/VeinGlow.png";
+            const int w = 64, h = 4;
+            var t = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            for (int x = 0; x < w; x++)
+            {
+                float u = (x + 0.5f) / w * 2f - 1f;
+                float a = Mathf.Exp(-u * u * 7f) * 0.75f + Mathf.Exp(-u * u * 60f) * 0.6f;
+                for (int y = 0; y < h; y++)
+                    t.SetPixel(x, y, new Color(1f, 1f, 1f, Mathf.Clamp01(a)));
+            }
+            File.WriteAllBytes(path, t.EncodeToPNG());
+            Object.DestroyImmediate(t);
+            AssetDatabase.ImportAsset(path);
+            var imp = (TextureImporter)AssetImporter.GetAtPath(path);
+            imp.wrapModeU = TextureWrapMode.Clamp;
+            imp.wrapModeV = TextureWrapMode.Repeat;
+            imp.mipmapEnabled = true;
+            imp.alphaIsTransparency = true;
+            imp.textureCompression = TextureImporterCompression.Uncompressed;
+            imp.SaveAndReimport();
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+
+        /// <summary>An additive, unlit material (URP's particles): its color HDR, so
+        /// the bloom catches it; vertex colors dim it.</summary>
+        static Material Additive(string path, Texture2D tex, Color color)
+        {
+            var shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null)
+            {
+                m = new Material(shader);
+                AssetDatabase.CreateAsset(m, path);
+            }
+            m.shader = shader;
+            m.SetTexture("_BaseMap", tex);
+            m.SetColor("_BaseColor", color);
+            m.SetFloat("_Surface", 1f);
+            m.SetFloat("_Blend", 2f);
+            m.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            m.SetFloat("_DstBlend", (float)BlendMode.One);
+            m.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
+            m.SetFloat("_DstBlendAlpha", (float)BlendMode.One);
+            m.SetFloat("_ZWrite", 0f);
+            m.SetFloat("_Cull", (float)CullMode.Off);
+            m.SetOverrideTag("RenderType", "Transparent");
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.renderQueue = (int)RenderQueue.Transparent;
             EditorUtility.SetDirty(m);
             return m;
         }

@@ -22,7 +22,7 @@ namespace Lattice.Game
         int shown = int.MinValue;
         float alpha = 1f;
 
-        const int Hidden = -100, Connecting = -101, Building = -102;
+        const int Hidden = -100, Connecting = -101, Building = -102, WorldDiffers = -103;
 
         public static JoinCard Create(Transform parent, Lattice.World.WorldView world)
         {
@@ -81,6 +81,7 @@ namespace Lattice.Game
             bool failed = state == LtCode.StateDenied || state == LtCode.StateTimedOut || state == LtCode.StateDisconnected || state == LtCode.StateError;
             int key = failed ? state
                 : NetDriver.Running && !f.Welcomed ? Connecting
+                : f.Stats.worldMismatch != 0 ? WorldDiffers
                 : world != null && world.Started && !world.Ready ? Building
                 : Hidden;
             if (key != shown)
@@ -108,6 +109,11 @@ namespace Lattice.Game
                 case Building:
                     status.text = "BUILDING THE WORLD";
                     detail.text = NetDriver.Address;
+                    break;
+                case WorldDiffers:
+                    // We'd mispredict wherever our world and the server's differ.
+                    status.text = "THE SERVER'S WORLD DIFFERS FROM OURS";
+                    detail.text = $"{NetDriver.Address}: this client and the server were built from different versions; update the client (scripts/unity-plugin.sh)";
                     break;
                 case LtCode.StateDenied:
                     status.text = "THE SERVER REFUSED US";

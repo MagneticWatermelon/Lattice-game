@@ -79,3 +79,22 @@ MonoBehaviour:
   CoverDetailHeight: 0.004
   CoverFarHeight: 0.0003
   PlainCover: {fileID: 2100000, guid: 8869710db727ec14d9fdbbcb4e8dc6a5, type: 2}
+  KilnLayers:
+  - {fileID: 8574412962073106934, guid: fa5dafc321368514f9ec041b7a622502, type: 2}
+  - {fileID: 8574412962073106934, guid: 36ef28181832b60438f0ae6e00062347, type: 2}
+  - {fileID: 8574412962073106934, guid: 7debae2fea80b504c960e1403d5faa58, type: 2}
+  - {fileID: 8574412962073106934, guid: ad93fa88250b0e94c95179cd5b8e3761, type: 2}
+  - {fileID: 8574412962073106934, guid: ebcddb0dc09a2654b85686bda8a9c503, type: 2}
+  - {fileID: 8574412962073106934, guid: 8b6f7a85196456e41b44a799f919f3f4, type: 2}
+  - {fileID: 8574412962073106934, guid: 9172d840d0eb9a046bf02b72248edb59, type: 2}
+  - {fileID: 8574412962073106934, guid: eb20fdf4733280a4287d688a89dd466b, type: 2}
+  - {fileID: 8574412962073106934, guid: 915d8b87bb6ba7141a73f1dafada63f5, type: 2}
+  Blockout:
+  - {fileID: 2100000, guid: ba2d964ddba25d948a728237ece40bbe, type: 2}
+  - {fileID: 2100000, guid: 38a364a95bbc35543be9267ee6c0ab72, type: 2}
+  - {fileID: 2100000, guid: 248d4ccb2c96d2345bac7038472e6349, type: 2}
+  - {fileID: 2100000, guid: b58ef776d0049624aaa7ad1eb8427c9d, type: 2}
+  VeinMaterial: {fileID: 2100000, guid: 6fed2c084f1bab54fabb6fd41fc04265, type: 2}
+  PointMaterial: {fileID: 2100000, guid: eec0c00560ae9334a89dbea03f059ce8, type: 2}
+  VeinWidth: 1.1
+  VeinLift: 0.12

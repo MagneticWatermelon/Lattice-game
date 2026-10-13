@@ -228,6 +228,42 @@ namespace Lattice.Native
             return sites;
         }
 
+        /// <summary>Every route (lanes between sites, ways inside them); their points
+        /// are <see cref="LanePoints"/>, <c>count</c> from <c>first</c>.</summary>
+        public LtLane[] Lanes()
+        {
+            int n = LtLibrary.Api.lt_world_lanes(handle, null, 0);
+            var lanes = new LtLane[n];
+            fixed (LtLane* l = lanes)
+                LtLibrary.Api.lt_world_lanes(handle, l, n);
+            return lanes;
+        }
+
+        /// <summary>Every route's points, one route after another (feet height in z).</summary>
+        public LtVec3[] LanePoints()
+        {
+            int n = LtLibrary.Api.lt_world_lane_points(handle, null, 0);
+            var pts = new LtVec3[n];
+            fixed (LtVec3* p = pts)
+                LtLibrary.Api.lt_world_lane_points(handle, p, n);
+            return pts;
+        }
+
+        /// <summary>The control points.</summary>
+        public LtPoint[] Points()
+        {
+            int n = LtLibrary.Api.lt_world_points(handle, null, 0);
+            var pts = new LtPoint[n];
+            fixed (LtPoint* p = pts)
+                LtLibrary.Api.lt_world_points(handle, p, n);
+            return pts;
+        }
+
+        /// <summary>What the ground is (<c>LT_GROUND_*</c>) at nx × ny samples from
+        /// sample (x0, y0), rows north, into native memory.</summary>
+        public void Materials(int x0, int y0, int nx, int ny, byte* output) =>
+            LtLibrary.Api.lt_world_materials(handle, x0, y0, nx, ny, output);
+
         /// <summary>The terrain's height at (x, y), as movement samples it.</summary>
         public float Height(float x, float y) => LtLibrary.Api.lt_world_height(handle, x, y);
 
