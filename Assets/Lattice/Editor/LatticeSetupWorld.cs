@@ -259,7 +259,8 @@ namespace Lattice.EditorTools
                 look.Blockout[i] = m;
             }
             var glowTex = VeinTexture();
-            look.VeinMaterial = Additive($"{KilnDir}/Vein.mat", glowTex, new Color(0.45f, 1.5f, 1.9f, 1f));
+            // White: the veins are colored per vertex, by who holds their sites (K3).
+            look.VeinMaterial = Additive($"{KilnDir}/Vein.mat", glowTex, new Color(1.6f, 1.6f, 1.6f, 1f));
             look.PointMaterial = Additive($"{KilnDir}/Point.mat", glowTex, new Color(2.2f, 2.2f, 2.2f, 1f));
             // The collision kit's (K1): shields in their faction's colors (as the
             // soldiers': amber, jade, magenta), lifts' columns cool, drop shafts' warm.

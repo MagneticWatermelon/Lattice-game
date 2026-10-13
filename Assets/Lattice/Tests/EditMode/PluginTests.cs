@@ -84,23 +84,29 @@ namespace Lattice.Tests
             var pts = w.LanePoints();
             Assert.AreEqual(info.lanes, (uint)lanes.Length);
             Assert.AreEqual(info.lanePoints, (uint)pts.Length);
-            int between = 0;
+            // (Links between sites: a tunnel under a lane links what the lane does, K3.)
+            var links = new System.Collections.Generic.HashSet<(int, int)>();
             foreach (var l in lanes)
             {
                 Assert.Less((int)l.a, sites.Length);
                 Assert.Less((int)l.b, sites.Length);
                 Assert.GreaterOrEqual(l.count, 2u);
                 Assert.LessOrEqual(l.first + l.count, (uint)pts.Length);
-                between += l.a != l.b ? 1 : 0;
+                if (l.a != l.b)
+                    links.Add((System.Math.Min(l.a, l.b), System.Math.Max(l.a, l.b)));
             }
-            Assert.That(between, Is.InRange(100, 125));
+            Assert.That(links.Count, Is.InRange(100, 125));
+            var volumes = w.Volumes();
             foreach (var p in pts)
             {
                 Assert.IsTrue(p.x >= 0f && p.x <= info.size && p.y >= 0f && p.y <= info.size);
                 // On the ground (within a meter: waypoints are approximate) or above
-                // it (a deck, a stair), or under it on a
-                // tunnel's floor.
-                if (p.z < w.Height(p.x, p.y) - 1f)
+                // it (a deck, a stair), or under it on a tunnel's floor, or carried
+                // in a shaft (a lift's top, between two chambers stacked in the rock).
+                bool carried = false;
+                foreach (var v in volumes)
+                    carried |= p.x >= v.min.x - 0.5f && p.x <= v.max.x + 0.5f && p.y >= v.min.y - 0.5f && p.y <= v.max.y + 0.5f && p.z >= v.min.z && p.z <= v.max.z + 1f;
+                if (p.z < w.Height(p.x, p.y) - 1f && !carried)
                     Assert.AreEqual(p.z, w.Ground(p.x, p.y, p.z + 0.5f, 1f), 0.6f, $"a tunnel's floor at ({p.x}, {p.y})");
             }
             var points = w.Points();

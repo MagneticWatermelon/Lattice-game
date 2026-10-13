@@ -177,7 +177,7 @@ namespace Lattice.World
                 colors[v] = new Color32(c.r, c.g, c.b, (byte)(shape[v] * alpha));
         }
 
-        static Color32 ColorOf(byte holder) => holder < Holder.Length ? Holder[holder] : NoOne;
+        internal static Color32 ColorOf(byte holder) => holder < Holder.Length ? Holder[holder] : NoOne;
 
         Material ShieldOf(byte holder) => holder < 3 && look.Shields != null && holder < look.Shields.Length ? look.Shields[holder] : look.ShieldNone;
 

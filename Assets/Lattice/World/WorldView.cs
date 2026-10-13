@@ -26,7 +26,7 @@ namespace Lattice.World
         /// <summary>Kiln: the desert has no grass and no meadow rocks; its lanes are
         /// lit (<see cref="LatticeVeins"/>).</summary>
         public bool Kiln { get; private set; }
-        public GameObject Veins { get; private set; }
+        public LatticeVeins Veins { get; private set; }
         /// <summary>The control points and the sites' shields, colored by who holds them (U5).</summary>
         public TerritoryView Territory { get; private set; }
         /// <summary>The cover and the rocks.</summary>
@@ -137,6 +137,7 @@ namespace Lattice.World
                 Statics.Update(Camera.main);
             // (The plugin's calls are behind us: the PreLateUpdate before LateUpdate.)
             Territory?.Update(NetDriver.Frame, Time.unscaledTime);
+            Veins?.Update(NetDriver.Frame);
             if (Built && builtFrames < WarmFrames)
                 builtFrames++;
         }
@@ -147,6 +148,7 @@ namespace Lattice.World
         {
             Statics?.Dispose();
             Territory?.Dispose();
+            Veins?.Dispose();
             Terrain?.Dispose();
             preview?.Dispose();
         }
