@@ -47,26 +47,43 @@ namespace Lattice.World
                     new StaticField.Level { Mesh = cube, Material = model.Far != null ? model.Far : look.PlainCover, MinHeight = look.CoverFarHeight });
             }
             int plain = field.AddKind(new StaticField.Level { Mesh = cube, Material = look.PlainCover, MinHeight = 0f });
-            // Kiln's blockout kinds: a plain box each, in its own material.
+            // Kiln's blockout kinds: a plain box each, in its own material; and the
+            // sloped part of a wedge (C1), a prism, in the same.
+            var prism = PrismMesh();
+            int plainPrism = field.AddKind(new StaticField.Level { Mesh = prism, Material = look.PlainCover, MinHeight = 0f });
             var blockout = new int[look.Blockout?.Length ?? 0];
+            var blockoutPrism = new int[blockout.Length];
             for (int k = 0; k < blockout.Length; k++)
+            {
                 blockout[k] = look.Blockout[k] != null ? field.AddKind(new StaticField.Level { Mesh = cube, Material = look.Blockout[k], MinHeight = 0f }) : plain;
-            int models = 0;
+                blockoutPrism[k] = look.Blockout[k] != null ? field.AddKind(new StaticField.Level { Mesh = prism, Material = look.Blockout[k], MinHeight = 0f }) : plainPrism;
+            }
+            int models = 0, shaped = 0;
             for (int i = 0; i < boxes.Length; i++)
             {
                 var b = boxes[i];
+                // Shields are drawn with the force volumes (Connectors): see-through.
+                if (b.kind == LtCode.CoverShield)
+                    continue;
                 var model = b.kind < look.Cover.Length ? look.Cover[b.kind] : default;
                 var center = Coords.ToUnity((b.min.x + b.max.x) * 0.5f, (b.min.y + b.max.y) * 0.5f, b.min.z);
                 var size = new Vector3(b.max.x - b.min.x, b.max.z - b.min.z, b.max.y - b.min.y);
                 int block = b.kind - LtCode.CoverBlock;
-                if (model.Mesh != null)
+                bool inBlockout = block >= 0 && block < blockout.Length;
+                if (b.axisX != 1f || b.axisY != 0f || b.low != b.max.z)
+                {
+                    // Turned, or a wedge: plain, along its axis.
+                    Shaped(field, inBlockout ? blockout[block] : plain, inBlockout ? blockoutPrism[block] : plainPrism, cube, prism, b);
+                    shaped++;
+                }
+                else if (model.Mesh != null)
                     models += Place(field, kinds[b.kind], model, b, center, size, cube);
                 else
-                    Plain(field, block >= 0 && block < blockout.Length ? blockout[block] : plain, cube, center, size);
+                    Plain(field, inBlockout ? blockout[block] : plain, cube, center, size);
                 if ((i & 15) == 15)
                     yield return (i + 1f) / boxes.Length;
             }
-            Debug.Log($"Lattice: {boxes.Length} cover boxes ({models} model pieces) in {clock.Elapsed.TotalSeconds:F2} s");
+            Debug.Log($"Lattice: {boxes.Length} cover boxes ({models} model pieces, {shaped} turned or wedges) in {clock.Elapsed.TotalSeconds:F2} s");
         }
 
         /// <summary>A model fitted into box <paramref name="b"/>: its long side along
@@ -101,6 +118,27 @@ namespace Lattice.World
             return pieces;
         }
 
+        /// <summary>A turned box or a wedge (C1): its footprint along its axis, its
+        /// level part a box, a wedge's sloped part a prism on it, rising along the axis.</summary>
+        static void Shaped(StaticField field, int boxKind, int prismKind, Mesh cube, Mesh prism, LtBox b)
+        {
+            var rot = Quaternion.LookRotation(new Vector3(b.axisX, 0f, b.axisY), Vector3.up);
+            var bottom = Coords.ToUnity(b.centerX, b.centerY, b.min.z);
+            float level = Mathf.Min(b.low, b.max.z) - b.min.z;
+            float across = 2f * b.halfAcross, along = 2f * b.halfAlong;
+            if (level > 0.01f)
+            {
+                var m = Matrix4x4.TRS(bottom, rot, new Vector3(across, level, along));
+                field.Add(boxKind, m, World(m, cube.bounds), Mathf.Max(along, Mathf.Max(across, level)));
+            }
+            float rise = b.max.z - b.low;
+            if (rise > 0.01f)
+            {
+                var m = Matrix4x4.TRS(bottom + Vector3.up * level, rot, new Vector3(across, rise, along));
+                field.Add(prismKind, m, World(m, prism.bounds), Mathf.Max(along, Mathf.Max(across, rise)));
+            }
+        }
+
         static void Plain(StaticField field, int kind, Mesh cube, Vector3 bottomCenter, Vector3 size)
         {
             var m = Matrix4x4.TRS(bottomCenter, Quaternion.identity, size);
@@ -117,6 +155,64 @@ namespace Lattice.World
             for (int i = 0; i < 8; i++)
                 w.Encapsulate(m.MultiplyPoint3x4(b.center + new Vector3((i & 1) == 0 ? -e.x : e.x, (i & 2) == 0 ? -e.y : e.y, (i & 4) == 0 ? -e.z : e.z)));
             return w;
+        }
+
+        static Mesh prismMesh;
+
+        /// <summary>A unit wedge standing on its base (x and z in -0.5..0.5): its top
+        /// rising from y 0 at z -0.5 to y 1 at z +0.5 (a wedge's sloped part, along
+        /// its axis); flat-shaded, facing out.</summary>
+        public static Mesh PrismMesh()
+        {
+            if (prismMesh != null)
+                return prismMesh;
+            var a = new Vector3(-0.5f, 0f, -0.5f); // low edge, left
+            var b = new Vector3(0.5f, 0f, -0.5f);  // low edge, right
+            var c = new Vector3(-0.5f, 0f, 0.5f);
+            var d = new Vector3(0.5f, 0f, 0.5f);
+            var e = new Vector3(-0.5f, 1f, 0.5f);  // high edge
+            var f = new Vector3(0.5f, 1f, 0.5f);
+            // Faces: the slope, the back, the base, the two ends.
+            var faces = new[] { new[] { a, b, f, e }, new[] { c, d, f, e }, new[] { a, b, d, c }, new[] { a, c, e }, new[] { b, d, f } };
+            var center = new Vector3(0f, 0.3f, 0.15f);
+            var v = new List<Vector3>();
+            var n = new List<Vector3>();
+            var uv = new List<Vector2>();
+            var tri = new List<int>();
+            foreach (var face in faces)
+            {
+                var nrm = Vector3.Cross(face[1] - face[0], face[2] - face[0]).normalized;
+                var mid = Vector3.zero;
+                foreach (var p in face)
+                    mid += p / face.Length;
+                if (Vector3.Dot(nrm, mid - center) < 0f)
+                    nrm = -nrm;
+                int s = v.Count;
+                foreach (var p in face)
+                {
+                    v.Add(p);
+                    n.Add(nrm);
+                    uv.Add(new Vector2(p.x + 0.5f, p.z + 0.5f));
+                }
+                for (int k = 1; k + 1 < face.Length; k++)
+                {
+                    // Wound as CubeMesh's: each triangle's cross product along its normal.
+                    var w = Vector3.Cross(face[k] - face[0], face[k + 1] - face[0]);
+                    bool flip = Vector3.Dot(w, nrm) < 0f;
+                    tri.Add(s);
+                    tri.Add(flip ? s + k + 1 : s + k);
+                    tri.Add(flip ? s + k : s + k + 1);
+                }
+            }
+            var m = new Mesh { name = "Unit wedge (base at 0)" };
+            m.SetVertices(v);
+            m.SetNormals(n);
+            m.SetUVs(0, uv);
+            m.SetTriangles(tri, 0);
+            m.RecalculateTangents();
+            m.RecalculateBounds();
+            prismMesh = m;
+            return m;
         }
 
         static Mesh cubeMesh;

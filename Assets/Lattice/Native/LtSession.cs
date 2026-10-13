@@ -264,6 +264,21 @@ namespace Lattice.Native
         public void Materials(int x0, int y0, int nx, int ny, byte* output) =>
             LtLibrary.Api.lt_world_materials(handle, x0, y0, nx, ny, output);
 
+        /// <summary>The force volumes: lifts, drop shafts, springs.</summary>
+        public LtVolume[] Volumes()
+        {
+            int n = LtLibrary.Api.lt_world_volumes(handle, null, 0);
+            var vols = new LtVolume[n];
+            fixed (LtVolume* v = vols)
+                LtLibrary.Api.lt_world_volumes(handle, v, n);
+            return vols;
+        }
+
+        /// <summary>Whether each of nx × ny height cells from cell (x0, y0) is a hole in
+        /// the terrain (1) or not (0), rows north, into native memory.</summary>
+        public void Holes(int x0, int y0, int nx, int ny, byte* output) =>
+            LtLibrary.Api.lt_world_holes(handle, x0, y0, nx, ny, output);
+
         /// <summary>The terrain's height at (x, y), as movement samples it.</summary>
         public float Height(float x, float y) => LtLibrary.Api.lt_world_height(handle, x, y);
 

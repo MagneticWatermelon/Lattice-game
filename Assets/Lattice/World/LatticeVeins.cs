@@ -59,7 +59,10 @@ namespace Lattice.World
                         float s = (float)k / n;
                         float x = a.x + (b.x - a.x) * s, y = a.y + (b.y - a.y) * s, z = a.z + (b.z - a.z) * s;
                         float ground = world.Ground(x, y, z + 0.4f, 0.9f);
-                        line.Add(new Vector3(x, y, Mathf.Max(ground, world.Height(x, y)) + look.VeinLift));
+                        // On the terrain unless the route is well under its surface (down a
+                        // trench, along a tunnel): there, on whatever floor it walks.
+                        float surface = world.Height(x, y);
+                        line.Add(new Vector3(x, y, (z < surface - 1.5f ? ground : Mathf.Max(ground, surface)) + look.VeinLift));
                     }
                 }
                 samples += line.Count;

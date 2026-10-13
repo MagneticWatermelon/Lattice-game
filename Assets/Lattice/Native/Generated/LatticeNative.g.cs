@@ -15,11 +15,11 @@ namespace Lattice.Native
         /// <summary>
         /// The plugin API's version (lt_version).
         /// </summary>
-        public const uint Version = 4;
+        public const uint Version = 5;
         /// <summary>
         /// The layout hash of these bindings (lt_layout_hash).
         /// </summary>
-        public const ulong LayoutHash = 0x54B65F56DFA15E0C;
+        public const ulong LayoutHash = 0xB928D60008DBDA62;
         /// <summary>
         /// Game steps a second.
         /// </summary>
@@ -419,9 +419,33 @@ namespace Lattice.Native
         /// </summary>
         public const int CoverBone = 10;
         /// <summary>
+        /// A faction's shield: drawn in its colors, see-through.
+        /// </summary>
+        public const int CoverShield = 11;
+        /// <summary>
+        /// `LtBox::pass` of everything but shields: it blocks every faction.
+        /// </summary>
+        public const int Solid = 255;
+        /// <summary>
+        /// An updraft: a lift or a vent lift.
+        /// </summary>
+        public const int ForceLift = 0;
+        /// <summary>
+        /// A drop shaft: a fall slowed.
+        /// </summary>
+        public const int ForceDrop = 1;
+        /// <summary>
+        /// A lattice spring: a throw.
+        /// </summary>
+        public const int ForceSpring = 2;
+        /// <summary>
         /// Kiln's world id (any other is a seed for Harrow).
         /// </summary>
         public const int WorldKiln = 1263094862;
+        /// <summary>
+        /// The collision kit's test level (K1).
+        /// </summary>
+        public const int WorldKit = 4933972;
         /// <summary>
         /// Harrow, the procedural hills.
         /// </summary>
@@ -932,7 +956,7 @@ namespace Lattice.Native
     /// <summary>
     /// The world's size and contents.
     /// </summary>
-    [StructLayout(LayoutKind.Explicit, Size = 56)]
+    [StructLayout(LayoutKind.Explicit, Size = 64)]
     public unsafe partial struct LtWorldInfo
     {
         /// <summary>
@@ -968,30 +992,79 @@ namespace Lattice.Native
         [FieldOffset(40)] public uint lanes;
         [FieldOffset(44)] public uint lanePoints;
         [FieldOffset(48)] public uint points;
+        /// <summary>
+        /// Force volumes (`lt_world_volumes`), and how many height cells are
+        /// holes in the terrain (`lt_world_holes`).
+        /// </summary>
+        [FieldOffset(52)] public uint volumes;
+        [FieldOffset(56)] public uint holes;
     }
 
     /// <summary>
-    /// A cover box: blocks movement and shots.
+    /// A cover box: blocks movement and shots. Turned about the vertical (its
+    /// axis), its top level or rising along its axis (a wedge), or a shield
+    /// that lets one faction through.
     /// </summary>
-    [StructLayout(LayoutKind.Explicit, Size = 28)]
+    [StructLayout(LayoutKind.Explicit, Size = 56)]
     public unsafe partial struct LtBox
     {
         /// <summary>
-        /// z: its bottom.
+        /// Its footprint's bounds (a turned box's: around it); z: its bottom.
         /// </summary>
         [FieldOffset(0)] public LtVec3 min;
         /// <summary>
-        /// z: its top.
+        /// z: its top (a wedge's at the high end of its axis).
         /// </summary>
         [FieldOffset(12)] public LtVec3 max;
         /// <summary>
+        /// Its footprint's center.
+        /// </summary>
+        [FieldOffset(24)] public float centerX;
+        [FieldOffset(28)] public float centerY;
+        /// <summary>
+        /// Half its size along its axis and across it.
+        /// </summary>
+        [FieldOffset(32)] public float halfAlong;
+        [FieldOffset(36)] public float halfAcross;
+        /// <summary>
+        /// Its axis, a unit vector: (1, 0) for a box that isn't turned.
+        /// </summary>
+        [FieldOffset(40)] public float axisX;
+        [FieldOffset(44)] public float axisY;
+        /// <summary>
+        /// A wedge's top at the low end of its axis (`max.z` for a box).
+        /// </summary>
+        [FieldOffset(48)] public float low;
+        /// <summary>
         /// `LT_COVER_*`: what it's drawn as.
         /// </summary>
-        [FieldOffset(24)] public byte kind;
+        [FieldOffset(52)] public byte kind;
         /// <summary>
-        /// Which way its front faces: 0 east, 1 north, 2 west, 3 south.
+        /// Which way its front faces, in its own frame: 0 along its axis, 1 a
+        /// quarter turn left of it, 2, 3.
         /// </summary>
-        [FieldOffset(25)] public byte facing;
+        [FieldOffset(53)] public byte facing;
+        /// <summary>
+        /// A shield's faction, the one it lets through; `LT_SOLID` for the rest.
+        /// </summary>
+        [FieldOffset(54)] public byte pass;
+    }
+
+    /// <summary>
+    /// A force volume (an axis-aligned box of air): a lift, a drop shaft or
+    /// a spring.
+    /// </summary>
+    [StructLayout(LayoutKind.Explicit, Size = 40)]
+    public unsafe partial struct LtVolume
+    {
+        [FieldOffset(0)] public LtVec3 min;
+        [FieldOffset(12)] public LtVec3 max;
+        /// <summary>
+        /// What it does (`LT_FORCE_*`): a lift's speed up (z), a drop shaft's
+        /// down (z, negative), a spring's throw.
+        /// </summary>
+        [FieldOffset(24)] public LtVec3 vel;
+        [FieldOffset(36)] public byte force;
     }
 
     /// <summary>
@@ -1028,13 +1101,17 @@ namespace Lattice.Native
     /// A route: a lane between two sites (`a` != `b`), or a way inside one.
     /// Its points are `count` of `lt_world_lane_points` from `first`.
     /// </summary>
-    [StructLayout(LayoutKind.Explicit, Size = 12)]
+    [StructLayout(LayoutKind.Explicit, Size = 16)]
     public unsafe partial struct LtLane
     {
         [FieldOffset(0)] public ushort a;
         [FieldOffset(2)] public ushort b;
         [FieldOffset(4)] public uint first;
         [FieldOffset(8)] public uint count;
+        /// <summary>
+        /// 1: only walked from `a` to `b` (up a lift, down a drop shaft).
+        /// </summary>
+        [FieldOffset(12)] public byte oneWay;
     }
 
     /// <summary>
@@ -1271,6 +1348,18 @@ namespace Lattice.Native
         /// </summary>
         [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtPoint*, int, int> lt_world_points;
         /// <summary>
+        /// Every force volume: fills `out` (up to `cap`), returns how many.
+        /// (IntPtr w, LtVolume* out, int cap)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtVolume*, int, int> lt_world_volumes;
+        /// <summary>
+        /// Whether each of the `nx` × `ny` height cells from cell (`x0`, `y0`)
+        /// (the cell between samples x..x+1, y..y+1) is a hole in the terrain: 1
+        /// or 0, row by row, into `out`. Returns how many it wrote.
+        /// (IntPtr w, int x0, int y0, int nx, int ny, byte* out)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, int, int, int, int, byte*, int> lt_world_holes;
+        /// <summary>
         /// What the ground is (`LT_GROUND_*`) at the `nx` × `ny` samples from
         /// sample (`x0`, `y0`), row by row, into `out`. Returns how many it wrote.
         /// (IntPtr w, int x0, int y0, int nx, int ny, byte* out)
@@ -1289,7 +1378,7 @@ namespace Lattice.Native
         [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, float, float, float, float, float> lt_world_ground;
         /// <summary>
         /// Where the segment `from` -&gt; `to` first hits the ground or cover
-        /// (shots' rules): 1 and `out` filled, or 0.
+        /// (shots' rules; every shield stops it): 1 and `out` filled, or 0.
         /// (IntPtr w, LtVec3* from, LtVec3* to, LtHit* out)
         /// </summary>
         [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtVec3*, LtVec3*, LtHit*, int> lt_world_raycast;
@@ -1335,6 +1424,8 @@ namespace Lattice.Native
             p = proc("lt_world_lanes"); if (p == IntPtr.Zero) missing.Append(" lt_world_lanes"); lt_world_lanes = (delegate* unmanaged[Cdecl]<IntPtr, LtLane*, int, int>)(void*)p;
             p = proc("lt_world_lane_points"); if (p == IntPtr.Zero) missing.Append(" lt_world_lane_points"); lt_world_lane_points = (delegate* unmanaged[Cdecl]<IntPtr, LtVec3*, int, int>)(void*)p;
             p = proc("lt_world_points"); if (p == IntPtr.Zero) missing.Append(" lt_world_points"); lt_world_points = (delegate* unmanaged[Cdecl]<IntPtr, LtPoint*, int, int>)(void*)p;
+            p = proc("lt_world_volumes"); if (p == IntPtr.Zero) missing.Append(" lt_world_volumes"); lt_world_volumes = (delegate* unmanaged[Cdecl]<IntPtr, LtVolume*, int, int>)(void*)p;
+            p = proc("lt_world_holes"); if (p == IntPtr.Zero) missing.Append(" lt_world_holes"); lt_world_holes = (delegate* unmanaged[Cdecl]<IntPtr, int, int, int, int, byte*, int>)(void*)p;
             p = proc("lt_world_materials"); if (p == IntPtr.Zero) missing.Append(" lt_world_materials"); lt_world_materials = (delegate* unmanaged[Cdecl]<IntPtr, int, int, int, int, byte*, int>)(void*)p;
             p = proc("lt_world_height"); if (p == IntPtr.Zero) missing.Append(" lt_world_height"); lt_world_height = (delegate* unmanaged[Cdecl]<IntPtr, float, float, float>)(void*)p;
             p = proc("lt_world_ground"); if (p == IntPtr.Zero) missing.Append(" lt_world_ground"); lt_world_ground = (delegate* unmanaged[Cdecl]<IntPtr, float, float, float, float, float>)(void*)p;

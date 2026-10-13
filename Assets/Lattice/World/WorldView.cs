@@ -85,6 +85,7 @@ namespace Lattice.World
             Statics = new StaticField();
             Kiln = world.Info.continent == LtCode.ContinentKiln;
             Veins = LatticeVeins.Build(world, Look, transform);
+            Connectors.Build(world, Look, transform);
             if (!NoCover)
                 cover = CoverBuilder.Build(world, Look, Statics, near);
             if (!NoRocks && !Kiln)

@@ -97,13 +97,45 @@ namespace Lattice.Tests
             foreach (var p in pts)
             {
                 Assert.IsTrue(p.x >= 0f && p.x <= info.size && p.y >= 0f && p.y <= info.size);
-                // On the ground or above it (a deck, a stair), never under it.
-                Assert.GreaterOrEqual(p.z, w.Height(p.x, p.y) - 0.5f);
+                // On the ground (within a meter: waypoints are approximate) or above
+                // it (a deck, a stair), or under it on a
+                // tunnel's floor.
+                if (p.z < w.Height(p.x, p.y) - 1f)
+                    Assert.AreEqual(p.z, w.Ground(p.x, p.y, p.z + 0.5f, 1f), 0.6f, $"a tunnel's floor at ({p.x}, {p.y})");
             }
             var points = w.Points();
             Assert.Greater(points.Length, 0);
             foreach (var p in points)
                 Assert.Less((int)p.site, sites.Length);
+        }
+
+        [Test]
+        public void TheCollisionKitsWorld()
+        {
+            Assert.IsTrue(LtLibrary.EnsureLoaded(), LtLibrary.Error);
+            using var w = LtWorldHandle.FromSeed((ulong)LtCode.WorldKit);
+            var info = w.Info;
+            // A lift, a drop shaft and a spring; two trenches of holes.
+            var vols = w.Volumes();
+            Assert.AreEqual(3, vols.Length);
+            Assert.AreEqual(LtCode.ForceLift, (int)vols[0].force);
+            Assert.Less(vols[1].vel.z, 0f);
+            Assert.AreEqual(24u, info.holes);
+            var holes = new byte[4];
+            fixed (byte* h = holes)
+                w.Holes(1100 / 4, 1000 / 4, 2, 2, h);
+            CollectionAssert.AreEqual(new byte[] { 1, 1, 0, 0 }, holes, "the trench's two rows: y 1000-1004 a hole, 1004-1008 not");
+            // A turned box, a wedge, a shield.
+            var boxes = w.Boxes();
+            Assert.AreNotEqual(1f, boxes[0].axisX);
+            Assert.AreEqual(1f, boxes[0].axisX * boxes[0].axisX + boxes[0].axisY * boxes[0].axisY, 1e-5f);
+            bool wedge = false, shield = false;
+            foreach (var b in boxes)
+            {
+                wedge |= b.low != b.max.z;
+                shield |= b.kind == LtCode.CoverShield && b.pass != LtCode.Solid;
+            }
+            Assert.IsTrue(wedge && shield);
         }
     }
 }

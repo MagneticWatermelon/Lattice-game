@@ -65,6 +65,10 @@ namespace Lattice.World
         /// each tile's layers (the materials it has, in order) and control maps.</summary>
         readonly bool kiln;
         NativeArray<byte> materials;
+        /// <summary>Which height cells are holes in the terrain (1), if any are (K1:
+        /// tunnel mouths): cut out of the drawn ground too.</summary>
+        NativeArray<byte> holes;
+        readonly bool[,] tileSurface = new bool[TileSamples - 1, TileSamples - 1];
         readonly int[][] tileLayers = new int[Tiles * Tiles][];
         /// <summary>A tile's splat: a control map's texels after another's.</summary>
         readonly NativeArray<Color32>[] splats = new NativeArray<Color32>[Tiles * Tiles];
@@ -106,6 +110,12 @@ namespace Lattice.World
             for (int i = 0; i < siteList.Length; i++)
                 sites[i] = new float4(siteList[i].x, siteList[i].y, siteList[i].half, siteList[i].level);
             boxes = new NativeArray<LtBox>(world.Boxes(), Allocator.Persistent);
+            if (world.Info.holes > 0)
+            {
+                int cells = n - 1;
+                holes = new NativeArray<byte>(cells * cells, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                world.Holes(0, 0, cells, cells, (byte*)holes.GetUnsafePtr());
+            }
 
             gaps = new NativeArray<float>((n - 1) * (n - 1), Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             gapJob = new GapJob { Heights = heights, N = n, Out = gaps }.Schedule(gaps.Length, 8192);
@@ -217,6 +227,11 @@ namespace Lattice.World
                 GapMax = gapMax[0];
                 grassJob.Complete();
                 int n = LtConst.TerrainN;
+                // No grass over a hole (its 4 m texels are the height cells).
+                if (holes.IsCreated && GrassMapSize == n - 1)
+                    for (int i = 0; i < holes.Length; i++)
+                        if (holes[i] != 0)
+                            grassMap[i * 2] = 0;
                 HeightTexture = new Texture2D(n, n, TextureFormat.RFloat, false, true)
                     { name = "Ground heights", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
                 HeightTexture.SetPixelData(heights, 0);
@@ -254,6 +269,21 @@ namespace Lattice.World
             };
             td.size = new Vector3(TileSize, HeightRange, TileSize);
             td.SetHeights(0, 0, tileHeights);
+            if (holes.IsCreated)
+            {
+                // Unity's holes: true where the surface is, false where it's cut.
+                int cells = n - 1;
+                bool any = false;
+                for (int y = 0; y < TileSamples - 1; y++)
+                for (int x = 0; x < TileSamples - 1; x++)
+                {
+                    bool hole = holes[(y0 + y) * cells + x0 + x] != 0;
+                    tileSurface[y, x] = !hole;
+                    any |= hole;
+                }
+                if (any)
+                    td.SetHoles(0, 0, tileSurface);
+            }
             return td;
         }
 
@@ -355,6 +385,7 @@ namespace Lattice.World
             grassJob.Complete();
             if (grassMap.IsCreated) grassMap.Dispose();
             if (materials.IsCreated) materials.Dispose();
+            if (holes.IsCreated) holes.Dispose();
             if (heights.IsCreated) heights.Dispose();
             if (gaps.IsCreated) gaps.Dispose();
             if (gapBins.IsCreated) gapBins.Dispose();

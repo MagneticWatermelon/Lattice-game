@@ -67,6 +67,14 @@ namespace Lattice.World
         public Material VeinMaterial, PointMaterial;
         /// <summary>How wide a vein is drawn (m), and how far above the ground.</summary>
         public float VeinWidth = 1.1f, VeinLift = 0.12f;
+
+        [Header("Collision kit (K1)")]
+        /// <summary>Shields, a material per faction (amber, jade, magenta): see-through,
+        /// glowing in its colors.</summary>
+        public Material[] Shields = new Material[3];
+        /// <summary>Force volumes' columns of light: lifts (rising), drop shafts and
+        /// springs (<see cref="Connectors"/>).</summary>
+        public Material LiftMaterial, DropMaterial;
     }
 
     [System.Serializable]
