@@ -10,7 +10,7 @@ namespace Lattice.World
     /// <summary>
     /// The lattice made visible (docs/kiln.md, "a living world"): a vein of light
     /// along every lane, so routes read from the air and at a distance, dimmer
-    /// along the ways inside sites; and a ring at every control point. Drawn on
+    /// along the ways inside sites (the control points are <see cref="TerritoryView"/>'s). Drawn on
     /// whatever the route walks on (the ground, a deck, a stair's steps), a little
     /// above it, additive, a soft ribbon. Cosmetic: nothing collides with it. A
     /// few meshes, one per 2 km tile, built once (a world with no lanes, like
@@ -20,7 +20,6 @@ namespace Lattice.World
     {
         /// <summary>A sample every this many meters along a route.</summary>
         const float Step = 3f;
-        const int RingSides = 40;
 
         public static GameObject Build(LtWorldHandle world, WorldLook look, Transform parent)
         {
@@ -71,23 +70,11 @@ namespace Lattice.World
             for (int t = 0; t < parts.Length; t++)
                 parts[t].Finish(root.transform, $"Veins {t % tiles},{t / tiles}", look.VeinMaterial);
 
-            // The control points' rings.
-            var points = world.Points();
-            if (points.Length > 0 && look.PointMaterial != null)
-            {
-                var rings = new Part();
-                foreach (var p in points)
-                {
-                    float ground = world.Ground(p.pos.x, p.pos.y, p.pos.z + 0.4f, 0.9f);
-                    rings.Ring(new Vector3(p.pos.x, p.pos.y, Mathf.Max(ground, p.pos.z) + look.VeinLift + 0.02f), 3.2f, 0.7f);
-                }
-                rings.Finish(root.transform, "Control points", look.PointMaterial);
-            }
-            Debug.Log($"Lattice: {lanes.Length} routes' veins ({samples} samples) and {points.Length} control points in {clock.Elapsed.TotalSeconds:F2} s");
+            Debug.Log($"Lattice: {lanes.Length} routes' veins ({samples} samples) in {clock.Elapsed.TotalSeconds:F2} s");
             return root;
         }
 
-        /// <summary>A mesh being built: ribbons and rings, in Unity's space.</summary>
+        /// <summary>A mesh being built: ribbons, in Unity's space.</summary>
         sealed class Part
         {
             readonly List<Vector3> verts = new List<Vector3>();
@@ -121,33 +108,6 @@ namespace Lattice.World
                     colors.Add(color);
                     if (i > 0)
                     {
-                        tris.Add(v - 2);
-                        tris.Add(v);
-                        tris.Add(v - 1);
-                        tris.Add(v - 1);
-                        tris.Add(v);
-                        tris.Add(v + 1);
-                    }
-                }
-            }
-
-            /// <summary>A flat ring at a game-space point.</summary>
-            public void Ring(Vector3 c, float radius, float width)
-            {
-                int v0 = verts.Count;
-                for (int i = 0; i <= RingSides; i++)
-                {
-                    float a = i * Mathf.PI * 2f / RingSides;
-                    float cx = Mathf.Cos(a), cy = Mathf.Sin(a);
-                    verts.Add(Coords.ToUnity(c.x + cx * (radius - width * 0.5f), c.y + cy * (radius - width * 0.5f), c.z));
-                    verts.Add(Coords.ToUnity(c.x + cx * (radius + width * 0.5f), c.y + cy * (radius + width * 0.5f), c.z));
-                    uvs.Add(new Vector2(0f, i));
-                    uvs.Add(new Vector2(1f, i));
-                    colors.Add(Color.white);
-                    colors.Add(Color.white);
-                    if (i > 0)
-                    {
-                        int v = v0 + i * 2;
                         tris.Add(v - 2);
                         tris.Add(v);
                         tris.Add(v - 1);

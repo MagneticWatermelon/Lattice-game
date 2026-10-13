@@ -27,6 +27,8 @@ namespace Lattice.World
         /// lit (<see cref="LatticeVeins"/>).</summary>
         public bool Kiln { get; private set; }
         public GameObject Veins { get; private set; }
+        /// <summary>The control points and the sites' shields, colored by who holds them (U5).</summary>
+        public TerritoryView Territory { get; private set; }
         /// <summary>The cover and the rocks.</summary>
         public StaticField Statics { get; private set; }
         /// <summary>Measuring (--off cover, --off rocks): leave them out.</summary>
@@ -85,7 +87,9 @@ namespace Lattice.World
             Statics = new StaticField();
             Kiln = world.Info.continent == LtCode.ContinentKiln;
             Veins = LatticeVeins.Build(world, Look, transform);
-            Connectors.Build(world, Look, transform);
+            var siteShields = new List<(int site, MeshRenderer renderer)>();
+            Connectors.Build(world, Look, transform, siteShields);
+            Territory = TerritoryView.Build(world, Look, transform, siteShields);
             if (!NoCover)
                 cover = CoverBuilder.Build(world, Look, Statics, near);
             if (!NoRocks && !Kiln)
@@ -131,6 +135,8 @@ namespace Lattice.World
         {
             if (staticsDone)
                 Statics.Update(Camera.main);
+            // (The plugin's calls are behind us: the PreLateUpdate before LateUpdate.)
+            Territory?.Update(NetDriver.Frame, Time.unscaledTime);
             if (Built && builtFrames < WarmFrames)
                 builtFrames++;
         }
@@ -140,6 +146,7 @@ namespace Lattice.World
         void OnDestroy()
         {
             Statics?.Dispose();
+            Territory?.Dispose();
             Terrain?.Dispose();
             preview?.Dispose();
         }

@@ -63,7 +63,8 @@ namespace Lattice.World
         /// <c>CRYSTAL</c>, <c>BONE</c>): plain boxes until they have art.</summary>
         public Material[] Blockout = new Material[4];
         /// <summary>The lattice's veins along the lanes (and dimmer along the ways
-        /// inside sites), and the control points' rings.</summary>
+        /// inside sites), and the control points' rings and beams (white: colored
+        /// by who holds each, <see cref="TerritoryView"/>).</summary>
         public Material VeinMaterial, PointMaterial;
         /// <summary>How wide a vein is drawn (m), and how far above the ground.</summary>
         public float VeinWidth = 1.1f, VeinLift = 0.12f;
@@ -72,6 +73,8 @@ namespace Lattice.World
         /// <summary>Shields, a material per faction (amber, jade, magenta): see-through,
         /// glowing in its colors.</summary>
         public Material[] Shields = new Material[3];
+        /// <summary>A site's shields while no one holds it (no one passes them).</summary>
+        public Material ShieldNone;
         /// <summary>Force volumes' columns of light: lifts (rising), drop shafts and
         /// springs (<see cref="Connectors"/>).</summary>
         public Material LiftMaterial, DropMaterial;

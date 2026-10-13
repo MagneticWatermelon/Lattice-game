@@ -35,6 +35,9 @@ namespace Lattice.Net
         public int FxCount;
         public NativeArray<LtTracer> Tracers;
         public int TracerCount;
+        /// <summary>Every site's state (lt_territory): who holds it, its fight.</summary>
+        public NativeArray<LtSiteState> Sites;
+        public int SiteCount;
         public LtStats Stats;
         /// <summary>Down the sights (the reticle's cone follows): set by the local player.</summary>
         public bool Ads;
@@ -49,7 +52,7 @@ namespace Lattice.Net
     ///
     /// EarlyUpdate (end)        lt_begin_frame, lt_poll
     /// Update (first)           the input source: trigger (lt_fire), intent; lt_inputs
-    /// PreLateUpdate (first)    lt_own, lt_render, lt_combat and the drains → <see cref="Frame"/>
+    /// PreLateUpdate (first)    lt_own, lt_render, lt_combat and the drains, lt_territory → <see cref="Frame"/>
     /// PostLateUpdate (first)   lt_flush
     ///
     /// lt_render runs exactly once per frame and is the only source of other
@@ -123,6 +126,7 @@ namespace Lattice.Net
                 Events = new NativeArray<LtEvent>(256, Allocator.Persistent),
                 Fx = new NativeArray<LtFx>(4096, Allocator.Persistent),
                 Tracers = new NativeArray<LtTracer>(LtConst.MaxTracers, Allocator.Persistent),
+                Sites = new NativeArray<LtSiteState>(256, Allocator.Persistent),
             };
             Install();
             error = "";
@@ -142,6 +146,7 @@ namespace Lattice.Net
             if (f.Events.IsCreated) f.Events.Dispose();
             if (f.Fx.IsCreated) f.Fx.Dispose();
             if (f.Tracers.IsCreated) f.Tracers.Dispose();
+            if (f.Sites.IsCreated) f.Sites.Dispose();
             Frame = new NetFrame();
         }
 
@@ -198,6 +203,7 @@ namespace Lattice.Net
             f.EventCount = s.Events(f.Events);
             f.FxCount = s.Fx(f.Fx);
             f.TracerCount = Math.Min(s.Tracers(f.Tracers), f.Tracers.Length);
+            f.SiteCount = Math.Min(s.Territory(f.Sites), f.Sites.Length);
             s.Stats(out f.Stats);
             if (World == null && f.Own.welcomed != 0)
             {

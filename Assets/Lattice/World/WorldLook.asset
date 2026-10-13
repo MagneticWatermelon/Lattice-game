@@ -102,5 +102,6 @@ MonoBehaviour:
   - {fileID: 2100000, guid: 42bdd7d118c948b48bf19d58fc441d11, type: 2}
   - {fileID: 2100000, guid: 926062973656a514d87dfd60fdf5eaa6, type: 2}
   - {fileID: 2100000, guid: b6ad5345c195f8d42aed868e189f6866, type: 2}
+  ShieldNone: {fileID: 2100000, guid: 3302dbb80569c234d949ddb0d71ee3d8, type: 2}
   LiftMaterial: {fileID: 2100000, guid: 20f9029f8aa3eb142ae3c2c9a7c79811, type: 2}
   DropMaterial: {fileID: 2100000, guid: 0e79235aaf6c08442ac40b1e0ff5fd73, type: 2}

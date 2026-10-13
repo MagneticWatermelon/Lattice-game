@@ -260,13 +260,14 @@ namespace Lattice.EditorTools
             }
             var glowTex = VeinTexture();
             look.VeinMaterial = Additive($"{KilnDir}/Vein.mat", glowTex, new Color(0.45f, 1.5f, 1.9f, 1f));
-            look.PointMaterial = Additive($"{KilnDir}/Point.mat", glowTex, new Color(2.2f, 1.5f, 0.55f, 1f));
+            look.PointMaterial = Additive($"{KilnDir}/Point.mat", glowTex, new Color(2.2f, 2.2f, 2.2f, 1f));
             // The collision kit's (K1): shields in their faction's colors (as the
             // soldiers': amber, jade, magenta), lifts' columns cool, drop shafts' warm.
             Color[] factions = { new Color(0.92f, 0.62f, 0.10f), new Color(0.12f, 0.66f, 0.50f), new Color(0.78f, 0.22f, 0.72f) };
             look.Shields = new Material[factions.Length];
             for (int i = 0; i < factions.Length; i++)
                 look.Shields[i] = Additive($"{KilnDir}/Shield_{i}.mat", glowTex, new Color(factions[i].r * 2f, factions[i].g * 2f, factions[i].b * 2f, 1f));
+            look.ShieldNone = Additive($"{KilnDir}/Shield_none.mat", glowTex, new Color(1.25f, 1.3f, 1.35f, 1f));
             look.LiftMaterial = Additive($"{KilnDir}/Lift.mat", glowTex, new Color(0.5f, 1.5f, 2.1f, 1f));
             look.DropMaterial = Additive($"{KilnDir}/Drop.mat", glowTex, new Color(2.1f, 1.1f, 0.45f, 1f));
         }

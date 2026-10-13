@@ -15,11 +15,11 @@ namespace Lattice.Native
         /// <summary>
         /// The plugin API's version (lt_version).
         /// </summary>
-        public const uint Version = 5;
+        public const uint Version = 6;
         /// <summary>
         /// The layout hash of these bindings (lt_layout_hash).
         /// </summary>
-        public const ulong LayoutHash = 0xB928D60008DBDA62;
+        public const ulong LayoutHash = 0xD92C177845A85308;
         /// <summary>
         /// Game steps a second.
         /// </summary>
@@ -199,6 +199,14 @@ namespace Lattice.Native
         /// A site's flat ground blends back to the hills over this, m.
         /// </summary>
         public const float SiteBlend = 40.0f;
+        /// <summary>
+        /// A control point counts whoever stands within this of it, m,
+        /// </summary>
+        public const float PointRadius = 8.0f;
+        /// <summary>
+        /// and this above or below it, m.
+        /// </summary>
+        public const float PointHeight = 4.0f;
         /// <summary>
         /// The longest render delays the server accepts, steps: near,
         /// </summary>
@@ -426,6 +434,14 @@ namespace Lattice.Native
         /// `LtBox::pass` of everything but shields: it blocks every faction.
         /// </summary>
         public const int Solid = 255;
+        /// <summary>
+        /// `LtBox::site` of a box that belongs to no site.
+        /// </summary>
+        public const int NoSite = 65535;
+        /// <summary>
+        /// No faction: who holds a site or a point no one holds.
+        /// </summary>
+        public const int NoOne = 255;
         /// <summary>
         /// An updraft: a lift or a vent lift.
         /// </summary>
@@ -1005,7 +1021,7 @@ namespace Lattice.Native
     /// axis), its top level or rising along its axis (a wedge), or a shield
     /// that lets one faction through.
     /// </summary>
-    [StructLayout(LayoutKind.Explicit, Size = 56)]
+    [StructLayout(LayoutKind.Explicit, Size = 60)]
     public unsafe partial struct LtBox
     {
         /// <summary>
@@ -1048,6 +1064,12 @@ namespace Lattice.Native
         /// A shield's faction, the one it lets through; `LT_SOLID` for the rest.
         /// </summary>
         [FieldOffset(54)] public byte pass;
+        /// <summary>
+        /// A shield that belongs to a site: it lets through whoever holds
+        /// the site (`lt_territory`), and `pass` is who held it at the start.
+        /// `LT_NO_SITE` for the rest.
+        /// </summary>
+        [FieldOffset(56)] public ushort site;
     }
 
     /// <summary>
@@ -1122,6 +1144,47 @@ namespace Lattice.Native
     {
         [FieldOffset(0)] public LtVec3 pos;
         [FieldOffset(12)] public ushort site;
+    }
+
+    /// <summary>
+    /// A site's state (U5): who holds it, and its fight, as the server last
+    /// said, at the step we're predicting.
+    /// </summary>
+    [StructLayout(LayoutKind.Explicit, Size = 24)]
+    public unsafe partial struct LtSiteState
+    {
+        /// <summary>
+        /// How far its meter is toward `attacker` taking it, 0..1.
+        /// </summary>
+        [FieldOffset(0)] public float meter;
+        /// <summary>
+        /// Seconds since it last changed hands (since the start: large).
+        /// </summary>
+        [FieldOffset(4)] public float heldSecs;
+        /// <summary>
+        /// Seconds till it can be attacked again (0: it can).
+        /// </summary>
+        [FieldOffset(8)] public float lockedSecs;
+        /// <summary>
+        /// Its holder (`LT_NO_ONE`: no one).
+        /// </summary>
+        [FieldOffset(12)] public byte owner;
+        /// <summary>
+        /// The faction its meter is moving toward (`LT_NO_ONE`: none).
+        /// </summary>
+        [FieldOffset(13)] public byte attacker;
+        /// <summary>
+        /// Bit f: faction f may attack it now (linked to a site it holds,
+        /// not its own, not locked, not a Landing).
+        /// </summary>
+        [FieldOffset(14)] public byte attackable;
+        /// <summary>
+        /// How many points it has; who holds each (`LT_NO_ONE`: no one);
+        /// bit i: point i is contested.
+        /// </summary>
+        [FieldOffset(15)] public byte pointCount;
+        [FieldOffset(16)] public fixed byte points[6];
+        [FieldOffset(22)] public byte contested;
     }
 
     /// <summary>
@@ -1277,6 +1340,13 @@ namespace Lattice.Native
         /// </summary>
         [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, void> lt_flush;
         /// <summary>
+        /// Every site's state (who holds it, its fight; U5): fills `out` (up to
+        /// `cap`, in `lt_world_sites`' order), returns how many sites there are
+        /// (0 before we're welcomed).
+        /// (IntPtr s, LtSiteState* out, int cap)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtSiteState*, int, int> lt_territory;
+        /// <summary>
         /// The net graph's numbers.
         /// (IntPtr s, LtStats* out)
         /// </summary>
@@ -1411,6 +1481,7 @@ namespace Lattice.Native
             p = proc("lt_tracers"); if (p == IntPtr.Zero) missing.Append(" lt_tracers"); lt_tracers = (delegate* unmanaged[Cdecl]<IntPtr, LtTracer*, int, int>)(void*)p;
             p = proc("lt_set_others_muzzle"); if (p == IntPtr.Zero) missing.Append(" lt_set_others_muzzle"); lt_set_others_muzzle = (delegate* unmanaged[Cdecl]<IntPtr, LtVec3*, void>)(void*)p;
             p = proc("lt_flush"); if (p == IntPtr.Zero) missing.Append(" lt_flush"); lt_flush = (delegate* unmanaged[Cdecl]<IntPtr, void>)(void*)p;
+            p = proc("lt_territory"); if (p == IntPtr.Zero) missing.Append(" lt_territory"); lt_territory = (delegate* unmanaged[Cdecl]<IntPtr, LtSiteState*, int, int>)(void*)p;
             p = proc("lt_stats"); if (p == IntPtr.Zero) missing.Append(" lt_stats"); lt_stats = (delegate* unmanaged[Cdecl]<IntPtr, LtStats*, void>)(void*)p;
             p = proc("lt_snapshot_gaps"); if (p == IntPtr.Zero) missing.Append(" lt_snapshot_gaps"); lt_snapshot_gaps = (delegate* unmanaged[Cdecl]<IntPtr, float*, int, int>)(void*)p;
             p = proc("lt_summary"); if (p == IntPtr.Zero) missing.Append(" lt_summary"); lt_summary = (delegate* unmanaged[Cdecl]<IntPtr, byte*, int, int>)(void*)p;

@@ -10,23 +10,33 @@ namespace Lattice.World
     /// glowing slab in their faction's color; and force volumes, a column of
     /// light up each lift and down each drop shaft, a short one on each
     /// spring. Cosmetic (what they do is the plugin's): a few meshes, one per
-    /// material, built once.
+    /// material, built once. A site's shields (its spawn rooms', K3) are a mesh
+    /// of their own, in <paramref name="siteShields"/>: <see cref="TerritoryView"/>
+    /// colors them by who holds the site.
     /// </summary>
     public static class Connectors
     {
-        public static GameObject Build(LtWorldHandle world, WorldLook look, Transform parent)
+        public static GameObject Build(LtWorldHandle world, WorldLook look, Transform parent, List<(int site, MeshRenderer renderer)> siteShields)
         {
             var boxes = world.Boxes();
             var volumes = world.Volumes();
             var shields = new Part[3];
             for (int i = 0; i < shields.Length; i++)
                 shields[i] = new Part();
+            var bySite = new SortedDictionary<int, (Part part, int pass)>();
             int nShields = 0;
             foreach (var b in boxes)
             {
                 if (b.kind != LtCode.CoverShield)
                     continue;
-                shields[b.pass < 3 ? b.pass : 0].Slab(b, new Color(1f, 1f, 1f, 0.35f));
+                if (b.site != LtCode.NoSite)
+                {
+                    if (!bySite.TryGetValue(b.site, out var s))
+                        bySite[b.site] = s = (new Part(), b.pass);
+                    s.part.Slab(b, new Color(1f, 1f, 1f, 0.35f));
+                }
+                else
+                    shields[b.pass < 3 ? b.pass : 0].Slab(b, new Color(1f, 1f, 1f, 0.35f));
                 nShields++;
             }
             var lifts = new Part();
@@ -45,11 +55,18 @@ namespace Lattice.World
                 return null;
             var root = new GameObject("Shields and lifts");
             root.transform.SetParent(parent, false);
+            Material Shield(int faction) => faction < 3 ? (look.Shields != null && faction < look.Shields.Length ? look.Shields[faction] : null) : look.ShieldNone;
             for (int i = 0; i < shields.Length; i++)
-                shields[i].Finish(root.transform, $"Shields {i}", look.Shields != null && i < look.Shields.Length ? look.Shields[i] : null);
+                shields[i].Finish(root.transform, $"Shields {i}", Shield(i));
+            foreach (var kv in bySite)
+            {
+                var r = kv.Value.part.Finish(root.transform, $"Site {kv.Key}'s shields", Shield(kv.Value.pass));
+                if (r != null)
+                    siteShields?.Add((kv.Key, r));
+            }
             lifts.Finish(root.transform, "Lifts", look.LiftMaterial);
             drops.Finish(root.transform, "Drop shafts and springs", look.DropMaterial);
-            Debug.Log($"Lattice: {nShields} shields, {volumes.Length} force volumes");
+            Debug.Log($"Lattice: {nShields} shields ({bySite.Count} sites' own), {volumes.Length} force volumes");
             return root;
         }
 
@@ -116,10 +133,10 @@ namespace Lattice.World
                 Quad(P(lo.x, hi.y, lo.z), P(lo.x, lo.y, lo.z), P(lo.x, lo.y, hi.z), P(lo.x, hi.y, hi.z), foot, top, 0f, h);
             }
 
-            public void Finish(Transform parent, string name, Material material)
+            public MeshRenderer Finish(Transform parent, string name, Material material)
             {
                 if (verts.Count == 0 || material == null)
-                    return;
+                    return null;
                 var mesh = new Mesh { name = name, indexFormat = IndexFormat.UInt32 };
                 mesh.SetVertices(verts);
                 mesh.SetUVs(0, uvs);
@@ -135,6 +152,7 @@ namespace Lattice.World
                 r.receiveShadows = false;
                 r.lightProbeUsage = LightProbeUsage.Off;
                 r.reflectionProbeUsage = ReflectionProbeUsage.Off;
+                return r;
             }
         }
     }

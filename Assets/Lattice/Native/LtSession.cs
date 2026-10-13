@@ -121,6 +121,11 @@ namespace Lattice.Native
         public int Tracers(NativeArray<LtTracer> buffer) =>
             LtLibrary.Api.lt_tracers(handle, (LtTracer*)NativeArrayUnsafeUtility.GetUnsafePtr(buffer), buffer.Length);
 
+        /// <summary>Every site's state (who holds it, its fight) into <paramref name="buffer"/>,
+        /// in the world's sites' order; returns how many sites there are (0 before the Welcome).</summary>
+        public int Territory(NativeArray<LtSiteState> buffer) =>
+            LtLibrary.Api.lt_territory(handle, (LtSiteState*)NativeArrayUnsafeUtility.GetUnsafePtr(buffer), buffer.Length);
+
         public void SetOthersMuzzle(LtVec3 offset) => LtLibrary.Api.lt_set_others_muzzle(handle, &offset);
 
         public void Flush() => LtLibrary.Api.lt_flush(handle);

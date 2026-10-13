@@ -147,6 +147,7 @@ namespace Lattice.Game
             NetGraph.Create(hud.transform, Frames);
             Report.Sections.Add(SessionSection);
             HelpCard.Create(hud.transform);
+            CapturePanel.Create(hud.transform);
             world = FindAnyObjectByType<Lattice.World.WorldView>();
             JoinCard.Create(transform, world);
         }
