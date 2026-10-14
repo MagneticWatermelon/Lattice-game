@@ -31,6 +31,14 @@ namespace Lattice.Audio
         [Header("Beds")]
         public AudioClip Wind, BattleSmall, BattleLarge;
 
+        [Header("Life (Kiln, K4)")]
+        /// <summary>Glass reeds touching in the wind: heard round the listener in the
+        /// Glasslands' reed fields, and more as someone pushes through them.</summary>
+        public AudioClip[] ReedChime;
+        /// <summary>Chimes a second in a full field with no one in it, and more for each
+        /// m/s the local player pushes through.</summary>
+        public float ChimesInWind = 0.9f, ChimesPerSpeed = 0.45f;
+
         [Header("Mix")]
         [Range(0f, 1f)] public float Master = 0.9f;
         [Range(0f, 1f)] public float OwnShot = 0.8f, Shots = 0.8f, Feedback = 0.7f, Footsteps = 0.45f, Ambience = 0.28f, Battle = 0.55f;

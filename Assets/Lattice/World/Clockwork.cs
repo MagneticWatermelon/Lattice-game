@@ -148,16 +148,19 @@ namespace Lattice.World
             /// top's, <paramref name="a"/> and <paramref name="b"/> in uv1.</summary>
             public void Column(LtVolume v, float footAlpha, float topAlpha, float a, float b)
             {
-                var (lo, hi) = (v.min, v.max);
-                Vector3 P(float x, float y, float z) => Coords.ToUnity(x, y, z);
+                var c = Connectors.Footprint(v);
                 var foot = new Color(1f, 1f, 1f, footAlpha);
                 var top = new Color(1f, 1f, 1f, topAlpha);
-                float h = hi.z - lo.z;
+                float h = v.max.z - v.min.z;
                 var d = new Vector2(a, b);
-                Quad(P(lo.x, lo.y, lo.z), P(hi.x, lo.y, lo.z), P(hi.x, lo.y, hi.z), P(lo.x, lo.y, hi.z), foot, top, 0f, h, d, Vector3.back);
-                Quad(P(hi.x, lo.y, lo.z), P(hi.x, hi.y, lo.z), P(hi.x, hi.y, hi.z), P(hi.x, lo.y, hi.z), foot, top, 0f, h, d, Vector3.right);
-                Quad(P(hi.x, hi.y, lo.z), P(lo.x, hi.y, lo.z), P(lo.x, hi.y, hi.z), P(hi.x, hi.y, hi.z), foot, top, 0f, h, d, Vector3.forward);
-                Quad(P(lo.x, hi.y, lo.z), P(lo.x, lo.y, lo.z), P(lo.x, lo.y, hi.z), P(lo.x, hi.y, hi.z), foot, top, 0f, h, d, Vector3.left);
+                for (int i = 0; i < 4; i++)
+                {
+                    var (p, q) = (c[i], c[(i + 1) % 4]);
+                    // Outward: the side's direction a quarter turn clockwise (game space, z up).
+                    var e = (q - p).normalized;
+                    var n = new Vector3(e.y, 0f, -e.x);
+                    Quad(Coords.ToUnity(p.x, p.y, v.min.z), Coords.ToUnity(q.x, q.y, v.min.z), Coords.ToUnity(q.x, q.y, v.max.z), Coords.ToUnity(p.x, p.y, v.max.z), foot, top, 0f, h, d, n);
+                }
             }
 
             /// <summary>A coral box (a wedge's top rising along its axis), each

@@ -486,7 +486,30 @@ namespace Lattice.EditorTools
             look.GrassCompute = AssetDatabase.LoadAssetAtPath<ComputeShader>("Assets/Lattice/Shaders/Grass.compute");
             if (look.GrassCompute == null)
                 Debug.LogWarning("Lattice setup: no Assets/Lattice/Shaders/Grass.compute");
+            // Kiln's glass reeds (K4): the grass's shader in glass's colors, pale
+            // cyan to clear tips, the light coming through them.
+            var reed = AssetDatabase.LoadAssetAtPath<Material>(ReedPath);
+            if (reed == null)
+            {
+                reed = new Material(shader);
+                AssetDatabase.CreateAsset(reed, ReedPath);
+            }
+            reed.shader = shader;
+            LatticeSetup.ShaderDefaults(reed);
+            Color root = new Color(0.28f, 0.42f, 0.44f), tip = new Color(0.80f, 0.96f, 0.98f);
+            reed.SetColor("_GrassRoot", root);
+            reed.SetColor("_GrassTip", tip);
+            reed.SetColor("_MeadowRoot", root);
+            reed.SetColor("_MeadowTip", tip);
+            reed.SetFloat("_Translucency", 1.5f);
+            reed.SetFloat("_Ambient", 0.85f);
+            reed.SetFloat("_Flatten", 0.35f);
+            reed.SetVector("_Wind", new Vector4(0.8f, 0.6f, 0.05f, 1.6f));
+            EditorUtility.SetDirty(reed);
+            look.ReedMaterial = reed;
         }
+
+        const string ReedPath = "Assets/Lattice/World/Kiln/Reed.mat";
 
         static Material LitMaterial(string path)
         {

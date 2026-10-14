@@ -97,6 +97,18 @@ namespace Lattice.Tests
             }
             Assert.That(links.Count, Is.InRange(100, 125));
             var volumes = w.Volumes();
+            // Columns in a turned frame turned with it (API v8): inside their bounds.
+            int turned = 0;
+            foreach (var v in volumes)
+            {
+                Assert.AreEqual(1f, v.axisX * v.axisX + v.axisY * v.axisY, 1e-4f);
+                Assert.AreEqual((v.min.x + v.max.x) / 2f, v.centerX, 1e-3f);
+                float ex = System.Math.Abs(v.axisX) * v.halfAlong + System.Math.Abs(v.axisY) * v.halfAcross;
+                Assert.AreEqual((v.max.x - v.min.x) / 2f, ex, 1e-2f);
+                if (v.axisX != 1f)
+                    turned++;
+            }
+            Assert.Greater(turned, 20, "the diagonal rifts' and the Heartwell's columns turned");
             foreach (var p in pts)
             {
                 Assert.IsTrue(p.x >= 0f && p.x <= info.size && p.y >= 0f && p.y <= info.size);

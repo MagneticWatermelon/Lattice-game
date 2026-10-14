@@ -38,6 +38,9 @@ namespace Lattice.World
         /// <summary>Kiln's life (K4): sunsails, night fliers, coral, sand-whales; made once
         /// the terrain is (the whales ride its heights).</summary>
         public Life Life { get; private set; }
+        /// <summary>The Glasslands' glass reeds (K4): where they grow, and their field.</summary>
+        public Reeds Reeds { get; private set; }
+        public GrassField ReedField { get; private set; }
         LtWorldHandle world;
         /// <summary>Measuring (--off cover, --off rocks): leave them out.</summary>
         public static bool NoCover, NoRocks;
@@ -125,9 +128,14 @@ namespace Lattice.World
             {
                 grassTried = true;
                 if (!Kiln)
-                    Grass = GrassField.Create(transform, Look, Terrain.HeightTexture, Terrain.GrassTexture);
+                    Grass = GrassField.Create(transform, GrassField.Kind.Grass(Look), Terrain.HeightTexture, Terrain.GrassTexture);
                 else if (!NoLife)
+                {
                     Life = Life.Build(world, Look, transform, Terrain.HeightTexture);
+                    // The Glasslands' reeds: a field of their own (the heights stay the life's too).
+                    Reeds = Reeds.Build(world);
+                    ReedField = GrassField.Create(transform, GrassField.Kind.Reeds(Look), Terrain.HeightTexture, Reeds.Map, false);
+                }
             }
             // The cover, then the rocks, while the frame's budget lasts.
             while (cover != null && Spent(start) < Budget)

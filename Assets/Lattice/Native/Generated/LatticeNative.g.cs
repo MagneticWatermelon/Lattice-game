@@ -15,11 +15,11 @@ namespace Lattice.Native
         /// <summary>
         /// The plugin API's version (lt_version).
         /// </summary>
-        public const uint Version = 7;
+        public const uint Version = 8;
         /// <summary>
         /// The layout hash of these bindings (lt_layout_hash).
         /// </summary>
-        public const ulong LayoutHash = 0x8A430543BC7EE359;
+        public const ulong LayoutHash = 0xFCDE46439E9A9832;
         /// <summary>
         /// Game steps a second.
         /// </summary>
@@ -1154,20 +1154,33 @@ namespace Lattice.Native
     }
 
     /// <summary>
-    /// A force volume (an axis-aligned box of air): a lift, a drop shaft or
-    /// a spring.
+    /// A force volume (a box of air, turned like a box can be): a lift, a
+    /// drop shaft or a spring.
     /// </summary>
-    [StructLayout(LayoutKind.Explicit, Size = 40)]
+    [StructLayout(LayoutKind.Explicit, Size = 64)]
     public unsafe partial struct LtVolume
     {
+        /// <summary>
+        /// Its bounds (a turned one's: around it).
+        /// </summary>
         [FieldOffset(0)] public LtVec3 min;
         [FieldOffset(12)] public LtVec3 max;
+        /// <summary>
+        /// Its footprint's center, half its size along its axis and across,
+        /// and its axis (a unit vector: (1, 0) for one that isn't turned).
+        /// </summary>
+        [FieldOffset(24)] public float centerX;
+        [FieldOffset(28)] public float centerY;
+        [FieldOffset(32)] public float halfAlong;
+        [FieldOffset(36)] public float halfAcross;
+        [FieldOffset(40)] public float axisX;
+        [FieldOffset(44)] public float axisY;
         /// <summary>
         /// What it does (`LT_FORCE_*`): a lift's speed up (z), a drop shaft's
         /// down (z, negative), a spring's throw.
         /// </summary>
-        [FieldOffset(24)] public LtVec3 vel;
-        [FieldOffset(36)] public byte force;
+        [FieldOffset(48)] public LtVec3 vel;
+        [FieldOffset(60)] public byte force;
         /// <summary>
         /// When it's there (`LT_WHEN_*`): always; a sandfall's, in its set's
         /// turn (`LtClock::falls`); a vent lift, always there but running
@@ -1175,8 +1188,8 @@ namespace Lattice.Native
         /// into its cycle (running while `(step + phase) % LT_VENT_CYCLE &lt;
         /// LT_VENT_ON`), resting it only slows a fall.
         /// </summary>
-        [FieldOffset(37)] public byte when;
-        [FieldOffset(38)] public ushort phase;
+        [FieldOffset(61)] public byte when;
+        [FieldOffset(62)] public ushort phase;
     }
 
     /// <summary>

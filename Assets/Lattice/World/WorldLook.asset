@@ -113,3 +113,4 @@ MonoBehaviour:
   FlierMaterial: {fileID: 2100000, guid: 43bd2f36859d77146be8041116fe07aa, type: 2}
   LifeCoralMaterial: {fileID: 2100000, guid: 0cccc5c6667f568429526875e2dd71a3, type: 2}
   WhaleMaterial: {fileID: 2100000, guid: 901a225ef76bbc046962191b297d8977, type: 2}
+  ReedMaterial: {fileID: 2100000, guid: 69cd2782746a76448b5f616b4190799a, type: 2}

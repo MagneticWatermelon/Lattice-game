@@ -31,6 +31,7 @@ namespace Lattice.EditorTools
             look.ImpactDirt = Many("Impact_Dirt");
             look.ImpactHard = Many("Impact_Hard");
             look.Footstep = Many("Footstep");
+            look.ReedChime = Many("Reed_Chime");
             look.Hurt = Many("Hurt");
             look.HitBody = One("Hit_Body");
             look.HitHead = One("Hit_Head");

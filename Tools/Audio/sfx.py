@@ -571,6 +571,27 @@ def battle(secs=12.0, rate=9.0, seed=1400):
     return loopify(normalize(x, -2.0), 2.0)
 
 
+def reed_chime(v):
+    """Glass reeds touching in the wind (the Glasslands, K4's life): a few thin
+    glass rods struck together, each ringing with a free bar's inharmonic
+    partials (1, 2.756, 5.404) over a click of glass on glass; bright, a
+    second or so. Its own stream of chances (the rest of the set is untouched)."""
+    r = np.random.default_rng(1600 + v)
+    secs = 1.9
+    t = t_axis(1.5)
+    out = np.zeros(int(secs * SR))
+    for k in range(int(r.integers(3, 7))):
+        f0 = r.uniform(1800.0, 3600.0)
+        tone = np.zeros_like(t)
+        for ratio, tau, amp in ((1.0, r.uniform(0.35, 0.75), 1.0), (2.756, 0.2, 0.4), (5.404, 0.07, 0.18)):
+            tone += amp * np.sin(2 * np.pi * f0 * ratio * t + r.uniform(0, 6.28)) * np.exp(-t / tau)
+        click = band(r.standard_normal(int(0.004 * SR)), 3000, 12000) * env_exp(0.004, 0.0012) * 0.35
+        tone[:len(click)] += click
+        tone *= np.clip(t / 0.0004, 0, 1)
+        place(out, tone, 0.0 if k == 0 else r.uniform(0.02, 0.35), 1.0 if k == 0 else r.uniform(0.3, 1.0))
+    return normalize(fade(out, 0.0005, 0.2), -6.0)
+
+
 # ---- write ------------------------------------------------------------------
 
 for v in range(4):
@@ -604,6 +625,8 @@ write("Crouch_Up", crouch(False))
 write("Wind", wind(), stereo=True)
 write("Battle_Small", battle(rate=4.0, seed=1400))
 write("Battle_Large", battle(rate=18.0, seed=1500))
+for v in range(4):
+    write(f"Reed_Chime_{v}", reed_chime(v))
 
 # ---- a preview sheet: waveform and spectrogram per sound --------------------
 if PREV:

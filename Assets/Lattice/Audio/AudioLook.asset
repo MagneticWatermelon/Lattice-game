@@ -73,6 +73,13 @@ MonoBehaviour:
   Wind: {fileID: 8300000, guid: fcb659dca13d1214694d9cdaaf0ddffe, type: 3}
   BattleSmall: {fileID: 8300000, guid: b39aa30e84da68545a505062ec1cd9fc, type: 3}
   BattleLarge: {fileID: 8300000, guid: daf4edea1157fb44ab99cf66f7e20742, type: 3}
+  ReedChime:
+  - {fileID: 8300000, guid: a216f100ba16f1c43aacbb59e1b5cd27, type: 3}
+  - {fileID: 8300000, guid: 0c4a32c2c3d2b0d4bbd48f437eb39238, type: 3}
+  - {fileID: 8300000, guid: cb28be76cc643314b8265ca3ef9736c5, type: 3}
+  - {fileID: 8300000, guid: 2bc8331412e4da246bb03fee0ead4491, type: 3}
+  ChimesInWind: 0.9
+  ChimesPerSpeed: 0.45
   Master: 0.9
   OwnShot: 0.8
   Shots: 0.8

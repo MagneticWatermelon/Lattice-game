@@ -64,7 +64,10 @@ namespace Lattice.Audio
         readonly bool[] reloadHeard = new bool[65536];
 
         // For the report: what played, and what came out.
-        int nOwn, nNear, nFar, nCrack, nImpact, nFeedback, nSteps, nStolen, nFarBedded, nHandling, nOthersReload;
+        int nOwn, nNear, nFar, nCrack, nImpact, nFeedback, nSteps, nStolen, nFarBedded, nHandling, nOthersReload, nChimes;
+        // Kiln's glass reeds (K4): where they grow (the world's), looked for now and then.
+        Lattice.World.WorldView view;
+        float viewLookedAt = -10f;
         MasterBus bus;
         float busMaxDb;
         // Far shots heard one by one, at most so many a second; the rest are the bed's.
@@ -121,11 +124,11 @@ namespace Lattice.Audio
         {
             float rms = meterFrames > 0 ? rmsSum / meterFrames : 0f;
             return string.Format(System.Globalization.CultureInfo.InvariantCulture,
-                "  audio: played own {0}, near {1}, far {2} (+{13} left to the bed), cracks {3}, impacts {4}, feedback {5}, steps {6}, handling {15} (+{16} others' reloads); voices stolen {7}\n" +
+                "  audio: played own {0}, near {1}, far {2} (+{13} left to the bed), cracks {3}, impacts {4}, feedback {5}, steps {6}, handling {15} (+{16} others' reloads), reed chimes {17}; voices stolen {7}\n" +
                 "  audio out: peak {8:F1} dBFS, mean rms {9:F1} dBFS over {10} frames; frames over -1 dBFS {11}, over -6 dBFS {12}; the bus took off at most {14:F1} dB\n",
                 nOwn, nNear, nFar, nCrack, nImpact, nFeedback, nSteps, nStolen,
                 20f * Mathf.Log10(Mathf.Max(outPeak, 1e-6f)), 20f * Mathf.Log10(Mathf.Max(rms, 1e-6f)), meterFrames, clipFrames, loudFrames, nFarBedded, busMaxDb,
-                nHandling, nOthersReload);
+                nHandling, nOthersReload, nChimes);
         }
 
         /// <summary>The mix as it leaves: peak and loudness, for the report.</summary>
@@ -330,8 +333,65 @@ namespace Lattice.Audio
             Vitals(f);
             Steps(f, p, ear, now, dt);
             OthersReloading(f, ear);
+            Chimes(f, ear, now, dt);
             Beds(ear, dt);
             Meter();
+        }
+
+        /// <summary>The Glasslands' glass reeds chiming (K4): round the listener where they
+        /// grow, in the wind, and more where the local player pushes through them.</summary>
+        void Chimes(NetFrame f, Vector3 ear, float now, float dt)
+        {
+            if (Look.ReedChime == null || Look.ReedChime.Length == 0)
+                return;
+            if (view == null && now - viewLookedAt > 2f)
+            {
+                view = FindAnyObjectByType<Lattice.World.WorldView>();
+                viewLookedAt = now;
+            }
+            var reeds = view != null ? view.Reeds : null;
+            if (reeds == null)
+                return;
+            var e = Coords.ToGame(ear);
+            float here = reeds.Density(e.x, e.y);
+            float near = here;
+            for (int k = 0; k < 6; k++)
+            {
+                float a = k * Mathf.PI / 3f;
+                near = Mathf.Max(near, reeds.Density(e.x + Mathf.Cos(a) * 26f, e.y + Mathf.Sin(a) * 26f));
+            }
+            if (near <= 0f)
+                return;
+            // In the wind: from anywhere in the field round us.
+            if (Rand() < Look.ChimesInWind * near * dt)
+            {
+                for (int tries = 0; tries < 3; tries++)
+                {
+                    float a = Rand() * 6.2831853f, r = 3f + Rand() * 24f;
+                    float x = e.x + Mathf.Cos(a) * r, y = e.y + Mathf.Sin(a) * r;
+                    float d = reeds.Density(x, y);
+                    if (d > 0.2f)
+                    {
+                        Chime(Coords.ToUnity(x, y, e.z - 1.5f), d * (0.45f + 0.55f * Rand()));
+                        break;
+                    }
+                }
+            }
+            // Pushed through: where the local player walks in them.
+            if (f.Welcomed)
+            {
+                var o = f.Own.pos;
+                float speed = Mathf.Sqrt(f.Own.vel.x * f.Own.vel.x + f.Own.vel.y * f.Own.vel.y);
+                float d = reeds.Density(o.x, o.y);
+                if (d > 0.1f && speed > 0.5f && Rand() < Look.ChimesPerSpeed * speed * d * dt)
+                    Chime(Coords.ToUnity(o.x + (Rand() - 0.5f) * 2f, o.y + (Rand() - 0.5f) * 2f, o.z + 0.4f), 0.6f + 0.4f * Rand());
+            }
+        }
+
+        void Chime(Vector3 at, float level)
+        {
+            PlayAt(Pick(Look.ReedChime), at, Look.Ambience * 0.9f * level, 18000f, 0f, 0.9f + 0.2f * Rand());
+            nChimes++;
         }
 
         void Shot(in LtFx fx, Vector3 ear)

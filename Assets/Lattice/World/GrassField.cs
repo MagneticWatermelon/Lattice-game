@@ -17,11 +17,42 @@ namespace Lattice.World
     [DefaultExecutionOrder(300)]
     public sealed class GrassField : MonoBehaviour
     {
-        const int Blades = 14, Segments = 3;
-        /// <summary>How far a clump's blades spread from its middle, and a blade's half
-        /// width at the root (m).</summary>
-        const float ClumpRadius = 0.17f, BladeHalfWidth = 0.012f;
-        const float Seed = 7919f;
+        const int Segments = 3;
+
+        /// <summary>
+        /// What a field grows and how: its material and scatter (from
+        /// <see cref="WorldLook"/>), and its clumps' shape: how many blades, how far
+        /// they spread from the middle and their half width at the root (m), how
+        /// much they lean and how tall they are (shares of the clump's height).
+        /// Kiln's glass reeds (K4) are a field too, on the reeds' map.
+        /// </summary>
+        public sealed class Kind
+        {
+            public string Name;
+            public Material Material;
+            public ComputeShader Compute;
+            public float Distance, ThinFrom, Cell, Density, FarKeep;
+            public Vector2 Height, Width;
+            public int Blades = 14;
+            public float ClumpRadius = 0.17f, BladeHalfWidth = 0.012f;
+            public Vector2 Lean = new Vector2(0.15f, 0.6f), Tall = new Vector2(0.45f, 1f);
+            public float Seed = 7919f;
+
+            public static Kind Grass(WorldLook l) => new Kind
+            {
+                Name = "Grass", Material = l.GrassMaterial, Compute = l.GrassCompute, Distance = l.GrassDistance, ThinFrom = l.GrassThinFrom,
+                Cell = l.GrassCell, Density = l.GrassDensity, FarKeep = l.GrassFarKeep, Height = l.GrassHeight, Width = l.GrassWidth,
+            };
+
+            /// <summary>Kiln's glass reeds: sparser, straighter, thin and glassy, under
+            /// 0.8 m (nothing cosmetic hides a soldier, crouched at 1.2).</summary>
+            public static Kind Reeds(WorldLook l) => new Kind
+            {
+                Name = "Glass reeds", Material = l.ReedMaterial, Compute = l.GrassCompute, Distance = 70f, ThinFrom = 20f,
+                Cell = 0.55f, Density = 0.7f, FarKeep = 0.35f, Height = new Vector2(0.55f, 0.8f), Width = new Vector2(0.9f, 1.3f),
+                Blades = 8, ClumpRadius = 0.24f, BladeHalfWidth = 0.009f, Lean = new Vector2(0.02f, 0.14f), Tall = new Vector2(0.6f, 1f), Seed = 4127f,
+            };
+        }
 
         static readonly int ClumpsId = Shader.PropertyToID("_Clumps"), HeightsId = Shader.PropertyToID("_Heights"),
             GrassMapId = Shader.PropertyToID("_GrassMap"), GridId = Shader.PropertyToID("_Grid"), EyeId = Shader.PropertyToID("_Eye"),
@@ -31,7 +62,7 @@ namespace Lattice.World
         /// <summary>Not drawn (--off grass: to measure what it costs).</summary>
         public static bool Off;
 
-        WorldLook look;
+        Kind kind;
         ComputeShader compute;
         int kernel, cells, groups;
         GraphicsBuffer clumps, args;
@@ -41,30 +72,34 @@ namespace Lattice.World
         readonly Plane[] planes = new Plane[6];
         readonly Vector4[] planeData = new Vector4[6];
 
-        /// <summary>The grass, given the ground's heights and grass map (it owns them
-        /// from here); null where it can't be drawn.</summary>
-        public static GrassField Create(Transform parent, WorldLook look, Texture2D heights, Texture2D grassMap)
+        /// <summary>A field of <paramref name="kind"/>, given the ground's heights and its
+        /// map (it destroys them when it goes; <paramref name="ownsHeights"/> false leaves
+        /// the heights to others); null where it can't be drawn.</summary>
+        public static GrassField Create(Transform parent, Kind kind, Texture2D heights, Texture2D grassMap, bool ownsHeights = true)
         {
-            if (look.GrassMaterial == null || look.GrassCompute == null || heights == null || grassMap == null || !SystemInfo.supportsComputeShaders)
+            if (kind.Material == null || kind.Compute == null || heights == null || grassMap == null || !SystemInfo.supportsComputeShaders)
                 return null;
-            var go = new GameObject("Grass");
+            var go = new GameObject(kind.Name);
             go.transform.SetParent(parent, false);
             var g = go.AddComponent<GrassField>();
-            g.Init(look, heights, grassMap);
+            g.Init(kind, heights, grassMap, ownsHeights);
             return g;
         }
 
-        void Init(WorldLook look, Texture2D heights, Texture2D grassMap)
+        bool ownsHeights;
+
+        void Init(Kind kind, Texture2D heights, Texture2D grassMap, bool ownsHeights)
         {
-            this.look = look;
+            this.kind = kind;
             this.heights = heights;
             this.grassMap = grassMap;
-            cells = Mathf.CeilToInt(2f * look.GrassDistance / look.GrassCell);
+            this.ownsHeights = ownsHeights;
+            cells = Mathf.CeilToInt(2f * kind.Distance / kind.Cell);
             groups = (cells + 7) / 8;
             // At most a clump per cell within the circle (no view culling counted).
-            int capacity = Mathf.CeilToInt(cells * cells * Mathf.PI / 4f * Mathf.Clamp01(look.GrassDensity)) + 1024;
+            int capacity = Mathf.CeilToInt(cells * cells * Mathf.PI / 4f * Mathf.Clamp01(kind.Density)) + 1024;
             clumps = new GraphicsBuffer(GraphicsBuffer.Target.Append, capacity, 32);
-            mesh = ClumpMesh();
+            mesh = ClumpMesh(kind);
             args = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1, GraphicsBuffer.IndirectDrawIndexedArgs.size);
             args.SetData(new[]
             {
@@ -75,7 +110,7 @@ namespace Lattice.World
                     baseVertexIndex = mesh.GetBaseVertex(0),
                 },
             });
-            compute = look.GrassCompute;
+            compute = kind.Compute;
             kernel = compute.FindKernel("Scatter");
             compute.SetBuffer(kernel, ClumpsId, clumps);
             compute.SetTexture(kernel, HeightsId, heights);
@@ -83,7 +118,7 @@ namespace Lattice.World
             compute.SetVector(MapId, new Vector4(Coords.Half, LtConst.TerrainRes, LtConst.TerrainN, LtConst.WorldSize));
             var props = new MaterialPropertyBlock();
             props.SetBuffer(ClumpsId, clumps);
-            draw = new RenderParams(look.GrassMaterial)
+            draw = new RenderParams(kind.Material)
             {
                 matProps = props,
                 shadowCastingMode = ShadowCastingMode.Off,
@@ -101,16 +136,20 @@ namespace Lattice.World
         {
             if (cam == null || clumps == null || Off)
                 return;
-            float max = look.GrassDistance, cell = look.GrassCell;
+            float max = kind.Distance, cell = kind.Cell;
             var eye = cam.transform.position;
             compute.SetVector(GridId, new Vector4(Mathf.Floor((eye.x - max) / cell), Mathf.Floor((eye.z - max) / cell), cell, cells));
             compute.SetVector(EyeId, new Vector4(eye.x, eye.y, eye.z, max));
-            compute.SetVector(ThinId, new Vector4(look.GrassThinFrom, look.GrassFarKeep, look.GrassDensity, Seed));
-            compute.SetVector(SizeId, new Vector4(look.GrassHeight.x, look.GrassHeight.y, look.GrassWidth.x, look.GrassWidth.y));
+            compute.SetVector(ThinId, new Vector4(kind.ThinFrom, kind.FarKeep, kind.Density, kind.Seed));
+            compute.SetVector(SizeId, new Vector4(kind.Height.x, kind.Height.y, kind.Width.x, kind.Width.y));
             GeometryUtility.CalculateFrustumPlanes(cam.projectionMatrix * cam.worldToCameraMatrix, planes);
             for (int i = 0; i < 6; i++)
                 planeData[i] = new Vector4(planes[i].normal.x, planes[i].normal.y, planes[i].normal.z, planes[i].distance);
             compute.SetVectorArray(PlanesId, planeData);
+            // (Fields share the compute shader: each binds its own before its dispatch.)
+            compute.SetBuffer(kernel, ClumpsId, clumps);
+            compute.SetTexture(kernel, HeightsId, heights);
+            compute.SetTexture(kernel, GrassMapId, grassMap);
             clumps.SetCounterValue(0);
             compute.Dispatch(kernel, groups, groups, 1);
             GraphicsBuffer.CopyCount(clumps, args, sizeof(uint));
@@ -135,8 +174,9 @@ namespace Lattice.World
             clumps = args = null;
             if (mesh != null)
                 Destroy(mesh);
-            if (heights != null)
+            if (heights != null && ownsHeights)
                 Destroy(heights);
+
             if (grassMap != null)
                 Destroy(grassMap);
         }
@@ -149,8 +189,10 @@ namespace Lattice.World
         /// blade); uv0 (across, along), uv1 (the blade's random, its root half width),
         /// uv2 its root in the disk.
         /// </summary>
-        static Mesh ClumpMesh()
+        static Mesh ClumpMesh(Kind field)
         {
+            int Blades = field.Blades;
+            float ClumpRadius = field.ClumpRadius, BladeHalfWidth = field.BladeHalfWidth;
             var rnd = new System.Random(20261012);
             float R() => (float)rnd.NextDouble();
             int perBlade = Segments * 2 + 1;
@@ -167,8 +209,8 @@ namespace Lattice.World
             {
                 float a = R() * 2f * Mathf.PI, r = ClumpRadius * Mathf.Sqrt(R());
                 var root = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r;
-                float leanAt = a + (R() - 0.5f) * 1.2f, lean = 0.15f + 0.45f * R();
-                float tall = 0.45f + 0.55f * R();
+                float leanAt = a + (R() - 0.5f) * 1.2f, lean = Mathf.Lerp(field.Lean.x, field.Lean.y, R());
+                float tall = Mathf.Lerp(field.Tall.x, field.Tall.y, R());
                 float half = BladeHalfWidth * (0.75f + 0.5f * R());
                 float face = R() * 2f * Mathf.PI;
                 var side = new Vector3(Mathf.Cos(face), 0f, Mathf.Sin(face));
@@ -203,7 +245,7 @@ namespace Lattice.World
                 int last = first + 2 * (Segments - 1);
                 tri[ti++] = last; tri[ti++] = first + 2 * Segments; tri[ti++] = last + 1;
             }
-            var mesh = new Mesh { name = "Grass clump" };
+            var mesh = new Mesh { name = field.Name + " clump" };
             mesh.SetVertices(pos);
             mesh.SetNormals(nrm);
             mesh.SetTangents(tan);

@@ -73,6 +73,17 @@ namespace Lattice.World
             return root;
         }
 
+        /// <summary>A force volume's footprint in game space, its corners
+        /// counterclockwise from its axis's low end and right side (a column
+        /// turned with the walkway or deck it stands in, plugin API v8).</summary>
+        internal static Vector2[] Footprint(LtVolume v)
+        {
+            var (ax, ay, a, c) = (v.axisX, v.axisY, v.halfAlong, v.halfAcross);
+            var (cx, cy) = (v.centerX, v.centerY);
+            Vector2 At(float u, float w) => new Vector2(cx + u * ax - w * ay, cy + u * ay + w * ax);
+            return new[] { At(-a, -c), At(a, -c), At(a, c), At(-a, c) };
+        }
+
         /// <summary>A mesh being built, in Unity's space.</summary>
         sealed class Part
         {
@@ -125,15 +136,15 @@ namespace Lattice.World
             /// (the vein texture's soft edges), alpha from the foot's to the top's.</summary>
             public void Column(LtVolume v, float footAlpha, float topAlpha)
             {
-                var (lo, hi) = (v.min, v.max);
-                Vector3 P(float x, float y, float z) => Coords.ToUnity(x, y, z);
+                var c = Footprint(v);
                 var foot = new Color(1f, 1f, 1f, footAlpha);
                 var top = new Color(1f, 1f, 1f, topAlpha);
-                float h = hi.z - lo.z;
-                Quad(P(lo.x, lo.y, lo.z), P(hi.x, lo.y, lo.z), P(hi.x, lo.y, hi.z), P(lo.x, lo.y, hi.z), foot, top, 0f, h);
-                Quad(P(hi.x, lo.y, lo.z), P(hi.x, hi.y, lo.z), P(hi.x, hi.y, hi.z), P(hi.x, lo.y, hi.z), foot, top, 0f, h);
-                Quad(P(hi.x, hi.y, lo.z), P(lo.x, hi.y, lo.z), P(lo.x, hi.y, hi.z), P(hi.x, hi.y, hi.z), foot, top, 0f, h);
-                Quad(P(lo.x, hi.y, lo.z), P(lo.x, lo.y, lo.z), P(lo.x, lo.y, hi.z), P(lo.x, hi.y, hi.z), foot, top, 0f, h);
+                float h = v.max.z - v.min.z;
+                for (int i = 0; i < 4; i++)
+                {
+                    var (a, b) = (c[i], c[(i + 1) % 4]);
+                    Quad(Coords.ToUnity(a.x, a.y, v.min.z), Coords.ToUnity(b.x, b.y, v.min.z), Coords.ToUnity(b.x, b.y, v.max.z), Coords.ToUnity(a.x, a.y, v.max.z), foot, top, 0f, h);
+                }
             }
 
             public MeshRenderer Finish(Transform parent, string name, Material material)

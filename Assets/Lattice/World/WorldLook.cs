@@ -88,6 +88,9 @@ namespace Lattice.World
         /// membranes, night fliers, lattice coral on the rift walls, sand-whales
         /// (Lattice/Life in its modes).</summary>
         public Material StalkMaterial, SailMaterial, FlierMaterial, LifeCoralMaterial, WhaleMaterial;
+        /// <summary>The Glasslands' glass reeds: Lattice/Grass in glass's colors, scattered
+        /// as grass is (<see cref="GrassField.Kind.Reeds"/>, <see cref="Reeds"/>).</summary>
+        public Material ReedMaterial;
     }
 
     [System.Serializable]
