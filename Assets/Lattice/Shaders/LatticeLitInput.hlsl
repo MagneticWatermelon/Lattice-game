@@ -40,6 +40,10 @@ half _TintStrength;
 UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 CBUFFER_END
 
+// Lattice: how much the faction's trim glows (K4: soldiers read at night, GDD
+// "players always read"); set by Kiln's day (World/DayCycle.cs), 0 elsewhere.
+half _LatticeTrimGlow;
+
 // NOTE: Do not ifdef the properties for dots instancing, but ifdef the actual usage.
 // Otherwise you might break CPU-side as property constant-buffer offsets change per variant.
 // NOTE: Dots instancing is orthogonal to the constant buffer above.
@@ -290,6 +294,7 @@ inline void InitializeStandardLitSurfaceData(float2 uv, out SurfaceData outSurfa
     outSurfaceData.occlusion = SampleOcclusion(uv);
     outSurfaceData.emission = SampleEmission(uv, _EmissionColor.rgb, TEXTURE2D_ARGS(_EmissionMap, sampler_EmissionMap));
     outSurfaceData.emission += _TintColor.rgb * (tintFar * _TintFar.w);
+    outSurfaceData.emission += tintNear * (tintMask * _LatticeTrimGlow);
 
 #if defined(_CLEARCOAT) || defined(_CLEARCOATMAP)
     half2 clearCoat = SampleClearCoat(uv);

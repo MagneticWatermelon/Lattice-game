@@ -44,7 +44,9 @@ namespace Lattice.World
             GroundId = Shader.PropertyToID("_Ground"), GlowId = Shader.PropertyToID("_Glow"), CycleId = Shader.PropertyToID("_Cycle"),
             SunDirId = Shader.PropertyToID("_SunDir"), SunColorId = Shader.PropertyToID("_SunColor"), RingLightId = Shader.PropertyToID("_RingLight"),
             RingColorId = Shader.PropertyToID("_RingColor"), StarsId = Shader.PropertyToID("_Stars"),
-            BaseColorId = Shader.PropertyToID("_BaseColor"), EmissionId = Shader.PropertyToID("_EmissionColor");
+            BaseColorId = Shader.PropertyToID("_BaseColor"), EmissionId = Shader.PropertyToID("_EmissionColor"),
+            TrimGlowId = Shader.PropertyToID("_LatticeTrimGlow");
+        const float TrimByDay = 0.05f, TrimByNight = 0.6f;
 
         readonly Light sun;
         readonly SkyLight ambient;
@@ -198,6 +200,9 @@ namespace Lattice.World
                 sky.SetColor(RingColorId, Color.Lerp(RingByDay, RingByNight, night));
                 sky.SetFloat(StarsId, night);
             }
+            // Every soldier's faction trim glows, a little by day and more at night:
+            // night changes routes, never whether a player can be seen.
+            Shader.SetGlobalFloat(TrimGlowId, TrimByDay + (TrimByNight - TrimByDay) * night);
             RenderSettings.fogColor = fogDay * day + FogGolden * golden + FogNight * night;
             // The lattice: brighter at night, and a surge through it as each 20
             // minutes turns (the sandfalls shift with it).
@@ -251,6 +256,7 @@ namespace Lattice.World
                 UnityEngine.Object.Destroy(sky);
             }
             RenderSettings.fogColor = fogDay;
+            Shader.SetGlobalFloat(TrimGlowId, 0f);
             if (root != null)
                 UnityEngine.Object.Destroy(root);
         }
