@@ -275,7 +275,47 @@ namespace Lattice.EditorTools
             // sand, the living bridges' coral rose with veins of the lattice's cyan.
             look.VentMaterial = ClockworkMaterial($"{KilnDir}/Vent.mat", glowTex, 0, new Color(0.5f, 1.6f, 2.3f, 1f), Color.black);
             look.SandMaterial = ClockworkMaterial($"{KilnDir}/Sandfall.mat", glowTex, 1, new Color(0.80f, 0.62f, 0.40f, 1f), Color.black);
+            // The life's (K4): the sunsails' stalks lit like the rock, their membranes
+            // golden and see-through; fliers glowing the lattice's green-cyan; coral
+            // rose, glowing cyan at night; the whales' sand the dunes'.
+            look.StalkMaterial = LitMaterial($"{KilnDir}/Stalk.mat");
+            look.StalkMaterial.SetColor("_BaseColor", new Color32(104, 92, 62, 255));
+            look.StalkMaterial.SetTexture("_BaseMap", null);
+            look.StalkMaterial.SetFloat("_Smoothness", 0.3f);
+            look.StalkMaterial.SetFloat("_TintStrength", 0f);
+            look.StalkMaterial.SetFloat("_Cull", 0f);
+            look.StalkMaterial.enableInstancing = true;
+            EditorUtility.SetDirty(look.StalkMaterial);
+            look.SailMaterial = LifeMaterial($"{KilnDir}/Sail.mat", 0, new Color(1.0f, 0.74f, 0.36f, 1f), Color.black);
+            look.FlierMaterial = LifeMaterial($"{KilnDir}/Flier.mat", 1, Color.white, new Color(0.5f, 2.2f, 1.8f, 1f));
+            look.LifeCoralMaterial = LifeMaterial($"{KilnDir}/WallCoral.mat", 2, new Color(0.62f, 0.32f, 0.36f, 1f), new Color(0.25f, 1.1f, 1.25f, 1f));
+            look.WhaleMaterial = LifeMaterial($"{KilnDir}/Whale.mat", 3, new Color(0.80f, 0.64f, 0.42f, 1f), Color.black);
             look.CoralMaterial = ClockworkMaterial($"{KilnDir}/Coral.mat", glowTex, 2, new Color(0.86f, 0.30f, 0.38f, 1f), new Color(0.3f, 1.4f, 1.6f, 1f));
+        }
+
+        /// <summary>Lattice/Life in one of its modes: 0 a sunsail's membrane (blended,
+        /// both sides), 1 a flier (added on), 2 coral (opaque), 3 a sand-whale (blended).</summary>
+        static Material LifeMaterial(string path, int mode, Color color, Color glow)
+        {
+            var shader = Shader.Find("Lattice/Life");
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null)
+            {
+                m = new Material(shader);
+                AssetDatabase.CreateAsset(m, path);
+            }
+            m.shader = shader;
+            m.SetColor("_Color", color);
+            m.SetColor("_Glow", glow);
+            m.SetFloat("_Mode", mode);
+            bool opaque = mode == 2;
+            m.SetFloat("_SrcBlend", (float)(opaque ? BlendMode.One : BlendMode.SrcAlpha));
+            m.SetFloat("_DstBlend", (float)(opaque ? BlendMode.Zero : mode == 1 ? BlendMode.One : BlendMode.OneMinusSrcAlpha));
+            m.SetFloat("_ZWrite", opaque ? 1f : 0f);
+            m.SetFloat("_Cull", (float)(opaque ? CullMode.Back : CullMode.Off));
+            m.renderQueue = opaque ? (int)RenderQueue.Geometry + 10 : (int)RenderQueue.Transparent;
+            EditorUtility.SetDirty(m);
+            return m;
         }
 
         /// <summary>Lattice/Clockwork in one of its modes: 0 a vent's column (added on),

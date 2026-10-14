@@ -271,6 +271,15 @@ namespace Lattice.Game
                     case "rocks":
                         Lattice.World.WorldView.NoRocks = true;
                         break;
+                    case "day":
+                        Lattice.World.WorldView.NoDay = true;
+                        break;
+                    case "clockwork":
+                        Lattice.World.WorldView.NoClockwork = true;
+                        break;
+                    case "life":
+                        Lattice.World.WorldView.NoLife = true;
+                        break;
                 }
                 Debug.Log($"Lattice: off: {what}");
             }

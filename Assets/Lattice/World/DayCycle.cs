@@ -58,6 +58,10 @@ namespace Lattice.World
         readonly float dayIntensity;
         readonly List<(Material m, int id, Color c, float night, float surge)> glowing = new List<(Material, int, Color, float, float)>();
         float probeLook = -1f, probeAt = -100f;
+        readonly Material[] glowMats;
+        readonly int[] glowIds;
+        readonly Color[] glowBase;
+        readonly float[] glowNight, glowSurge, glowNow;
 
         DayCycle(Light sun, WorldLook look, GameObject root)
         {
@@ -89,6 +93,14 @@ namespace Lattice.World
             Glow(look.DropMaterial, BaseColorId, 0.5f, 0.6f);
             if (look.Blockout != null && look.Blockout.Length > 2)
                 Glow(look.Blockout[2], EmissionId, 3.0f, 1.5f); // crystal
+            glowMats = glowing.ConvertAll(g => g.m).ToArray();
+            glowIds = glowing.ConvertAll(g => g.id).ToArray();
+            glowBase = glowing.ConvertAll(g => g.c).ToArray();
+            glowNight = glowing.ConvertAll(g => g.night).ToArray();
+            glowSurge = glowing.ConvertAll(g => g.surge).ToArray();
+            glowNow = new float[glowMats.Length];
+            for (int i = 0; i < glowNow.Length; i++)
+                glowNow[i] = 1f;
         }
 
         public static DayCycle Build(LtWorldHandle world, WorldLook look, Transform parent)
@@ -191,8 +203,17 @@ namespace Lattice.World
             // minutes turns (the sandfalls shift with it).
             float sinceTurn = (c.cycleStep % (uint)LtConst.FallsSteps) / (float)LtConst.TickHz;
             float surge = sinceTurn < 10f ? Mathf.Exp(-sinceTurn / 1.6f) : 0f;
-            foreach (var (mat, id, color, n, s) in glowing)
-                mat.SetColor(id, color * (1f + n * night + s * surge));
+            // (Plain arrays and a for: a foreach over the tuples allocated each frame in
+            // the IL2CPP player; and set only as they change.)
+            for (int i = 0; i < glowMats.Length; i++)
+            {
+                float k = 1f + glowNight[i] * night + glowSurge[i] * surge;
+                if (Mathf.Abs(k - glowNow[i]) > 1e-3f)
+                {
+                    glowMats[i].SetColor(glowIds[i], glowBase[i] * k);
+                    glowNow[i] = k;
+                }
+            }
             foreach (var l in lanterns)
             {
                 l.enabled = night > 0.01f;

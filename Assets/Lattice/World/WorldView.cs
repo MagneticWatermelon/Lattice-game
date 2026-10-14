@@ -35,8 +35,15 @@ namespace Lattice.World
         /// step, the vents, sandfalls and living bridges drawn as the step has them.</summary>
         public DayCycle Day { get; private set; }
         public Clockwork Clockwork { get; private set; }
+        /// <summary>Kiln's life (K4): sunsails, night fliers, coral, sand-whales; made once
+        /// the terrain is (the whales ride its heights).</summary>
+        public Life Life { get; private set; }
+        LtWorldHandle world;
         /// <summary>Measuring (--off cover, --off rocks): leave them out.</summary>
         public static bool NoCover, NoRocks;
+        /// <summary>Measuring (--off day, clockwork, life): Kiln's day (the light stays the
+        /// scene's), its clockwork drawn, its life.</summary>
+        public static bool NoDay, NoClockwork, NoLife;
         bool staticsDone;
         /// <summary>Frames drawn since everything was made: the first ones upload the
         /// terrain's and grass's textures and build the GPU's pipelines (a frame held
@@ -84,6 +91,7 @@ namespace Lattice.World
             if (Started || Look == null)
                 return;
             Started = true;
+            this.world = world;
             // Nearest first: what's around the camera appears before the far side.
             var cam = Camera.main;
             var near = cam != null ? cam.transform.position : Vector3.zero;
@@ -96,8 +104,10 @@ namespace Lattice.World
             Territory = TerritoryView.Build(world, Look, transform, siteShields);
             if (Kiln)
             {
-                Clockwork = Clockwork.Build(world, Look, transform);
-                Day = DayCycle.Build(world, Look, transform);
+                if (!NoClockwork)
+                    Clockwork = Clockwork.Build(world, Look, transform);
+                if (!NoDay)
+                    Day = DayCycle.Build(world, Look, transform);
             }
             if (!NoCover)
                 cover = CoverBuilder.Build(world, Look, Statics, near);
@@ -116,6 +126,8 @@ namespace Lattice.World
                 grassTried = true;
                 if (!Kiln)
                     Grass = GrassField.Create(transform, Look, Terrain.HeightTexture, Terrain.GrassTexture);
+                else if (!NoLife)
+                    Life = Life.Build(world, Look, transform, Terrain.HeightTexture);
             }
             // The cover, then the rocks, while the frame's budget lasts.
             while (cover != null && Spent(start) < Budget)
@@ -149,6 +161,7 @@ namespace Lattice.World
             Veins?.Update(NetDriver.Frame);
             Clockwork?.Update(NetDriver.Frame, Time.unscaledDeltaTime);
             Day?.Update(NetDriver.Frame);
+            Life?.Update(NetDriver.Frame, Time.unscaledDeltaTime);
             if (Built && builtFrames < WarmFrames)
                 builtFrames++;
         }
@@ -162,6 +175,7 @@ namespace Lattice.World
             Veins?.Dispose();
             Clockwork?.Dispose();
             Day?.Dispose();
+            Life?.Dispose();
             Terrain?.Dispose();
             preview?.Dispose();
         }

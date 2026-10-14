@@ -467,6 +467,10 @@ namespace Lattice.Native
         /// </summary>
         public const int CoverCoral = 12;
         /// <summary>
+        /// A sunsail's stalk (K4): its membrane (drawn on top, 20-40 m across, its size the stalk's height's) blocks nothing.
+        /// </summary>
+        public const int CoverStalk = 13;
+        /// <summary>
         /// There always.
         /// </summary>
         public const int WhenAlways = 0;

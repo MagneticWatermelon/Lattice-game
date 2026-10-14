@@ -84,6 +84,10 @@ namespace Lattice.World
         /// sandfalls (blended), living bridges' coral (lit, see-through while it grows):
         /// <see cref="Clockwork"/>.</summary>
         public Material VentMaterial, SandMaterial, CoralMaterial;
+        /// <summary>The life (<see cref="Life"/>): sunsails' stalks (lit, as their boxes) and
+        /// membranes, night fliers, lattice coral on the rift walls, sand-whales
+        /// (Lattice/Life in its modes).</summary>
+        public Material StalkMaterial, SailMaterial, FlierMaterial, LifeCoralMaterial, WhaleMaterial;
     }
 
     [System.Serializable]

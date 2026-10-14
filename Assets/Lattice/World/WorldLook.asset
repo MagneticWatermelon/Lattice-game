@@ -108,3 +108,8 @@ MonoBehaviour:
   VentMaterial: {fileID: 2100000, guid: 4ab1e1a67074761448ed402539bcc461, type: 2}
   SandMaterial: {fileID: 2100000, guid: 924f6bcc27b8c664a8be23162c957b8e, type: 2}
   CoralMaterial: {fileID: 2100000, guid: 462bd6ad628a22f478644c7131942d5b, type: 2}
+  StalkMaterial: {fileID: 2100000, guid: 3e2b5aa0d8505384da7591938ba57530, type: 2}
+  SailMaterial: {fileID: 2100000, guid: 3541577e436eaf64ab619197d314f05b, type: 2}
+  FlierMaterial: {fileID: 2100000, guid: 43bd2f36859d77146be8041116fe07aa, type: 2}
+  LifeCoralMaterial: {fileID: 2100000, guid: 0cccc5c6667f568429526875e2dd71a3, type: 2}
+  WhaleMaterial: {fileID: 2100000, guid: 901a225ef76bbc046962191b297d8977, type: 2}
