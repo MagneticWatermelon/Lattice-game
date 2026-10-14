@@ -41,6 +41,17 @@ namespace Lattice.Net
         public LtStats Stats;
         /// <summary>Kiln's clock (lt_clock, K4): the day and the clockwork, from the game step.</summary>
         public LtClock Clock;
+        /// <summary>The shell (lt_shell, U4): deploying, recaps, fights, XP.</summary>
+        public LtShell Shell;
+        /// <summary>Every site as a spawn for us (lt_spawn_options), in the sites' order.</summary>
+        public NativeArray<LtSpawnOption> Spawns;
+        public int SpawnCount;
+        /// <summary>The continent's fights (lt_fights), as the server last said.</summary>
+        public NativeArray<LtFight> Fights;
+        public int FightCount;
+        /// <summary>The newest death recap, and how many have come (0: none).</summary>
+        public LtRecap Recap;
+        public int Recaps;
         /// <summary>Down the sights (the reticle's cone follows): set by the local player.</summary>
         public bool Ads;
         /// <summary>Time spent in plugin calls this frame, ms.</summary>
@@ -129,6 +140,8 @@ namespace Lattice.Net
                 Fx = new NativeArray<LtFx>(4096, Allocator.Persistent),
                 Tracers = new NativeArray<LtTracer>(LtConst.MaxTracers, Allocator.Persistent),
                 Sites = new NativeArray<LtSiteState>(256, Allocator.Persistent),
+                Spawns = new NativeArray<LtSpawnOption>(256, Allocator.Persistent),
+                Fights = new NativeArray<LtFight>(256, Allocator.Persistent),
             };
             Install();
             error = "";
@@ -149,8 +162,13 @@ namespace Lattice.Net
             if (f.Fx.IsCreated) f.Fx.Dispose();
             if (f.Tracers.IsCreated) f.Tracers.Dispose();
             if (f.Sites.IsCreated) f.Sites.Dispose();
+            if (f.Spawns.IsCreated) f.Spawns.Dispose();
+            if (f.Fights.IsCreated) f.Fights.Dispose();
             Frame = new NetFrame();
         }
+
+        /// <summary>Asks to deploy at <paramref name="site"/> (U4); false if not asked.</summary>
+        public static bool Deploy(int site, int kit) => Session != null && Session.Deploy(site, kit);
 
         static void EarlyUpdate()
         {
@@ -208,6 +226,11 @@ namespace Lattice.Net
             f.SiteCount = Math.Min(s.Territory(f.Sites), f.Sites.Length);
             s.Stats(out f.Stats);
             s.Clock(out f.Clock);
+            s.Shell(out f.Shell);
+            f.SpawnCount = Math.Min(s.SpawnOptions(f.Spawns), f.Spawns.Length);
+            f.FightCount = Math.Min(s.Fights(f.Fights), f.Fights.Length);
+            if (f.Shell.recaps != f.Recaps)
+                f.Recaps = s.Recap(ref f.Recap);
             if (World == null && f.Own.welcomed != 0)
             {
                 World = s.World();

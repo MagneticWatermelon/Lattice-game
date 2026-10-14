@@ -45,6 +45,7 @@ namespace Lattice.Game
         public static int CorrectionCount;
         Lattice.LocalPlayer.LocalPlayer player;
         Lattice.World.WorldView world;
+        Lattice.Shell.Shell shell;
         bool worldReady;
 
         /// <summary>The world built at start (<c>--world</c>), held so the plugin keeps it.</summary>
@@ -150,11 +151,32 @@ namespace Lattice.Game
             CapturePanel.Create(hud.transform);
             world = FindAnyObjectByType<Lattice.World.WorldView>();
             JoinCard.Create(transform, world);
+            // The shell (U4): the title (unless the command line joined), the deploy
+            // screen, the death screen, the map, the menu and its settings.
+            bool title = Options.Title || !Options.Joins;
+            shell = Lattice.Shell.Shell.Create(transform, world, title);
+            shell.Auto = Options.Autoplay || Options.Autotarget || Options.Autofire || Options.HudTest;
+            shell.ShowAtStart = Options.Show;
+            shell.Quit = Quit;
+            shell.Connect = Join;
+            if (title)
+                ConnectOnStart = false;
+        }
+
+        /// <summary>The title's join: to <paramref name="server"/> (empty: this PC's), or with an invite.</summary>
+        string Join(string server, string invite)
+        {
+            Settings.server = server;
+            Settings.invite = invite;
+            return NetDriver.Start(Settings, out var error) ? null : error;
         }
 
         void Start()
         {
             started = Time.realtimeSinceStartup;
+            // The player's settings, but what this command line set for a self-check
+            // (and in the editor, the render pipeline's asset is left alone: it's a file).
+            shell.ApplySettings(Options.NoVsync, Options.RenderScale > 0f || Application.isEditor, Options.NoAudio);
             TurnOff(Options.Off);
             if (Options.RenderScale > 0f && UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline is UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset urp)
                 urp.renderScale = Mathf.Clamp(Options.RenderScale, 0.1f, 2f);
@@ -303,6 +325,10 @@ namespace Lattice.Game
             if (gun != null && gun.Reloading != null)
                 sb.Append(string.Format(CultureInfo.InvariantCulture, "  rounds: ammo corrections {0}; reloads {1} ({2} from empty); dry trigger {3}\n",
                     NetDriver.Frame.Stats.ammoCorrections, gun.Reloading.Started, gun.Reloading.StartedEmpty, gun.DryPulls));
+            var sh = NetDriver.Frame.Shell;
+            if (sh.deploys != 0 || sh.recaps > 0 || sh.xp > 0)
+                sb.Append(string.Format(CultureInfo.InvariantCulture, "  shell: deploying {0}; deploys refused {1}; recaps {2}; rewards {3} ({4} XP)\n",
+                    sh.deploys != 0 ? "on" : "off", sh.refusals, sh.recaps, sh.rewards, sh.xp));
             sb.Append(WorldBuiltAt >= 0f
                 ? string.Format(CultureInfo.InvariantCulture, "  world built {0:F1} s in (the frame numbers above count from then)\n", WorldBuiltAt)
                 : "  world never built\n");

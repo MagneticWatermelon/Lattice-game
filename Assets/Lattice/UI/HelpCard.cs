@@ -25,7 +25,8 @@ namespace Lattice.UI
             ("N", "net graph"),
             ("G", "the server's view (ghosts)"),
             ("T", "color by how the netcode draws"),
-            ("Esc", "free the mouse"),
+            ("M", "the map"),
+            ("Esc", "menu: settings, quit"),
             ("F1", "these controls"),
         };
 
@@ -90,7 +91,7 @@ namespace Lattice.UI
                 return;
             bool selfCheck = p.Autoplay || p.Autofire || p.Autoaim || p.Autotarget;
             Show(card, p.Help);
-            Show(prompt, !p.Grabbed && !p.Help && !selfCheck);
+            Show(prompt, !p.Grabbed && !p.Help && !selfCheck && !Lattice.LocalPlayer.LocalPlayer.UiOpen && Lattice.Net.NetDriver.Frame.Welcomed);
         }
 
         static void Show(RectTransform r, bool on)

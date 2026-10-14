@@ -10,6 +10,7 @@
         "Lattice.Combat",
         "Lattice.Players",
         "Lattice.World",
+        "Lattice.Shell",
         "Unity.TextMeshPro",
         "UnityEngine.UI",
         "Unity.InputSystem",

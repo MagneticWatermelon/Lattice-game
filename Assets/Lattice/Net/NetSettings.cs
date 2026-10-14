@@ -97,6 +97,11 @@ namespace Lattice.Net
     public class Options
     {
         public string Server, TokenKey, Invite, View, Spectate, Screenshot;
+        /// <summary>--show map|menu|settings: open that screen once the world is up (screenshots).</summary>
+        public string Show;
+        /// <summary>The command line said where to connect or ran a self-check: no title
+        /// screen. --title shows it anyway.</summary>
+        public bool Joins, Title;
         /// <summary>--profile PATH: a development build records the profiler from its
         /// first frame into PATH (.raw, for the editor's Profiler to load).</summary>
         public string Profile;
@@ -140,7 +145,9 @@ namespace Lattice.Net
                 ulong U() => ulong.TryParse(Val(), out var v) ? v : 0;
                 switch (a)
                 {
-                    case "--server": o.Server = Val(); break;
+                    case "--server": o.Server = Val(); o.Joins = true; break;
+                    case "--title": o.Title = true; break;
+                    case "--show": o.Show = Val(); break;
                     case "--world":
                         var w = Val();
                         o.World = w == "kiln" ? (ulong)LtCode.WorldKiln : w == "kit" ? (ulong)LtCode.WorldKit : w == "harrow" ? 1UL : w == "none" ? 0UL : ulong.TryParse(w, out var id) ? id : 0UL;
@@ -148,7 +155,7 @@ namespace Lattice.Net
                     case "--user": o.User = U(); break;
                     case "--token-key": o.TokenKey = Val(); break;
                     case "--server-id": o.ServerId = U(); break;
-                    case "--invite": o.Invite = Val(); break;
+                    case "--invite": o.Invite = Val(); o.Joins = true; break;
                     case "--near-ms": o.NearMs = F(); break;
                     case "--near-max-ms": o.NearMaxMs = F(); break;
                     case "--mid-ms": o.MidMs = F(); break;
@@ -198,6 +205,7 @@ namespace Lattice.Net
                         break;
                 }
             }
+            o.Joins |= o.Autoplay || o.Autofire || o.Autoaim || o.Autotarget || o.HudTest || o.Screenshot != null || o.ExitAfter > 0f || o.User != 0;
             return o;
         }
     }

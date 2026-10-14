@@ -128,6 +128,35 @@ namespace Lattice.Native
 
         public void SetOthersMuzzle(LtVec3 offset) => LtLibrary.Api.lt_set_others_muzzle(handle, &offset);
 
+        /// <summary>Asks to deploy at <paramref name="site"/> with loadout <paramref name="kit"/>
+        /// (U4: when the server has us deploy); the answer comes as an event and in
+        /// <see cref="Shell"/>. False if not asked (no deploy rule, not connected).</summary>
+        public bool Deploy(int site, int kit) => LtLibrary.Api.lt_deploy(handle, (ushort)site, (byte)kit) == 1;
+
+        /// <summary>The shell's state: deploying, recaps, fights, XP.</summary>
+        public void Shell(out LtShell shell)
+        {
+            fixed (LtShell* s = &shell)
+                LtLibrary.Api.lt_shell(handle, s);
+        }
+
+        /// <summary>Every site as a spawn for us now (whether we may deploy there, its
+        /// transit), in the world's sites' order; returns how many sites there are.</summary>
+        public int SpawnOptions(NativeArray<LtSpawnOption> buffer) =>
+            LtLibrary.Api.lt_spawn_options(handle, (LtSpawnOption*)NativeArrayUnsafeUtility.GetUnsafePtr(buffer), buffer.Length);
+
+        /// <summary>The newest death recap; returns how many have come (0: none, and
+        /// <paramref name="recap"/> is left as it was).</summary>
+        public int Recap(ref LtRecap recap)
+        {
+            fixed (LtRecap* r = &recap)
+                return LtLibrary.Api.lt_recap(handle, r);
+        }
+
+        /// <summary>The continent's fights (every 5 s); returns how many there are.</summary>
+        public int Fights(NativeArray<LtFight> buffer) =>
+            LtLibrary.Api.lt_fights(handle, (LtFight*)NativeArrayUnsafeUtility.GetUnsafePtr(buffer), buffer.Length);
+
         public void Flush() => LtLibrary.Api.lt_flush(handle);
 
         /// <summary>Kiln's clock (K4): the day and the clockwork at the step we're predicting.</summary>

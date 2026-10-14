@@ -15,11 +15,11 @@ namespace Lattice.Native
         /// <summary>
         /// The plugin API's version (lt_version).
         /// </summary>
-        public const uint Version = 8;
+        public const uint Version = 9;
         /// <summary>
         /// The layout hash of these bindings (lt_layout_hash).
         /// </summary>
-        public const ulong LayoutHash = 0xFCDE46439E9A9832;
+        public const ulong LayoutHash = 0xC466714CE3275705;
         /// <summary>
         /// Game steps a second.
         /// </summary>
@@ -382,6 +382,62 @@ namespace Lattice.Native
         /// `a` killed `b`.
         /// </summary>
         public const int EventKill = 3;
+        /// <summary>
+        /// We deploy at site `a`, appearing at step `value` (U4).
+        /// </summary>
+        public const int EventDeploying = 4;
+        /// <summary>
+        /// We can't deploy at site `a`: `amount` says why (`LT_REFUSED_*`).
+        /// </summary>
+        public const int EventRefused = 5;
+        /// <summary>
+        /// XP: `value` of it, for `flags` (`LT_REWARD_*`), about `a` (an entity, or a site).
+        /// </summary>
+        public const int EventReward = 6;
+        /// <summary>
+        /// A kill (`a`: the victim).
+        /// </summary>
+        public const int RewardKill = 1;
+        /// <summary>
+        /// Damage to someone a teammate killed.
+        /// </summary>
+        public const int RewardAssist = 2;
+        /// <summary>
+        /// On a site's points when it fell to us (`a`: the site).
+        /// </summary>
+        public const int RewardCapture = 3;
+        /// <summary>
+        /// On a site's points when an attack on it drained away.
+        /// </summary>
+        public const int RewardDefend = 4;
+        /// <summary>
+        /// Our faction doesn't hold it.
+        /// </summary>
+        public const int RefusedNotHeld = 1;
+        /// <summary>
+        /// No one spawns at a site of its kind (an outpost).
+        /// </summary>
+        public const int RefusedNoSpawn = 2;
+        /// <summary>
+        /// Its meter is past halfway to an attacker.
+        /// </summary>
+        public const int RefusedContested = 3;
+        /// <summary>
+        /// We're alive: only the dead and the bodiless deploy.
+        /// </summary>
+        public const int RefusedAlive = 4;
+        /// <summary>
+        /// Not a site, or the server doesn't deploy.
+        /// </summary>
+        public const int RefusedInvalid = 5;
+        /// <summary>
+        /// Killed by the rifle.
+        /// </summary>
+        public const int CauseRifle = 0;
+        /// <summary>
+        /// Killed by a fall.
+        /// </summary>
+        public const int CauseFall = 1;
         /// <summary>
         /// A head shot.
         /// </summary>
@@ -862,7 +918,7 @@ namespace Lattice.Native
     /// <summary>
     /// Combat news.
     /// </summary>
-    [StructLayout(LayoutKind.Explicit, Size = 8)]
+    [StructLayout(LayoutKind.Explicit, Size = 12)]
     public unsafe partial struct LtEvent
     {
         /// <summary>
@@ -882,13 +938,146 @@ namespace Lattice.Native
         /// </summary>
         [FieldOffset(3)] public byte dir;
         /// <summary>
-        /// Hit: the target; Hurt: the shooter; Kill: the killer.
+        /// Hit: the target; Hurt: the shooter; Kill: the killer;
+        /// Deploying, Refused: the site; Reward: what it's about (an
+        /// entity, or a site).
         /// </summary>
         [FieldOffset(4)] public ushort a;
         /// <summary>
         /// Kill: the victim.
         /// </summary>
         [FieldOffset(6)] public ushort b;
+        /// <summary>
+        /// Deploying: the step we appear at; Reward: its XP.
+        /// </summary>
+        [FieldOffset(8)] public uint value;
+    }
+
+    /// <summary>
+    /// The game's shell (U4, `lt_shell`): deploying, the death recap, the
+    /// continent's fights, our XP.
+    /// </summary>
+    [StructLayout(LayoutKind.Explicit, Size = 36)]
+    public unsafe partial struct LtShell
+    {
+        /// <summary>
+        /// The server has us deploy: we join with no body, and deploy at a
+        /// site (`lt_deploy`) whenever we're dead.
+        /// </summary>
+        [FieldOffset(0)] public byte deploys;
+        /// <summary>
+        /// No body: not deployed yet, or gone from our corpse (released).
+        /// </summary>
+        [FieldOffset(1)] public byte away;
+        /// <summary>
+        /// 1: deploying, at `deploy_site`, appearing in `deploy_secs`.
+        /// </summary>
+        [FieldOffset(2)] public byte deploying;
+        /// <summary>
+        /// The last deploy refused: why (`LT_REFUSED_*`; 0: none), and where.
+        /// </summary>
+        [FieldOffset(3)] public byte refusedReason;
+        [FieldOffset(4)] public ushort deploySite;
+        [FieldOffset(6)] public ushort refusedSite;
+        [FieldOffset(8)] public float deploySecs;
+        /// <summary>
+        /// How many refusals, recaps and rewards so far: a change is a new one.
+        /// </summary>
+        [FieldOffset(12)] public uint refusals;
+        [FieldOffset(16)] public uint recaps;
+        [FieldOffset(20)] public uint rewards;
+        /// <summary>
+        /// XP this session.
+        /// </summary>
+        [FieldOffset(24)] public uint xp;
+        /// <summary>
+        /// The site whose region we last died in: lattice transit counts
+        /// lanes from there (`LT_NO_SITE`: never deployed).
+        /// </summary>
+        [FieldOffset(28)] public ushort diedIn;
+        [FieldOffset(30)] public ushort reserved;
+        /// <summary>
+        /// The newest fights' step (`lt_fights`).
+        /// </summary>
+        [FieldOffset(32)] public uint fightsStep;
+    }
+
+    /// <summary>
+    /// A site we might deploy at (`lt_spawn_options`).
+    /// </summary>
+    [StructLayout(LayoutKind.Explicit, Size = 8)]
+    public unsafe partial struct LtSpawnOption
+    {
+        [FieldOffset(0)] public ushort site;
+        /// <summary>
+        /// 1: our faction may deploy there now; else `reason` says why not
+        /// (`LT_REFUSED_*`).
+        /// </summary>
+        [FieldOffset(2)] public byte ok;
+        [FieldOffset(3)] public byte reason;
+        /// <summary>
+        /// Lattice transit from where we last died, seconds.
+        /// </summary>
+        [FieldOffset(4)] public float transitSecs;
+    }
+
+    /// <summary>
+    /// The death recap (GDD §4.4, `lt_recap`).
+    /// </summary>
+    [StructLayout(LayoutKind.Explicit, Size = 60)]
+    public unsafe partial struct LtRecap
+    {
+        /// <summary>
+        /// Who killed us (`LT_NOBODY`: a fall, or no one), and its faction.
+        /// </summary>
+        [FieldOffset(0)] public ushort killer;
+        [FieldOffset(2)] public byte killerFaction;
+        /// <summary>
+        /// `LT_CAUSE_*`.
+        /// </summary>
+        [FieldOffset(3)] public byte cause;
+        /// <summary>
+        /// 1: a headshot.
+        /// </summary>
+        [FieldOffset(4)] public byte head;
+        /// <summary>
+        /// The killer's health when it killed us.
+        /// </summary>
+        [FieldOffset(5)] public byte killerHealth;
+        /// <summary>
+        /// How many damage lines `from`.. hold.
+        /// </summary>
+        [FieldOffset(6)] public byte lines;
+        [FieldOffset(7)] public byte reserved;
+        /// <summary>
+        /// From how far, m.
+        /// </summary>
+        [FieldOffset(8)] public float distance;
+        /// <summary>
+        /// The damage we took in our last 5 s, by who dealt it (`LT_NOBODY`:
+        /// a fall), most first: how much, in how many hits, how many to the head.
+        /// </summary>
+        [FieldOffset(12)] public fixed ushort from[8];
+        [FieldOffset(28)] public fixed ushort damage[8];
+        [FieldOffset(44)] public fixed byte hits[8];
+        [FieldOffset(52)] public fixed byte heads[8];
+    }
+
+    /// <summary>
+    /// A site's fight (`lt_fights`).
+    /// </summary>
+    [StructLayout(LayoutKind.Explicit, Size = 6)]
+    public unsafe partial struct LtFight
+    {
+        [FieldOffset(0)] public ushort site;
+        /// <summary>
+        /// Players of each faction there.
+        /// </summary>
+        [FieldOffset(2)] public fixed byte players[3];
+        /// <summary>
+        /// Its shots a second.
+        /// </summary>
+        [FieldOffset(5)] public byte heat;
     }
 
     /// <summary>
@@ -1495,6 +1684,40 @@ namespace Lattice.Native
         /// </summary>
         [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtSiteState*, int, int> lt_territory;
         /// <summary>
+        /// Asks to deploy at site `site` with loadout `kit` (U4; when the
+        /// server has us deploy, `LtShell::deploys`): we must be dead or have no
+        /// body. The answer comes as an `LT_EVENT_DEPLOYING` or `LT_EVENT_REFUSED`,
+        /// and in `lt_shell`. Returns 1 if asked, 0 if not (the server doesn't
+        /// deploy, or we aren't connected).
+        /// (IntPtr s, ushort site, byte kit)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, ushort, byte, int> lt_deploy;
+        /// <summary>
+        /// The shell's state (U4): deploying, recaps, fights, XP.
+        /// (IntPtr s, LtShell* out)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtShell*, void> lt_shell;
+        /// <summary>
+        /// Every site as a spawn for us now (`lt_world_sites`' order): whether
+        /// our faction may deploy there, and its lattice transit. Fills `out`
+        /// (up to `cap`), returns how many sites there are (0 before we're
+        /// welcomed, or on a world without territory).
+        /// (IntPtr s, LtSpawnOption* out, int cap)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtSpawnOption*, int, int> lt_spawn_options;
+        /// <summary>
+        /// The newest death recap into `out`; returns how many recaps have
+        /// come (0: none yet, and `out` is left alone).
+        /// (IntPtr s, LtRecap* out)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtRecap*, int> lt_recap;
+        /// <summary>
+        /// The continent's fights, as the server last said (every 5 s): fills
+        /// `out` (up to `cap`), returns how many there are.
+        /// (IntPtr s, LtFight* out, int cap)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtFight*, int, int> lt_fights;
+        /// <summary>
         /// The net graph's numbers.
         /// (IntPtr s, LtStats* out)
         /// </summary>
@@ -1631,6 +1854,11 @@ namespace Lattice.Native
             p = proc("lt_flush"); if (p == IntPtr.Zero) missing.Append(" lt_flush"); lt_flush = (delegate* unmanaged[Cdecl]<IntPtr, void>)(void*)p;
             p = proc("lt_clock"); if (p == IntPtr.Zero) missing.Append(" lt_clock"); lt_clock = (delegate* unmanaged[Cdecl]<IntPtr, LtClock*, void>)(void*)p;
             p = proc("lt_territory"); if (p == IntPtr.Zero) missing.Append(" lt_territory"); lt_territory = (delegate* unmanaged[Cdecl]<IntPtr, LtSiteState*, int, int>)(void*)p;
+            p = proc("lt_deploy"); if (p == IntPtr.Zero) missing.Append(" lt_deploy"); lt_deploy = (delegate* unmanaged[Cdecl]<IntPtr, ushort, byte, int>)(void*)p;
+            p = proc("lt_shell"); if (p == IntPtr.Zero) missing.Append(" lt_shell"); lt_shell = (delegate* unmanaged[Cdecl]<IntPtr, LtShell*, void>)(void*)p;
+            p = proc("lt_spawn_options"); if (p == IntPtr.Zero) missing.Append(" lt_spawn_options"); lt_spawn_options = (delegate* unmanaged[Cdecl]<IntPtr, LtSpawnOption*, int, int>)(void*)p;
+            p = proc("lt_recap"); if (p == IntPtr.Zero) missing.Append(" lt_recap"); lt_recap = (delegate* unmanaged[Cdecl]<IntPtr, LtRecap*, int>)(void*)p;
+            p = proc("lt_fights"); if (p == IntPtr.Zero) missing.Append(" lt_fights"); lt_fights = (delegate* unmanaged[Cdecl]<IntPtr, LtFight*, int, int>)(void*)p;
             p = proc("lt_stats"); if (p == IntPtr.Zero) missing.Append(" lt_stats"); lt_stats = (delegate* unmanaged[Cdecl]<IntPtr, LtStats*, void>)(void*)p;
             p = proc("lt_snapshot_gaps"); if (p == IntPtr.Zero) missing.Append(" lt_snapshot_gaps"); lt_snapshot_gaps = (delegate* unmanaged[Cdecl]<IntPtr, float*, int, int>)(void*)p;
             p = proc("lt_summary"); if (p == IntPtr.Zero) missing.Append(" lt_summary"); lt_summary = (delegate* unmanaged[Cdecl]<IntPtr, byte*, int, int>)(void*)p;

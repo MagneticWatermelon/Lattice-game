@@ -48,8 +48,12 @@ namespace Lattice.LocalPlayer
         public float SpecYaw, SpecPitch = -0.4f;
         public bool SpecPlaced;
 
-        /// <summary>Radians per pixel of mouse movement.</summary>
+        /// <summary>Radians per pixel of mouse movement; down the sights, times this too.</summary>
         public float Sensitivity = 0.0025f;
+        public float AdsSensitivity = 1f;
+        /// <summary>A screen of the shell is up (the deploy screen, the map, the menu):
+        /// the mouse is its, and the player stands still and holds its fire.</summary>
+        public static bool UiOpen;
         public bool Autoplay, Autofire, Autoaim;
         /// <summary>Self-check: turn toward the nearest enemy in reach and fire when on it.</summary>
         public bool Autotarget;
@@ -136,7 +140,7 @@ namespace Lattice.LocalPlayer
             float dt = Mathf.Min(Time.unscaledDeltaTime, 0.25f);
 
             // Grab and release the mouse; the grabbing click doesn't fire.
-            if (mouse != null && mouse.leftButton.wasPressedThisFrame && !Grabbed && Application.isFocused)
+            if (mouse != null && mouse.leftButton.wasPressedThisFrame && !Grabbed && Application.isFocused && !UiOpen)
             {
                 Grab();
                 swallow = true;
@@ -169,7 +173,7 @@ namespace Lattice.LocalPlayer
             // Mouse look.
             if (Grabbed && mouse != null)
             {
-                var d = mouse.delta.ReadValue() * Sensitivity * (Gun?.SensitivityScale ?? 1f);
+                var d = mouse.delta.ReadValue() * Sensitivity * (Gun?.SensitivityScale ?? 1f) * (Gun != null && Gun.Ads ? AdsSensitivity : 1f);
                 if (Mode == ViewMode.Spectator)
                 {
                     SpecYaw = Coords.Wrap(SpecYaw - d.x);
@@ -186,7 +190,7 @@ namespace Lattice.LocalPlayer
             float fwd = Axis(Key.W, Key.S), right = Axis(Key.D, Key.A);
             byte buttons = 0;
             bool trigger = false, aim = false;
-            if (Held)
+            if (Held || UiOpen)
                 fwd = right = 0f;
             else if (Autoplay)
             {
@@ -234,7 +238,7 @@ namespace Lattice.LocalPlayer
             if (mouse == null || !mouse.leftButton.isPressed)
                 swallow = false;
             var own = NetDriver.Frame.Own;
-            bool alive = NetDriver.Frame.Welcomed && own.dead == 0 && !Held;
+            bool alive = NetDriver.Frame.Welcomed && own.dead == 0 && !Held && !UiOpen;
             bool onTarget = Autotarget && alive && Mode != ViewMode.Spectator && Target(dt);
             // The self-check tops up between fights, as a player would.
             if (Autotarget && alive && !onTarget && targetId == LtCode.Nobody && own.reload <= 0f && own.reserve > 0 && own.mag < LtConst.Magazine / 3)

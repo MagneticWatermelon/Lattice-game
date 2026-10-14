@@ -22,9 +22,7 @@ namespace Lattice.UI
         const int Chips = 6;
         const float Width = 440f, MeterWidth = 408f, BannerSecs = 4.5f;
 
-        static readonly Color[] FactionInk = { new Color(1f, 0.72f, 0.25f), new Color(0.3f, 0.86f, 0.64f), new Color(0.96f, 0.4f, 0.78f) };
-        static readonly string[] FactionName = { "ORDINATE", "FREE COMPACT", "RESONANCE" };
-        static readonly Color NoOneInk = new Color(0.62f, 0.66f, 0.68f, 1f);
+        static readonly Color NoOneInk = Names.NoOneInk;
 
         RectTransform panel, meterFill, bannerBand;
         Image accent, meterTrack, meterImage, bannerBg;
@@ -33,6 +31,7 @@ namespace Lattice.UI
         readonly TextMeshProUGUI[] chipText = new TextMeshProUGUI[Chips];
         readonly CharBuf titleBuf = new CharBuf(48), holderBuf = new CharBuf(32), statusBuf = new CharBuf(96), bannerBuf = new CharBuf(64);
         LtSite[] sites;
+        string[] names;
         byte[] owners;
         int shownSite = -2;
         long shownKey = -1;
@@ -102,32 +101,7 @@ namespace Lattice.UI
             r.sizeDelta = size;
         }
 
-        static Color Ink(byte faction) => faction < FactionInk.Length ? FactionInk[faction] : NoOneInk;
-
-        static string KindName(int kind) => kind switch
-        {
-            LtCode.SiteBase => "BASE",
-            LtCode.SiteOutpost => "OUTPOST",
-            LtCode.SiteLanding => "LANDING",
-            LtCode.SiteHollow => "THE HOLLOW",
-            LtCode.SiteSpan => "THE SPAN",
-            LtCode.SiteCliffhold => "CLIFFHOLD",
-            LtCode.SiteGeode => "GEODE",
-            LtCode.SiteMesaCitadel => "MESA CITADEL",
-            LtCode.SiteSlotHold => "SLOT HOLD",
-            LtCode.SiteRiftLedge => "RIFT LEDGE",
-            LtCode.SiteCenote => "CENOTE",
-            LtCode.SiteReefWarren => "REEF WARREN",
-            LtCode.SiteOssuary => "OSSUARY",
-            LtCode.SiteGlassVault => "GLASS VAULT",
-            LtCode.SiteArch => "ARCH",
-            LtCode.SiteVent => "VENT",
-            LtCode.SiteTunnelMouth => "TUNNEL MOUTH",
-            LtCode.SiteSpirePerch => "SPIRE PERCH",
-            LtCode.SiteWellShrine => "WELL SHRINE",
-            LtCode.SiteWreck => "WRECK",
-            _ => "SITE",
-        };
+        static Color Ink(byte faction) => Names.Ink(faction);
 
         /// <summary>The site we're in: the one whose center we're nearest, for its size.</summary>
         int Inside(in LtVec3 pos)
@@ -148,7 +122,7 @@ namespace Lattice.UI
         unsafe void LateUpdate()
         {
             var f = NetDriver.Frame;
-            if (f.SiteCount == 0 || !f.Welcomed)
+            if (f.SiteCount == 0 || !f.Welcomed || f.Shell.away != 0 || Lattice.LocalPlayer.LocalPlayer.UiOpen)
             {
                 Hide();
                 return;
@@ -159,6 +133,7 @@ namespace Lattice.UI
                 if (w == null)
                     return;
                 sites = w.Sites();
+                names = Names.Sites(sites);
                 owners = new byte[sites.Length];
                 for (int i = 0; i < owners.Length && i < f.SiteCount; i++)
                     owners[i] = f.Sites[i].owner;
@@ -175,7 +150,7 @@ namespace Lattice.UI
                 owners[i] = o;
                 if (o != us && was != us)
                     continue;
-                bannerBuf.Clear().Append(KindName(sites[i].kind)).Append(o == us ? " TAKEN" : " LOST");
+                bannerBuf.Clear().Append(names[i]).Append(o == us ? " TAKEN" : " LOST");
                 banner.SetCharArray(bannerBuf.Chars, 0, bannerBuf.Length);
                 banner.color = o == us ? Ink(us) : UiKit.Warn;
                 bannerAt = now;
@@ -208,9 +183,9 @@ namespace Lattice.UI
             {
                 shownKey = key;
                 shownSite = site;
-                titleBuf.Clear().Append(KindName(sites[site].kind));
+                titleBuf.Clear().Append(names[site]);
                 title.SetCharArray(titleBuf.Chars, 0, titleBuf.Length);
-                holderBuf.Clear().Append(s.owner < FactionName.Length ? FactionName[s.owner] : "UNHELD");
+                holderBuf.Clear().Append(s.owner < 3 ? Names.Faction(s.owner) : "UNHELD");
                 holder.SetCharArray(holderBuf.Chars, 0, holderBuf.Length);
                 holder.color = Ink(s.owner);
                 accent.color = Ink(s.owner);
@@ -258,7 +233,7 @@ namespace Lattice.UI
                 else if (s.owner == us)
                     b.Append("UNDER ATTACK ");
                 else
-                    b.Append(FactionName[s.attacker]).Append(" CAPTURING ");
+                    b.Append(Names.Faction(s.attacker)).Append(" CAPTURING ");
                 b.Append(pct).Append('%');
                 if (s.contested != 0)
                     b.Append("  ·  CONTESTED");

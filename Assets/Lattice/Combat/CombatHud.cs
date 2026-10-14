@@ -16,7 +16,8 @@ namespace Lattice.Combat
     /// you move; the holographic sight takes over down the sights); hit
     /// markers (white body, orange head, red kill); damage direction, an arc
     /// toward each shooter and a red edge that pulses with the hit; health;
-    /// the kill feed; and, dead, who killed us and the time to respawn.
+    /// the kill feed; and, dead, the world dimmed (the shell's death screen
+    /// says who killed us, and what next).
     /// Built in code on its own canvas; nothing allocates per frame (text is
     /// written into reused buffers, only when it changes).
     /// </summary>
@@ -79,21 +80,13 @@ namespace Lattice.Combat
         Image ammoAccent;
         TextMeshProUGUI ammoLabel, ammoCount, ammoPrompt;
         Image[] rounds;
-        readonly CharBuf ammoBuf = new CharBuf(48);
+        readonly CharBuf ammoBuf = new CharBuf(64);
         int shownMag = -1, shownReserve = -1, shownFill = -1, shownAmmoState = -1, shownPrompt = -1;
         static readonly Color Low = new Color(0.98f, 0.72f, 0.22f);
         static readonly Color Out = new Color(0.95f, 0.3f, 0.24f);
         static readonly Color Spent = new Color(1f, 1f, 1f, 0.09f);
 
-        RectTransform deathPanel;
-        Image deathDim, deathBar;
-        TextMeshProUGUI deathTitle, deathKiller, deathTime;
-        readonly CharBuf killerBuf = new CharBuf(96), timeBuf = new CharBuf(32);
-        float diedAt = -1f;
-        ushort killedBy = LtCode.Nobody;
-        bool killedByHead;
-        int shownTenths = -1;
-        ushort shownKiller = 0xFFFE;
+        Image deathDim;
 
         float markAt = -10f, markDur = MarkSecs, hurtPulse, reticleR = 12f;
         Color markColor;
@@ -309,27 +302,6 @@ namespace Lattice.Combat
             deathDim = UiKit.Box("Death dim", root, new Color(0.02f, 0.01f, 0.01f, 0f));
             deathDim.sprite = Sprites.Vignette;
             UiKit.Fill(deathDim.rectTransform);
-            deathPanel = UiKit.Rect("Death", root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 150f), new Vector2(700f, 170f));
-            deathTitle = UiKit.Text("Title", deathPanel, UiKit.Display, 22f, UiKit.Muted, TextAlignmentOptions.Center);
-            deathTitle.text = "KILLED BY";
-            deathTitle.characterSpacing = 10f;
-            UiKit.Warm(deathTitle, 16);
-            Place(deathTitle.rectTransform, new Vector2(0f, 64f), new Vector2(700f, 30f));
-            deathKiller = UiKit.Text("Killer", deathPanel, UiKit.Display, 46f, UiKit.Ink, TextAlignmentOptions.Center);
-            UiKit.Warm(deathKiller, 160);
-            Place(deathKiller.rectTransform, new Vector2(0f, 22f), new Vector2(700f, 56f));
-            deathTime = UiKit.Text("Respawn", deathPanel, UiKit.Mono, 22f, UiKit.Ink, TextAlignmentOptions.Center);
-            UiKit.Warm(deathTime, 48);
-            Place(deathTime.rectTransform, new Vector2(0f, -30f), new Vector2(700f, 30f));
-            var track = UiKit.Box("Track", deathPanel, new Color(1f, 1f, 1f, 0.12f));
-            Place(track.rectTransform, new Vector2(0f, -58f), new Vector2(260f, 4f));
-            deathBar = UiKit.Box("Bar", track.rectTransform, UiKit.Ink);
-            var br = deathBar.rectTransform;
-            br.anchorMin = Vector2.zero;
-            br.anchorMax = new Vector2(0f, 1f);
-            br.pivot = new Vector2(0f, 0.5f);
-            br.offsetMin = br.offsetMax = Vector2.zero;
-            deathPanel.gameObject.SetActive(false);
         }
 
         static void Place(RectTransform r, Vector2 pos, Vector2 size)
@@ -369,7 +341,7 @@ namespace Lattice.Combat
             Vitals(f, body, dead, now, dt);
             Rounds(f, p, body, dead, now);
             Feed(f, now);
-            Death(f, dead, now, dt);
+            Death(dead && f.Shell.away == 0, dt);
         }
 
         /// <summary>The --hud-test script: every 0.6 s the next beat, from 2 s after we're in.
@@ -444,11 +416,6 @@ namespace Lattice.Combat
                     }
                     feed[feedCount++] = new Kill { At = now, Killer = e.a, Victim = e.b, Head = (e.flags & LtCode.EventHead) != 0 };
                     feedDirty = true;
-                    if (e.b == f.Own.entity)
-                    {
-                        killedBy = e.a;
-                        killedByHead = (e.flags & LtCode.EventHead) != 0;
-                    }
                     break;
                 }
             }
@@ -693,51 +660,12 @@ namespace Lattice.Combat
             b.Append("</color>");
         }
 
-        void Death(NetFrame f, bool dead, float now, float dt)
+        /// <summary>Dead: the world dims at the edges (the shell's death screen says who and how).</summary>
+        void Death(bool dead, float dt)
         {
-            if (dead && diedAt < 0f)
-                diedAt = now;
-            if (!dead)
-            {
-                diedAt = -1f;
-                killedBy = LtCode.Nobody;
-            }
             float dim = deathDim.color.a;
             dim = Mathf.MoveTowards(dim, dead ? 0.55f : 0f, dt / (dead ? 0.9f : 0.25f));
             deathDim.color = new Color(0.02f, 0.01f, 0.01f, dim);
-            if (deathPanel.gameObject.activeSelf != dead)
-                deathPanel.gameObject.SetActive(dead);
-            if (!dead)
-                return;
-            float total = LtConst.RespawnSteps / (float)LtConst.TickHz;
-            float left = Mathf.Max(0f, total - (now - diedAt));
-            float fade = Mathf.Clamp01((now - diedAt - 0.35f) / 0.5f);
-            deathTitle.alpha = fade;
-            deathKiller.alpha = fade;
-            deathTime.alpha = fade;
-            deathBar.rectTransform.anchorMax = new Vector2(1f - left / total, 1f);
-            if (shownKiller != killedBy)
-            {
-                shownKiller = killedBy;
-                killerBuf.Clear();
-                if (killedBy == LtCode.Nobody)
-                    killerBuf.Append("<color=#C8CFCC>ELIMINATED</color>");
-                else
-                {
-                    Name(killerBuf, killedBy, f.Own.entity);
-                    if (killedByHead)
-                        killerBuf.Append(" <size=55%><color=#FFA020>HEADSHOT</color></size>");
-                }
-                deathKiller.SetCharArray(killerBuf.Chars, 0, killerBuf.Length);
-                deathTitle.text = killedBy == LtCode.Nobody ? "" : "KILLED BY";
-            }
-            int tenths = Mathf.CeilToInt(left * 10f);
-            if (tenths != shownTenths)
-            {
-                shownTenths = tenths;
-                timeBuf.Clear().Append("RESPAWN  ").Append(left, 1).Append(" s");
-                deathTime.SetCharArray(timeBuf.Chars, 0, timeBuf.Length);
-            }
         }
 
         /// <summary>The HUD's generated sprites: the damage arc and the screen edge.</summary>
