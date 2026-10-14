@@ -27,6 +27,15 @@ Shader "Lattice/Sky"
         [HDR] _CloudLit("Cloud Lit", Color) = (1.5, 1.45, 1.38, 1)
         [HDR] _CloudShade("Cloud Shade", Color) = (0.34, 0.39, 0.47, 1)
         _CloudOpacity("Cloud Opacity", Range(0, 1)) = 0.95
+        // Kiln's day (K4, World/DayCycle.cs): the sun's own direction and color
+        // (at night the main light is the ring's), the ring, the stars.
+        _Cycle("Driven by the Day", Float) = 0
+        _SunDir("Sun Direction", Vector) = (0, 1, 0, 0)
+        [HDR] _SunColor("Sun Color", Color) = (0, 0, 0, 1)
+        [HDR] _RingLight("The Ring's Light (on the clouds)", Color) = (0, 0, 0, 1)
+        [HDR] _RingColor("The Ring", Color) = (0, 0, 0, 1)
+        _RingShape("The Ring (plane normal xyz, half-width)", Vector) = (0, 0.643, 0.766, 0.03)
+        _Stars("Stars", Float) = 0
     }
 
     SubShader
@@ -55,6 +64,9 @@ Shader "Lattice/Sky"
             float4 _Falloff, _SunGlow, _SunDisk, _CloudWind;
             half _CloudCover, _CloudOpacity;
             float _CloudScale, _CloudHeight;
+            float _Cycle, _Stars;
+            float4 _SunDir, _RingShape;
+            half4 _SunColor, _RingLight, _RingColor;
             CBUFFER_END
 
             struct Attributes { float4 positionOS : POSITION; };
@@ -71,8 +83,9 @@ Shader "Lattice/Sky"
             half4 Frag(Varyings i) : SV_Target
             {
                 float3 v = normalize(i.dir);
-                float3 sun = _MainLightPosition.xyz;
-                half3 sunColor = _MainLightColor.rgb;
+                // Kiln's day hands the sun its own (the main light is the ring's at night).
+                float3 sun = _Cycle > 0.5 ? normalize(_SunDir.xyz) : _MainLightPosition.xyz;
+                half3 sunColor = _Cycle > 0.5 ? _SunColor.rgb : _MainLightColor.rgb;
                 float e = v.y;
                 float cs = dot(v, sun);
 
@@ -83,6 +96,24 @@ Shader "Lattice/Sky"
                 sky += _Glow.rgb * exp(-fromSun / _SunGlow.x) + sunColor * (_SunGlow.y * exp(-fromSun / _SunGlow.z));
                 // Past the map's edge, below the horizon: the ground's haze.
                 sky = lerp(sky, _Ground.rgb, smoothstep(0.0, -0.08, e));
+
+                // The ring (Tessel's): a band across the sky from the east to the west
+                // horizon, its lanes and a gap; pale by day, lit at night.
+                {
+                    float x = dot(v, _RingShape.xyz) / _RingShape.w;
+                    half band = smoothstep(1.0, 0.8, abs(x)) * (0.6 + 0.4 * sin(x * 19.0 + 1.3));
+                    band *= 1.0 - 0.85 * smoothstep(0.07, 0.0, abs(x - 0.35));
+                    band *= smoothstep(-0.01, 0.05, e);
+                    sky += _RingColor.rgb * band;
+                }
+                // Stars, where the night's dark enough.
+                if (_Stars > 0.0 && e > 0.0)
+                {
+                    float3 g = v * 230.0;
+                    float h = frac(sin(dot(floor(g), float3(12.9898, 78.233, 45.164))) * 43758.5453);
+                    half star = step(0.9965, h) * smoothstep(0.32, 0.0, length(frac(g) - 0.5)) * (h - 0.9965) * 300.0;
+                    sky += star * _Stars * smoothstep(0.0, 0.12, e);
+                }
 
                 half alpha = 0.0;
                 if (e > 0.004)
@@ -95,7 +126,7 @@ Shader "Lattice/Sky"
                     float2 toSun = normalize(sun.xz + 1e-4) * 420.0;
                     half shade = saturate(CloudShape((at + toSun + _CloudDrift.xy) / _CloudScale, _CloudCover) * 1.4);
                     half lit = exp(-shade * 2.2);
-                    half3 cloud = lerp(_CloudShade.rgb, _CloudLit.rgb, lit) * (sunColor / 2.2);
+                    half3 cloud = lerp(_CloudShade.rgb, _CloudLit.rgb, lit) * ((sunColor + _RingLight.rgb) / 2.2);
                     // Silver where thin edges stand near the sun.
                     cloud += sunColor * pow(saturate(cs), 10.0) * (1.0 - d) * 0.5;
                     // Far off, toward the horizon, the haze takes them.
@@ -108,7 +139,7 @@ Shader "Lattice/Sky"
                 // The sun's disk (behind the clouds).
                 half r = radians(_SunDisk.x);
                 half disk = smoothstep(cos(r), cos(r * 0.8), cs);
-                sky += sunColor * (disk * _SunDisk.y * (1.0 - alpha));
+                sky += sunColor * (disk * _SunDisk.y * (1.0 - alpha) * smoothstep(-0.02, 0.01, e));
                 return half4(sky, 1.0);
             }
             ENDHLSL

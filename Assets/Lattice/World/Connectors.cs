@@ -43,6 +43,9 @@ namespace Lattice.World
             var drops = new Part();
             foreach (var v in volumes)
             {
+                // (Vent lifts and sandfalls run on the clock: Clockwork draws them.)
+                if (v.when != LtCode.WhenAlways)
+                    continue;
                 // Lifts brighter at the foot, fading as they rise; drop shafts the other way.
                 if (v.force == LtCode.ForceLift)
                     lifts.Column(v, 0.55f, 0.12f);

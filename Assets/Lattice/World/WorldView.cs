@@ -31,6 +31,10 @@ namespace Lattice.World
         public TerritoryView Territory { get; private set; }
         /// <summary>The cover and the rocks.</summary>
         public StaticField Statics { get; private set; }
+        /// <summary>Kiln's day and its clockwork (K4): the light and the sky by the game
+        /// step, the vents, sandfalls and living bridges drawn as the step has them.</summary>
+        public DayCycle Day { get; private set; }
+        public Clockwork Clockwork { get; private set; }
         /// <summary>Measuring (--off cover, --off rocks): leave them out.</summary>
         public static bool NoCover, NoRocks;
         bool staticsDone;
@@ -90,6 +94,11 @@ namespace Lattice.World
             var siteShields = new List<(int site, MeshRenderer renderer)>();
             Connectors.Build(world, Look, transform, siteShields);
             Territory = TerritoryView.Build(world, Look, transform, siteShields);
+            if (Kiln)
+            {
+                Clockwork = Clockwork.Build(world, Look, transform);
+                Day = DayCycle.Build(world, Look, transform);
+            }
             if (!NoCover)
                 cover = CoverBuilder.Build(world, Look, Statics, near);
             if (!NoRocks && !Kiln)
@@ -138,6 +147,8 @@ namespace Lattice.World
             // (The plugin's calls are behind us: the PreLateUpdate before LateUpdate.)
             Territory?.Update(NetDriver.Frame, Time.unscaledTime);
             Veins?.Update(NetDriver.Frame);
+            Clockwork?.Update(NetDriver.Frame, Time.unscaledDeltaTime);
+            Day?.Update(NetDriver.Frame);
             if (Built && builtFrames < WarmFrames)
                 builtFrames++;
         }
@@ -149,6 +160,8 @@ namespace Lattice.World
             Statics?.Dispose();
             Territory?.Dispose();
             Veins?.Dispose();
+            Clockwork?.Dispose();
+            Day?.Dispose();
             Terrain?.Dispose();
             preview?.Dispose();
         }

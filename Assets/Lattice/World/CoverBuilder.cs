@@ -65,6 +65,9 @@ namespace Lattice.World
                 // Shields are drawn with the force volumes (Connectors): see-through.
                 if (b.kind == LtCode.CoverShield)
                     continue;
+                // The living bridges' coral is there only at night: Clockwork draws it.
+                if (b.when != LtCode.WhenAlways)
+                    continue;
                 var model = b.kind < look.Cover.Length ? look.Cover[b.kind] : default;
                 var center = Coords.ToUnity((b.min.x + b.max.x) * 0.5f, (b.min.y + b.max.y) * 0.5f, b.min.z);
                 var size = new Vector3(b.max.x - b.min.x, b.max.z - b.min.z, b.max.y - b.min.y);

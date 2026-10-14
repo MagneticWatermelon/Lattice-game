@@ -130,6 +130,13 @@ namespace Lattice.Native
 
         public void Flush() => LtLibrary.Api.lt_flush(handle);
 
+        /// <summary>Kiln's clock (K4): the day and the clockwork at the step we're predicting.</summary>
+        public void Clock(out LtClock clock)
+        {
+            fixed (LtClock* c = &clock)
+                LtLibrary.Api.lt_clock(handle, c);
+        }
+
         public void Stats(out LtStats stats)
         {
             fixed (LtStats* s = &stats)

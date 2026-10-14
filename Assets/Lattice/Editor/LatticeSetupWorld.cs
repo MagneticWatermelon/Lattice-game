@@ -271,6 +271,36 @@ namespace Lattice.EditorTools
             look.ShieldNone = Additive($"{KilnDir}/Shield_none.mat", glowTex, new Color(1.25f, 1.3f, 1.35f, 1f));
             look.LiftMaterial = Additive($"{KilnDir}/Lift.mat", glowTex, new Color(0.5f, 1.5f, 2.1f, 1f));
             look.DropMaterial = Additive($"{KilnDir}/Drop.mat", glowTex, new Color(2.1f, 1.1f, 0.45f, 1f));
+            // The clockwork's (K4): vent lifts cool as the lifts, sandfalls the dunes'
+            // sand, the living bridges' coral rose with veins of the lattice's cyan.
+            look.VentMaterial = ClockworkMaterial($"{KilnDir}/Vent.mat", glowTex, 0, new Color(0.5f, 1.6f, 2.3f, 1f), Color.black);
+            look.SandMaterial = ClockworkMaterial($"{KilnDir}/Sandfall.mat", glowTex, 1, new Color(0.80f, 0.62f, 0.40f, 1f), Color.black);
+            look.CoralMaterial = ClockworkMaterial($"{KilnDir}/Coral.mat", glowTex, 2, new Color(0.86f, 0.30f, 0.38f, 1f), new Color(0.3f, 1.4f, 1.6f, 1f));
+        }
+
+        /// <summary>Lattice/Clockwork in one of its modes: 0 a vent's column (added on),
+        /// 1 a sandfall (blended), 2 coral (blended, its depth written).</summary>
+        static Material ClockworkMaterial(string path, Texture2D tex, int mode, Color color, Color glow)
+        {
+            var shader = Shader.Find("Lattice/Clockwork");
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null)
+            {
+                m = new Material(shader);
+                AssetDatabase.CreateAsset(m, path);
+            }
+            m.shader = shader;
+            m.SetTexture("_MainTex", tex);
+            m.SetColor("_Color", color);
+            m.SetColor("_Glow", glow);
+            m.SetFloat("_Mode", mode);
+            m.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            m.SetFloat("_DstBlend", (float)(mode == 0 ? BlendMode.One : BlendMode.OneMinusSrcAlpha));
+            m.SetFloat("_ZWrite", mode == 2 ? 1f : 0f);
+            m.SetFloat("_Cull", (float)CullMode.Off);
+            m.renderQueue = mode == 2 ? (int)RenderQueue.Transparent - 10 : (int)RenderQueue.Transparent;
+            EditorUtility.SetDirty(m);
+            return m;
         }
 
         static TerrainLayer KilnLayer((string name, string from, Color32 color, float tile, float smooth, float normal) g)

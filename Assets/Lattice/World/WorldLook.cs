@@ -78,6 +78,12 @@ namespace Lattice.World
         /// <summary>Force volumes' columns of light: lifts (rising), drop shafts and
         /// springs (<see cref="Connectors"/>).</summary>
         public Material LiftMaterial, DropMaterial;
+
+        [Header("Clockwork and the day (K4)")]
+        /// <summary>Lattice/Clockwork in its three modes: vent lifts' columns (additive),
+        /// sandfalls (blended), living bridges' coral (lit, see-through while it grows):
+        /// <see cref="Clockwork"/>.</summary>
+        public Material VentMaterial, SandMaterial, CoralMaterial;
     }
 
     [System.Serializable]

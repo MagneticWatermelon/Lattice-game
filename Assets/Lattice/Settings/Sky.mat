@@ -36,7 +36,9 @@ Material:
     - _CloudOpacity: 0.95
     - _CloudScale: 7000
     - _Curve: 0.6
+    - _Cycle: 0
     - _Exposure: 1.25
+    - _Stars: 0
     - _SunDisk: 2
     - _SunSize: 0.035
     - _SunSizeConvergence: 6
@@ -49,7 +51,12 @@ Material:
     - _Ground: {r: 0.17, g: 0.18, b: 0.17, a: 1}
     - _GroundColor: {r: 0.42, g: 0.44, b: 0.44, a: 1}
     - _Horizon: {r: 0.75, g: 1.08, b: 1.35, a: 1}
+    - _RingColor: {r: 0, g: 0, b: 0, a: 1}
+    - _RingLight: {r: 0, g: 0, b: 0, a: 1}
+    - _RingShape: {r: 0, g: 0.643, b: 0.766, a: 0.03}
     - _SkyTint: {r: 0.52, g: 0.56, b: 0.62, a: 1}
+    - _SunColor: {r: 0, g: 0, b: 0, a: 1}
+    - _SunDir: {r: 0, g: 1, b: 0, a: 0}
     - _SunDisk: {r: 1, g: 28, b: 0, a: 0}
     - _SunGlow: {r: 37, g: 0.25, b: 2.5, a: 0}
     - _Zenith: {r: 0.02, g: 0.06, b: 0.18, a: 1}

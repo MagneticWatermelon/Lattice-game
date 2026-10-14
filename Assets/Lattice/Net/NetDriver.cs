@@ -39,6 +39,8 @@ namespace Lattice.Net
         public NativeArray<LtSiteState> Sites;
         public int SiteCount;
         public LtStats Stats;
+        /// <summary>Kiln's clock (lt_clock, K4): the day and the clockwork, from the game step.</summary>
+        public LtClock Clock;
         /// <summary>Down the sights (the reticle's cone follows): set by the local player.</summary>
         public bool Ads;
         /// <summary>Time spent in plugin calls this frame, ms.</summary>
@@ -205,6 +207,7 @@ namespace Lattice.Net
             f.TracerCount = Math.Min(s.Tracers(f.Tracers), f.Tracers.Length);
             f.SiteCount = Math.Min(s.Territory(f.Sites), f.Sites.Length);
             s.Stats(out f.Stats);
+            s.Clock(out f.Clock);
             if (World == null && f.Own.welcomed != 0)
             {
                 World = s.World();

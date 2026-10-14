@@ -15,11 +15,11 @@ namespace Lattice.Native
         /// <summary>
         /// The plugin API's version (lt_version).
         /// </summary>
-        public const uint Version = 6;
+        public const uint Version = 7;
         /// <summary>
         /// The layout hash of these bindings (lt_layout_hash).
         /// </summary>
-        public const ulong LayoutHash = 0xD92C177845A85308;
+        public const ulong LayoutHash = 0x8A430543BC7EE359;
         /// <summary>
         /// Game steps a second.
         /// </summary>
@@ -239,6 +239,38 @@ namespace Lattice.Native
         /// Tracers flying at once, at most.
         /// </summary>
         public const int MaxTracers = 4096;
+        /// <summary>
+        /// Kiln's day (K4): a cycle, steps; where each phase starts in it:
+        /// </summary>
+        public const int CycleSteps = 216000;
+        public const int DuskStep = 126000;
+        public const int NightStep = 144000;
+        public const int DawnStep = 198000;
+        /// <summary>
+        /// The living bridges stand from this step of the cycle,
+        /// </summary>
+        public const int BridgeUpStep = 144000;
+        /// <summary>
+        /// to this one (the minute before it, their warning).
+        /// </summary>
+        public const int BridgeDownStep = 199800;
+        /// <summary>
+        /// A vent lift runs for VENT_ON steps of every VENT_CYCLE.
+        /// </summary>
+        public const int VentCycle = 900;
+        public const int VentOn = 600;
+        /// <summary>
+        /// The sandfalls take turns this many steps long.
+        /// </summary>
+        public const int FallsSteps = 36000;
+        /// <summary>
+        /// Falls past this hurt, m,
+        /// </summary>
+        public const float SafeFall = 8.0f;
+        /// <summary>
+        /// this much a meter past it.
+        /// </summary>
+        public const float FallDamagePerM = 10.0f;
     }
 
     /// <summary>
@@ -430,6 +462,46 @@ namespace Lattice.Native
         /// A faction's shield: drawn in its colors, see-through.
         /// </summary>
         public const int CoverShield = 11;
+        /// <summary>
+        /// Lattice coral: a living bridge (K4), there only at night.
+        /// </summary>
+        public const int CoverCoral = 12;
+        /// <summary>
+        /// There always.
+        /// </summary>
+        public const int WhenAlways = 0;
+        /// <summary>
+        /// A living bridge's: from nightfall to a minute into dawn.
+        /// </summary>
+        public const int WhenBridge = 1;
+        /// <summary>
+        /// A sandfall of the first set: pouring in its turn.
+        /// </summary>
+        public const int WhenFallsA = 2;
+        /// <summary>
+        /// A sandfall of the second set.
+        /// </summary>
+        public const int WhenFallsB = 3;
+        /// <summary>
+        /// A vent lift: there always, running on its cycle.
+        /// </summary>
+        public const int WhenVent = 4;
+        /// <summary>
+        /// Day: 70 minutes.
+        /// </summary>
+        public const int PhaseDay = 0;
+        /// <summary>
+        /// Dusk: 10 minutes; the living bridges grow.
+        /// </summary>
+        public const int PhaseDusk = 1;
+        /// <summary>
+        /// Night: 30 minutes; the bridges stand.
+        /// </summary>
+        public const int PhaseNight = 2;
+        /// <summary>
+        /// Dawn: 10 minutes; the bridges wither after a minute's warning.
+        /// </summary>
+        public const int PhaseDawn = 3;
         /// <summary>
         /// `LtBox::pass` of everything but shields: it blocks every faction.
         /// </summary>
@@ -1070,6 +1142,11 @@ namespace Lattice.Native
         /// `LT_NO_SITE` for the rest.
         /// </summary>
         [FieldOffset(56)] public ushort site;
+        /// <summary>
+        /// When it's there (`LT_WHEN_ALWAYS`, or `LT_WHEN_BRIDGE`: a living
+        /// bridge's, at night: `LtClock::bridges`).
+        /// </summary>
+        [FieldOffset(58)] public byte when;
     }
 
     /// <summary>
@@ -1087,6 +1164,15 @@ namespace Lattice.Native
         /// </summary>
         [FieldOffset(24)] public LtVec3 vel;
         [FieldOffset(36)] public byte force;
+        /// <summary>
+        /// When it's there (`LT_WHEN_*`): always; a sandfall's, in its set's
+        /// turn (`LtClock::falls`); a vent lift, always there but running
+        /// for `LT_VENT_ON` steps of every `LT_VENT_CYCLE`, `phase` steps
+        /// into its cycle (running while `(step + phase) % LT_VENT_CYCLE &lt;
+        /// LT_VENT_ON`), resting it only slows a fall.
+        /// </summary>
+        [FieldOffset(37)] public byte when;
+        [FieldOffset(38)] public ushort phase;
     }
 
     /// <summary>
@@ -1134,6 +1220,11 @@ namespace Lattice.Native
         /// 1: only walked from `a` to `b` (up a lift, down a drop shaft).
         /// </summary>
         [FieldOffset(12)] public byte oneWay;
+        /// <summary>
+        /// When it can be walked (`LT_WHEN_*`: over a living bridge, down a
+        /// sandfall; else always).
+        /// </summary>
+        [FieldOffset(13)] public byte when;
     }
 
     /// <summary>
@@ -1185,6 +1276,40 @@ namespace Lattice.Native
         [FieldOffset(15)] public byte pointCount;
         [FieldOffset(16)] public fixed byte points[6];
         [FieldOffset(22)] public byte contested;
+    }
+
+    /// <summary>
+    /// Kiln's clock (K4): the day and the clockwork, from the game step
+    /// we're predicting (`lt_clock`). The same on every client: it's the
+    /// step's.
+    /// </summary>
+    [StructLayout(LayoutKind.Explicit, Size = 16)]
+    public unsafe partial struct LtClock
+    {
+        /// <summary>
+        /// The game step.
+        /// </summary>
+        [FieldOffset(0)] public uint step;
+        /// <summary>
+        /// Its place in the cycle (`LT_CYCLE_STEPS`, from the day's start).
+        /// </summary>
+        [FieldOffset(4)] public uint cycleStep;
+        /// <summary>
+        /// Seconds into the cycle, between steps (for the sky).
+        /// </summary>
+        [FieldOffset(8)] public float cycleSecs;
+        /// <summary>
+        /// `LT_PHASE_*`.
+        /// </summary>
+        [FieldOffset(12)] public byte phase;
+        /// <summary>
+        /// 1: the living bridges stand (`LT_WHEN_BRIDGE` boxes are there).
+        /// </summary>
+        [FieldOffset(13)] public byte bridges;
+        /// <summary>
+        /// Which sandfalls pour: `LT_WHEN_FALLS_A` or `LT_WHEN_FALLS_B`.
+        /// </summary>
+        [FieldOffset(14)] public byte falls;
     }
 
     /// <summary>
@@ -1340,6 +1465,12 @@ namespace Lattice.Native
         /// </summary>
         [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, void> lt_flush;
         /// <summary>
+        /// Kiln's clock (K4): the day and the clockwork at the step we're
+        /// predicting.
+        /// (IntPtr s, LtClock* out)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtClock*, void> lt_clock;
+        /// <summary>
         /// Every site's state (who holds it, its fight; U5): fills `out` (up to
         /// `cap`, in `lt_world_sites`' order), returns how many sites there are
         /// (0 before we're welcomed).
@@ -1481,6 +1612,7 @@ namespace Lattice.Native
             p = proc("lt_tracers"); if (p == IntPtr.Zero) missing.Append(" lt_tracers"); lt_tracers = (delegate* unmanaged[Cdecl]<IntPtr, LtTracer*, int, int>)(void*)p;
             p = proc("lt_set_others_muzzle"); if (p == IntPtr.Zero) missing.Append(" lt_set_others_muzzle"); lt_set_others_muzzle = (delegate* unmanaged[Cdecl]<IntPtr, LtVec3*, void>)(void*)p;
             p = proc("lt_flush"); if (p == IntPtr.Zero) missing.Append(" lt_flush"); lt_flush = (delegate* unmanaged[Cdecl]<IntPtr, void>)(void*)p;
+            p = proc("lt_clock"); if (p == IntPtr.Zero) missing.Append(" lt_clock"); lt_clock = (delegate* unmanaged[Cdecl]<IntPtr, LtClock*, void>)(void*)p;
             p = proc("lt_territory"); if (p == IntPtr.Zero) missing.Append(" lt_territory"); lt_territory = (delegate* unmanaged[Cdecl]<IntPtr, LtSiteState*, int, int>)(void*)p;
             p = proc("lt_stats"); if (p == IntPtr.Zero) missing.Append(" lt_stats"); lt_stats = (delegate* unmanaged[Cdecl]<IntPtr, LtStats*, void>)(void*)p;
             p = proc("lt_snapshot_gaps"); if (p == IntPtr.Zero) missing.Append(" lt_snapshot_gaps"); lt_snapshot_gaps = (delegate* unmanaged[Cdecl]<IntPtr, float*, int, int>)(void*)p;

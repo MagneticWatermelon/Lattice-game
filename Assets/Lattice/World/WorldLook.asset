@@ -105,3 +105,6 @@ MonoBehaviour:
   ShieldNone: {fileID: 2100000, guid: 3302dbb80569c234d949ddb0d71ee3d8, type: 2}
   LiftMaterial: {fileID: 2100000, guid: 20f9029f8aa3eb142ae3c2c9a7c79811, type: 2}
   DropMaterial: {fileID: 2100000, guid: 0e79235aaf6c08442ac40b1e0ff5fd73, type: 2}
+  VentMaterial: {fileID: 2100000, guid: 4ab1e1a67074761448ed402539bcc461, type: 2}
+  SandMaterial: {fileID: 2100000, guid: 924f6bcc27b8c664a8be23162c957b8e, type: 2}
+  CoralMaterial: {fileID: 2100000, guid: 462bd6ad628a22f478644c7131942d5b, type: 2}

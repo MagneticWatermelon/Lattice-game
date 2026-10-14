@@ -69,7 +69,8 @@ namespace Lattice.World
             var line = new List<Vector3>();
             foreach (var lane in lanes)
             {
-                if (lane.count < 2)
+                // (Not the clockwork's ways: over a bridge at night, down a sandfall.)
+                if (lane.count < 2 || lane.when != LtCode.WhenAlways)
                     continue;
                 bool inside = lane.a == lane.b;
                 var first = pts[lane.first];
