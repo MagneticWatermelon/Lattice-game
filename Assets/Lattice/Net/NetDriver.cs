@@ -35,6 +35,12 @@ namespace Lattice.Net
         public int FxCount;
         public NativeArray<LtTracer> Tracers;
         public int TracerCount;
+        /// <summary>The gadgets (lt_gadgets, U6): thrown, set down, built; drawn at the render step.</summary>
+        public NativeArray<LtGadget> Gadgets;
+        public int GadgetCount;
+        /// <summary>The enemies our side's recon darts see (lt_spotted).</summary>
+        public NativeArray<ushort> Spotted;
+        public int SpottedCount;
         /// <summary>Every site's state (lt_territory): who holds it, its fight.</summary>
         public NativeArray<LtSiteState> Sites;
         public int SiteCount;
@@ -142,6 +148,8 @@ namespace Lattice.Net
                 Sites = new NativeArray<LtSiteState>(256, Allocator.Persistent),
                 Spawns = new NativeArray<LtSpawnOption>(256, Allocator.Persistent),
                 Fights = new NativeArray<LtFight>(256, Allocator.Persistent),
+                Gadgets = new NativeArray<LtGadget>(1024, Allocator.Persistent),
+                Spotted = new NativeArray<ushort>(256, Allocator.Persistent),
             };
             Install();
             error = "";
@@ -164,6 +172,8 @@ namespace Lattice.Net
             if (f.Sites.IsCreated) f.Sites.Dispose();
             if (f.Spawns.IsCreated) f.Spawns.Dispose();
             if (f.Fights.IsCreated) f.Fights.Dispose();
+            if (f.Gadgets.IsCreated) f.Gadgets.Dispose();
+            if (f.Spotted.IsCreated) f.Spotted.Dispose();
             Frame = new NetFrame();
         }
 
@@ -223,6 +233,8 @@ namespace Lattice.Net
             f.EventCount = s.Events(f.Events);
             f.FxCount = s.Fx(f.Fx);
             f.TracerCount = Math.Min(s.Tracers(f.Tracers), f.Tracers.Length);
+            f.GadgetCount = Math.Min(s.Gadgets(f.Gadgets), f.Gadgets.Length);
+            f.SpottedCount = Math.Min(s.Spotted(f.Spotted), f.Spotted.Length);
             f.SiteCount = Math.Min(s.Territory(f.Sites), f.Sites.Length);
             s.Stats(out f.Stats);
             s.Clock(out f.Clock);

@@ -44,6 +44,13 @@ namespace Lattice.LocalPlayer
         public static ushort Follow;
         public static Vector3 FollowOffset = new Vector3(1.6f, 0.4f, 3.2f);
 
+        /// <summary>A blast's shake (U6), 0..1: it falls away over half a second or so.</summary>
+        static float trauma;
+
+        /// <summary>Shakes the view by <paramref name="amount"/> (0..1, adding up to 1): a
+        /// burst nearby. The view turns, never moves: the aim stays the game's.</summary>
+        public static void Shake(float amount) => trauma = Mathf.Min(1f, trauma + amount);
+
         void Awake()
         {
             if (Camera == null)
@@ -117,6 +124,13 @@ namespace Lattice.LocalPlayer
                     break;
             }
             Eye = eye;
+            // A blast's shake: a jolt that dies away (trauma squared, smooth noise).
+            trauma = Mathf.Max(0f, trauma - Time.unscaledDeltaTime * 1.6f);
+            if (trauma > 0f && p.Mode != ViewMode.Spectator)
+            {
+                float k = trauma * trauma, t = Time.unscaledTime * 22f;
+                camRot *= Quaternion.Euler((Mathf.PerlinNoise(t, 0.3f) - 0.5f) * 5f * k, (Mathf.PerlinNoise(0.7f, t) - 0.5f) * 5f * k, (Mathf.PerlinNoise(t, t * 0.5f) - 0.5f) * 4f * k);
+            }
             transform.SetPositionAndRotation(camPos, camRot);
             float zoom = p.Mode == ViewMode.FirstPerson ? Mathf.Max(1f, Zoom) : 1f;
             Camera.fieldOfView = 2f * Mathf.Atan(Mathf.Tan(Fov * 0.5f * Mathf.Deg2Rad) / zoom) * Mathf.Rad2Deg;

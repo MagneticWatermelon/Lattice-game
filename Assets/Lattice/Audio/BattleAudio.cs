@@ -60,6 +60,8 @@ namespace Lattice.Audio
         readonly float[] seenAt = new float[65536];
 
         bool wasAds, wasDead, wasCrouched, wasOn;
+        /// <summary>Where we fell (game space): coming back there is a revive.</summary>
+        Vector3 fellAt;
         // The class's ability (U6): the jets' roar (ours), heals heard.
         AudioSource jets;
         float jetsLevel;
@@ -68,6 +70,7 @@ namespace Lattice.Audio
         readonly bool[] reloadHeard = new bool[65536];
 
         // For the report: what played, and what came out.
+        int nBlasts, nGadgets;
         int nOwn, nNear, nFar, nCrack, nImpact, nFeedback, nSteps, nStolen, nFarBedded, nHandling, nOthersReload, nChimes;
         // Kiln's glass reeds (K4): where they grow (the world's), looked for now and then.
         Lattice.World.WorldView view;
@@ -130,11 +133,11 @@ namespace Lattice.Audio
         {
             float rms = meterFrames > 0 ? rmsSum / meterFrames : 0f;
             return string.Format(System.Globalization.CultureInfo.InvariantCulture,
-                "  audio: played own {0}, near {1}, far {2} (+{13} left to the bed), cracks {3}, impacts {4}, feedback {5}, steps {6}, handling {15} (+{16} others' reloads), reed chimes {17}; voices stolen {7}\n" +
+                "  audio: played own {0}, near {1}, far {2} (+{13} left to the bed), cracks {3}, impacts {4}, feedback {5}, steps {6}, handling {15} (+{16} others' reloads), reed chimes {17}, bursts {18}, gadgets {19}; voices stolen {7}\n" +
                 "  audio out: peak {8:F1} dBFS, mean rms {9:F1} dBFS over {10} frames; frames over -1 dBFS {11}, over -6 dBFS {12}; the bus took off at most {14:F1} dB\n",
                 nOwn, nNear, nFar, nCrack, nImpact, nFeedback, nSteps, nStolen,
                 20f * Mathf.Log10(Mathf.Max(outPeak, 1e-6f)), 20f * Mathf.Log10(Mathf.Max(rms, 1e-6f)), meterFrames, clipFrames, loudFrames, nFarBedded, busMaxDb,
-                nHandling, nOthersReload, nChimes);
+                nHandling, nOthersReload, nChimes, nBlasts, nGadgets);
         }
 
         /// <summary>The mix as it leaves: peak and loudness, for the report.</summary>
@@ -335,7 +338,13 @@ namespace Lattice.Audio
                     Shot(fx, ear);
                 else if (fx.kind == LtCode.FxImpact)
                     Impact(fx, ear);
+                else if (fx.kind == LtCode.FxBlast)
+                    Blast(fx, ear);
+                else if (fx.kind == LtCode.FxTurret)
+                    TurretShot(fx, ear);
             }
+            GadgetCues(ear);
+            UseKey(f, now);
             Cracks(f, ear, now);
             Events(f, p);
             Vitals(f);
@@ -434,6 +443,85 @@ namespace Lattice.Audio
             PlayAt(Pick(far ? Look.ShotFar : Look.Shot(fx.weapon, false)), pos, level, Air(d), d / Look.SoundSpeed, pitch);
         }
 
+        /// <summary>A burst (U6): heard far, late by the speed of sound, darker with distance.</summary>
+        void Blast(in LtFx fx, Vector3 ear)
+        {
+            var pos = Coords.ToUnity(fx.pos);
+            var to = pos - ear;
+            float d = to.magnitude;
+            AddHeat(to, 3f);
+            if (d > Look.Audible * 1.5f)
+                return;
+            float level = Look.Blasts * Mathf.Clamp01(14f / Mathf.Max(d, 1f));
+            nBlasts++;
+            PlayAt(Pick(Look.Blast(fx.weapon)), pos, level, Air(d * 0.7f), d / Look.SoundSpeed, 0.94f + 0.12f * Rand());
+        }
+
+        /// <summary>A turret firing (U6), at its gun.</summary>
+        void TurretShot(in LtFx fx, Vector3 ear)
+        {
+            var pos = Coords.ToUnity(fx.pos);
+            float d = Vector3.Distance(pos, ear);
+            if (d > Look.FarFrom)
+                return;
+            float level = Look.Shots * 0.8f * Mathf.Clamp01(Look.ShotNearDistance / Mathf.Max(d, 1f));
+            PlayAt(Pick(Look.TurretNear), pos, level, Air(d), d / Look.SoundSpeed, 0.96f + 0.08f * Rand());
+        }
+
+        /// <summary>Gadgets' moments near us (thrown, landed, built, armed, smoke going, hacked, C4's beep).</summary>
+        void GadgetCues(Vector3 ear)
+        {
+            for (int i = 0; i < Gadgets.CueCount; i++)
+            {
+                var c = Gadgets.Cues[i];
+                float d = Vector3.Distance(c.Pos, ear);
+                (AudioClip clip, float gain, float reach) = c.Kind switch
+                {
+                    Gadgets.CueKind.Thrown => (Pick(Look.Throw), 0.8f, 25f),
+                    Gadgets.CueKind.Landed => (Pick(Look.GadgetLand), 0.7f, 20f),
+                    Gadgets.CueKind.Built => (Look.TurretUp, 1f, 40f),
+                    Gadgets.CueKind.Armed => (Look.Beep, 0.6f, 15f),
+                    Gadgets.CueKind.Smoke => (Look.SmokePop, 1f, 60f),
+                    Gadgets.CueKind.Dart => (Look.DartPing, 0.9f, 40f),
+                    Gadgets.CueKind.Hacked => (Look.Hacked, 1f, 40f),
+                    _ => (Look.Beep, 0.45f, 12f),
+                };
+                if (d > reach)
+                    continue;
+                nGadgets++;
+                PlayAt(clip, c.Pos, Look.Gadgets * gain * Mathf.Clamp01(3f / Mathf.Max(d, 0.5f)), Air(d * 3f), d / Look.SoundSpeed, 0.96f + 0.08f * Rand());
+            }
+        }
+
+        /// <summary>Our use key's work (a repair's crackle, a hack's chirps, a heal's bell)
+        /// on its beat, and an ammo pack's refill reaching us.</summary>
+        void UseKey(NetFrame f, float now)
+        {
+            if (!f.Welcomed || f.Own.dead != 0)
+            {
+                lastReserve = -1;
+                return;
+            }
+            int u = f.Own.@using;
+            float beat = u == LtCode.UsingHack ? 0.35f : 0.5f;
+            if (u != LtCode.UsingNone && now >= useNext)
+            {
+                useNext = now + beat;
+                var clip = u == LtCode.UsingRepair ? Pick(Look.RepairTick) : u == LtCode.UsingHack ? Pick(Look.HackTick) : Look.MendTick;
+                PlayHead(clip, Look.Gadgets * 0.55f, 0.97f + 0.06f * Rand(), -0.1f);
+            }
+            if (u == LtCode.UsingNone)
+                useNext = 0f;
+            // More rounds carried without a death between: an ammo pack's refill.
+            int reserve = f.Own.reserve;
+            if (lastReserve >= 0 && reserve > lastReserve && f.Own.life == lastLife)
+                PlayHead(Look.AmmoTick, Look.Gadgets * 0.6f, 0.98f + 0.04f * Rand(), -0.15f);
+            (lastReserve, lastLife) = (reserve, f.Own.life);
+        }
+
+        float useNext;
+        int lastReserve = -1, lastLife = -1;
+
         void Impact(in LtFx fx, Vector3 ear)
         {
             var pos = Coords.ToUnity(fx.pos);
@@ -495,6 +583,8 @@ namespace Lattice.Audio
                     if ((e.flags & LtCode.EventKilled) != 0)
                         PlayHead(Look.Kill, Look.Feedback * 0.8f);
                 }
+                else if (e.kind == LtCode.EventReward && e.flags == LtCode.RewardRevive)
+                    PlayHead(Look.Revive, Look.Feedback * 0.6f);
                 else if (e.kind == LtCode.EventHurt)
                 {
                     // From the shooter's side: left is a pan left.
@@ -509,10 +599,20 @@ namespace Lattice.Audio
             if (!f.Welcomed)
                 return;
             bool dead = f.Own.dead != 0;
+            var at = new Vector3(f.Own.pos.x, f.Own.pos.y, f.Own.pos.z);
             if (dead && !wasDead)
+            {
                 PlayHead(Look.Death, Look.Feedback * 0.8f);
+                fellAt = at;
+            }
             else if (!dead && wasDead)
-                PlayHead(Look.Respawn, Look.Feedback * 0.5f);
+            {
+                // Up where we fell: a medic's revive (a respawn or a deploy is elsewhere).
+                if ((at - fellAt).sqrMagnitude < 4f)
+                    PlayHead(Look.Revive, Look.Feedback * 0.7f);
+                else
+                    PlayHead(Look.Respawn, Look.Feedback * 0.5f);
+            }
             wasDead = dead;
             if (Gun != null && !dead)
             {

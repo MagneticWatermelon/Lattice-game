@@ -126,6 +126,15 @@ namespace Lattice.Native
         public int Territory(NativeArray<LtSiteState> buffer) =>
             LtLibrary.Api.lt_territory(handle, (LtSiteState*)NativeArrayUnsafeUtility.GetUnsafePtr(buffer), buffer.Length);
 
+        /// <summary>Every gadget (U6), flown to the render step, into <paramref name="buffer"/>
+        /// (after Render); returns how many there are.</summary>
+        public int Gadgets(NativeArray<LtGadget> buffer) =>
+            LtLibrary.Api.lt_gadgets(handle, (LtGadget*)NativeArrayUnsafeUtility.GetUnsafePtr(buffer), buffer.Length);
+
+        /// <summary>The enemies our side's recon darts see now (entity ids); returns how many.</summary>
+        public int Spotted(NativeArray<ushort> buffer) =>
+            LtLibrary.Api.lt_spotted(handle, (ushort*)NativeArrayUnsafeUtility.GetUnsafePtr(buffer), buffer.Length);
+
         public void SetOthersMuzzle(LtVec3 offset) => LtLibrary.Api.lt_set_others_muzzle(handle, &offset);
 
         /// <summary>Asks to deploy at <paramref name="site"/> with loadout <paramref name="kit"/>

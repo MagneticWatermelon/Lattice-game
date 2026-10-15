@@ -77,7 +77,7 @@ namespace Lattice.Combat
             for (int i = 0; i < f.FxCount; i++)
             {
                 var fx = f.Fx[i];
-                if (fx.kind == LtCode.FxShot)
+                if (fx.kind == LtCode.FxShot || fx.kind == LtCode.FxTurret)
                     Flash(fx, now);
                 else if (fx.kind == LtCode.FxImpact)
                     impacts.Hit(fx);

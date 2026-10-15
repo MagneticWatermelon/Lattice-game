@@ -77,6 +77,7 @@ namespace Lattice.Shell
                 case LtCode.RewardAssist: first.Append("ASSIST"); break;
                 case LtCode.RewardCapture: first.Append(SiteName(e.a)).Append(" TAKEN"); break;
                 case LtCode.RewardDefend: first.Append(SiteName(e.a)).Append(" HELD"); break;
+                case LtCode.RewardRevive: first.Append("REVIVE"); break;
             }
             lines[0].SetCharArray(first.Chars, 0, first.Length);
             at[0] = now;

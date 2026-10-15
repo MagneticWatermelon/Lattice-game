@@ -144,6 +144,43 @@ MonoBehaviour:
   LockDown: {fileID: 8300000, guid: c246c09700105084a98a6a2e152bcab8, type: 3}
   LockUp: {fileID: 8300000, guid: d3fe28a3cf6567f4297c58a2c9454b93, type: 3}
   Ability: 0.6
+  BlastFrag:
+  - {fileID: 8300000, guid: d3a0bd9f5612b0044940ca60f1b42c47, type: 3}
+  - {fileID: 8300000, guid: 6911136bf3ca4b74aa2c2c631532b6bb, type: 3}
+  BlastC4:
+  - {fileID: 8300000, guid: 730ac94f809f5614e917379ed7f322c6, type: 3}
+  - {fileID: 8300000, guid: 9f7d0c17f4dfb574f965f024473f8db6, type: 3}
+  BlastMine:
+  - {fileID: 8300000, guid: 647026613664b724eb40e0e96f6374ad, type: 3}
+  - {fileID: 8300000, guid: 13394f32ba8194740986f43ab9ce8065, type: 3}
+  BlastShell:
+  - {fileID: 8300000, guid: e84c337e4f332314b9f72a3ae472c24b, type: 3}
+  - {fileID: 8300000, guid: 88c8485224a2bf84dbe5fc71564d01ab, type: 3}
+  Throw:
+  - {fileID: 8300000, guid: 5fed8196dd17f3b4ebee63eec9b9857d, type: 3}
+  - {fileID: 8300000, guid: 107d6b1973a80ee4ebfae4ca6de96550, type: 3}
+  GadgetLand:
+  - {fileID: 8300000, guid: 9ba66169a18c1f14aa11346d82afb069, type: 3}
+  - {fileID: 8300000, guid: 212ccec88ecf71846bbba3753252a370, type: 3}
+  RepairTick:
+  - {fileID: 8300000, guid: 95cf4b11b92488a4eb91999e6dba2368, type: 3}
+  - {fileID: 8300000, guid: 95d3c942f3349554d8ba9e60b52094c3, type: 3}
+  HackTick:
+  - {fileID: 8300000, guid: 2ebfa7f163667b34aa8798aa13f35f36, type: 3}
+  - {fileID: 8300000, guid: c3292755219e15944b1b059662763ee1, type: 3}
+  TurretNear:
+  - {fileID: 8300000, guid: 08c8a284e3df5934a8aeb75d107fb2a9, type: 3}
+  - {fileID: 8300000, guid: 5675ee46c7b638144bab486e9b40d213, type: 3}
+  - {fileID: 8300000, guid: 434b40f5b0750c24b83e7e04b7118810, type: 3}
+  Beep: {fileID: 8300000, guid: ddeba1245b594d64da8bb29659e24e37, type: 3}
+  SmokePop: {fileID: 8300000, guid: 5c151d6d17d17e94ca64a02df6767567, type: 3}
+  TurretUp: {fileID: 8300000, guid: 643e30bb8e39d8e4480fa68c727616a3, type: 3}
+  Revive: {fileID: 8300000, guid: ebf6370ef07a3024f86ed0686c5654a7, type: 3}
+  Hacked: {fileID: 8300000, guid: 05f979bd02e88d34db9e59084ac74ef4, type: 3}
+  DartPing: {fileID: 8300000, guid: 0f00c871a62380e42b6f8a9019864cb2, type: 3}
+  AmmoTick: {fileID: 8300000, guid: cbcb20a33ff624844ae79843c43b087d, type: 3}
+  Gadgets: 0.7
+  Blasts: 1
   Wind: {fileID: 8300000, guid: fcb659dca13d1214694d9cdaaf0ddffe, type: 3}
   BattleSmall: {fileID: 8300000, guid: b39aa30e84da68545a505062ec1cd9fc, type: 3}
   BattleLarge: {fileID: 8300000, guid: daf4edea1157fb44ab99cf66f7e20742, type: 3}

@@ -72,9 +72,23 @@ namespace Lattice.Native
         public static string Class(int kit) => kit >= 0 && kit < Classes.Length ? Classes[kit] : Classes[0];
         public static string Name(int id) => id >= 0 && id < Names.Length ? Names[id] : Names[0];
 
-        /// <summary>Weapon <paramref name="id"/>'s name in lower case (made once).</summary>
+        /// <summary>The gadgets' names, by kind (<c>LT_GADGET_*</c>; U6), for the HUD.</summary>
+        public static readonly string[] GadgetNames = { "", "FRAG", "SMOKE", "C4", "MINE", "AMMO PACK", "RECON DART", "TURRET", "SHELL" };
+        static string[] gadgetLower;
+
+        public static string Gadget(int kind) => kind > 0 && kind < GadgetNames.Length ? GadgetNames[kind] : "";
+
+        /// <summary>A recap's cause in lower case (made once): a weapon (<c>LT_WEAPON_*</c>),
+        /// or a gadget (<c>LT_CAUSE_GADGET</c> plus its kind: "frag grenade", "turret"...).</summary>
         public static string Lower(int id)
         {
+            if (id >= LtCode.CauseGadget)
+            {
+                if (gadgetLower == null)
+                    gadgetLower = new[] { "a blast", "frag grenade", "smoke", "C4", "mine", "ammo pack", "recon dart", "turret", "launcher" };
+                int k = id - LtCode.CauseGadget;
+                return gadgetLower[k > 0 && k < gadgetLower.Length ? k : 0];
+            }
             if (lower == null)
             {
                 lower = new string[Names.Length];

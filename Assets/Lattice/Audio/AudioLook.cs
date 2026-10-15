@@ -63,6 +63,26 @@ namespace Lattice.Audio
         /// <summary>Their level, ours; others' within <see cref="HandlingDistance"/> × 2.</summary>
         [Range(0f, 1f)] public float Ability = 0.6f;
 
+        [Header("Gadgets (U6)")]
+        /// <summary>Bursts: a frag, C4, a mine, the Exo launcher's shell.</summary>
+        public AudioClip[] BlastFrag, BlastC4, BlastMine, BlastShell;
+        /// <summary>A throw, something landing or set down, a repair's and a hack's beats, a turret's shots.</summary>
+        public AudioClip[] Throw, GadgetLand, RepairTick, HackTick, TurretNear;
+        /// <summary>An armed thing's beep, smoke going, a turret built, a revive, a turret
+        /// taken over, a dart listening, an ammo pack's refill reaching us.</summary>
+        public AudioClip Beep, SmokePop, TurretUp, Revive, Hacked, DartPing, AmmoTick;
+        /// <summary>Gadgets' level (their bursts are louder still: <see cref="Blasts"/>).</summary>
+        [Range(0f, 1f)] public float Gadgets = 0.7f, Blasts = 1f;
+
+        /// <summary>A burst of gadget kind <paramref name="kind"/> (<c>LT_GADGET_*</c>).</summary>
+        public AudioClip[] Blast(int kind) => kind switch
+        {
+            3 => BlastC4,
+            4 => BlastMine,
+            8 => BlastShell,
+            _ => BlastFrag,
+        };
+
         [Header("Beds")]
         public AudioClip Wind, BattleSmall, BattleLarge;
 

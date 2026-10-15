@@ -99,6 +99,7 @@ namespace Lattice.Game
             player.Autotarget = Options.Autotarget;
             player.AutoCrouch = Options.Crouch;
             player.AutoAbility = Options.Ability;
+            player.AutoTools = Options.Tools;
             if (Options.NoAudio)
                 AudioListener.volume = 0f;
             player.Ghosts = Options.Ghosts;
@@ -156,7 +157,7 @@ namespace Lattice.Game
             // screen, the death screen, the map, the menu and its settings.
             bool title = Options.Title || !Options.Joins;
             shell = Lattice.Shell.Shell.Create(transform, world, title);
-            shell.Auto = Options.Autoplay || Options.Autotarget || Options.Autofire || Options.HudTest;
+            shell.Auto = Options.Autoplay || Options.Autotarget || Options.Autofire || Options.HudTest || Options.Ability || Options.Tools;
             shell.ShowAtStart = Options.Show;
             shell.Kit = Options.Kit;
             shell.Weapon = Options.Weapon;

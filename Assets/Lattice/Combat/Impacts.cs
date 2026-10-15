@@ -53,7 +53,7 @@ namespace Lattice.Combat
             sr.lengthScale = 1f;
         }
 
-        static ParticleSystem Make(Transform parent, string name, Material mat, int max)
+        internal static ParticleSystem Make(Transform parent, string name, Material mat, int max)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);

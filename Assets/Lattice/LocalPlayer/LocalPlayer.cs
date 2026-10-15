@@ -82,9 +82,16 @@ namespace Lattice.LocalPlayer
         /// <summary>Self-check (--ability): uses its class's ability now and then, as the
         /// bots do, but more often (jets held 0.8 s every 4 s, the rest pressed every 5 s).</summary>
         public bool AutoAbility;
+        /// <summary>Self-check (--tools): throws its class's first tool every 6 s and its
+        /// second every 11 s, and holds the use key (a medic revives a friend it faces).</summary>
+        public bool AutoTools;
 
         bool swallow, crouchToggle, jumpHeld;
         float reloadUntil;
+        /// <summary>A tool key's press, held out to the plugin until an input has carried
+        /// it (its net thread makes one every 33 ms from the latest intent).</summary>
+        float toolOneUntil, toolTwoUntil;
+        const float ToolPress = 0.1f;
         Wander wander = new Wander { seed = 0x9E3779B9u };
 
         const float MaxPitch = Mathf.PI / 2f - 0.01f;
@@ -158,7 +165,7 @@ namespace Lattice.LocalPlayer
                     if (Mode == ViewMode.Spectator && !SpecPlaced)
                         PlaceSpectatorBehind();
                 }
-                if (kb.gKey.wasPressedThisFrame) Ghosts = !Ghosts;
+                if (kb.f2Key.wasPressedThisFrame) Ghosts = !Ghosts;
                 if (kb.tKey.wasPressedThisFrame) TierColors = !TierColors;
                 if (kb.iKey.wasPressedThisFrame)
                 {
@@ -256,6 +263,22 @@ namespace Lattice.LocalPlayer
             // for the rest (the game takes its going down).
             if (alive && Mode != ViewMode.Spectator && ((kb != null && kb.fKey.isPressed) || AutoUse(own.kit)))
                 buttons |= (byte)LtCode.ButtonAbility;
+            // The class's tools (U6): G and X thrown or set down as the key goes down;
+            // E held (heal, revive, repair, hack).
+            byte tools = 0;
+            if (alive && Mode != ViewMode.Spectator)
+            {
+                float t = Time.unscaledTime;
+                if ((kb != null && kb.gKey.wasPressedThisFrame) || (AutoTools && t % 6f < dt))
+                    toolOneUntil = t + ToolPress;
+                if ((kb != null && kb.xKey.wasPressedThisFrame) || (AutoTools && (t + 3f) % 11f < dt))
+                    toolTwoUntil = t + ToolPress;
+                if (t < toolOneUntil) tools |= (byte)LtCode.ToolOne;
+                if (t < toolTwoUntil) tools |= (byte)LtCode.ToolTwo;
+                if ((kb != null && kb.eKey.isPressed) || AutoTools) tools |= (byte)LtCode.ToolUse;
+            }
+            else
+                toolOneUntil = toolTwoUntil = 0f;
             if (Mode != ViewMode.Spectator && alive)
             {
                 trigger = Autofire || onTarget || (Grabbed && !swallow && mouse != null && mouse.leftButton.isPressed);
@@ -274,7 +297,12 @@ namespace Lattice.LocalPlayer
             intent.forward = fwd;
             intent.right = right;
             intent.buttons = buttons;
+            intent.tools = tools;
+            UseHeld = (tools & LtCode.ToolUse) != 0;
         }
+
+        /// <summary>The use key is down (the HUD's prompt).</summary>
+        public bool UseHeld { get; private set; }
 
         /// <summary>
         /// --autotarget: turn toward the nearest living enemy in sight within

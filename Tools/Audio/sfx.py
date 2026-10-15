@@ -214,6 +214,8 @@ VOICES = {
     "ExoGuns": dict(crack=0.6, body=(140, 2400, 0.03), thump=(150, 50, 0.8), zap=(1200, 300, 0.25), clacks=((0.02, 1500, 0.25),), length=0.3),
     # The launcher: a hollow chunk and the shell's hiss away.
     "Launcher": dict(crack=0.3, body=(70, 1500, 0.06), thump=(90, 30, 1.2), zap=(800, 200, 0.15), clacks=((0.25, 1700, 0.3),), length=0.5),
+    # An engineer's turret: a light, dry, mechanical bark, high zap, quick action.
+    "Turret": dict(crack=0.65, body=(320, 5200, 0.012), thump=(260, 110, 0.14), zap=(4200, 1500, 0.2), clacks=((0.022, 5200, 0.2),), length=0.22),
 }
 
 
@@ -667,6 +669,172 @@ def cloak(on):
     return fade(normalize(close_space(out, 3135 + on), -6.0), 0.003, 0.08)
 
 
+# ---- gadgets (U6) -----------------------------------------------------------
+# Bursts, throws, the beeps of armed things, smoke, a turret going up, and the
+# use key's work (a revive, a repair, a hack).
+
+BLASTS = {
+    # (crack, boom's low-pass and decay, thump's sweep and level, debris, how far the field answers)
+    "Frag": dict(crack=1.0, boom=(900, 0.07), thump=(110, 34, 1.0), debris=14, tail=-15.0, secs=2.4),
+    "C4": dict(crack=1.0, boom=(650, 0.11), thump=(85, 26, 1.4), debris=22, tail=-13.0, secs=3.0),
+    "Mine": dict(crack=1.1, boom=(800, 0.08), thump=(100, 30, 1.1), debris=18, tail=-15.0, secs=2.5),
+    "Shell": dict(crack=0.8, boom=(1100, 0.05), thump=(130, 42, 0.7), debris=8, tail=-17.0, secs=1.8),
+}
+
+
+def blast(kind, variant):
+    """A burst: a hard broadband front, a deep boom rolling off, a thump felt in
+    the chest, then what it threw up raining back (grit and stones), all in an
+    open field that answers for seconds."""
+    b = BLASTS[kind]
+    seed = 4000 + 31 * list(BLASTS).index(kind) + variant
+    r = np.random.default_rng(seed)
+    dry_secs = 1.2
+    out = np.zeros(int(dry_secs * SR))
+    front = highpass(noise(0.05, seed), 400) * env_exp(0.05, 0.006, 0.00005)
+    place(out, front, 0, b["crack"])
+    lo, decay = b["boom"]
+    boom = tilt(lowpass(noise(1.0, seed + 1), lo), -2.0) * env_exp(1.0, decay * r.uniform(0.9, 1.1), 0.0015)
+    place(out, boom, 0.0005, 2.2)
+    f0, f1, amp = b["thump"]
+    thump = sweep(0.5, f0 * r.uniform(0.92, 1.08), f1, 4.0) * env_exp(0.5, 0.09, 0.002)
+    place(out, thump, 0.001, amp)
+    for k in range(b["debris"]):
+        at = 0.08 + r.exponential(0.22)
+        if at < dry_secs - 0.05:
+            grit = band(noise(0.03, seed + 20 + k), 1800, 7000) * env_exp(0.03, 0.004, 0.0002)
+            place(out, grit, at, r.uniform(0.04, 0.16))
+    x = softclip(out * 1.1, 1.6)
+    secs = b["secs"]
+    ir = outdoor_ir(secs, seed * 3, ground=0.006, ground_gain=0.55,
+                    slaps=((0.18 * r.uniform(0.8, 1.2), -15.0), (0.45 * r.uniform(0.8, 1.2), -19.0)),
+                    tail_db=b["tail"], bright=2600, decay=0.9)
+    y = convolve(x, ir)[:int(secs * SR)]
+    return fade(normalize(y, -0.8), 0.0003, 0.4)
+
+
+def throw_sound(variant):
+    """A throw: the pin pulled (a small ring), cloth and an arm's whoosh."""
+    seed = 4200 + variant
+    secs = 0.6
+    t = t_axis(secs)
+    out = np.zeros(int(secs * SR))
+    place(out, latch(0.05, seed, f=4300.0, level=0.6), 0.0)
+    place(out, ring(0.25, (5200.0, 7800.0), (0.06, 0.03), (0.15, 0.06)), 0.02)
+    whoosh = band(noise(secs, seed + 1), 400, 3500) * np.exp(-((t - 0.28) / 0.08) ** 2) * 0.6
+    out += whoosh
+    return fade(normalize(close_space(out, seed + 2), -6.0), 0.001, 0.05)
+
+
+def gadget_land(variant):
+    """Something set down or landing: a dull thump and a small rattle."""
+    seed = 4250 + variant
+    secs = 0.3
+    thud = lowpass(noise(secs, seed), 700) * env_exp(secs, 0.02, 0.0005)
+    rattle = ring(secs, (1900.0 + 300 * variant, 3100.0), (0.03, 0.02), (0.2, 0.1))
+    return fade(normalize(close_space(thud + rattle, seed + 1), -8.0), 0.0005, 0.04)
+
+
+def beep(f=2600.0, secs=0.09):
+    """An armed thing's beep: a clean tone, a hard edge (it must be heard over a fight)."""
+    t = t_axis(secs)
+    x = np.sin(2 * np.pi * f * t) * 0.8 + np.sin(2 * np.pi * f * 2 * t) * 0.15
+    env = np.clip(t / 0.003, 0, 1) * np.clip((secs - t) / 0.01, 0, 1)
+    return normalize(x * env, -9.0)
+
+
+def smoke_pop():
+    """A smoke grenade going: a soft pop and a long hiss, thinning."""
+    secs = 3.5
+    t = t_axis(secs)
+    pop = lowpass(noise(secs, 4300), 500) * env_exp(secs, 0.03, 0.001) * 1.2
+    hiss = band(noise(secs, 4301), 1500, 9000) * np.clip(t / 0.05, 0, 1) * np.exp(-t / 1.4) * 0.55
+    flutter = 1.0 + 0.2 * np.sin(2 * np.pi * 7 * t) * np.exp(-t / 1.0)
+    return fade(normalize((pop + hiss * flutter), -6.0), 0.001, 0.5)
+
+
+def turret_up():
+    """A turret built: legs snapping out (three clacks), a servo spinning up, a ready chirp."""
+    secs = 1.1
+    t = t_axis(secs)
+    out = np.zeros(int(secs * SR))
+    for k, at in enumerate((0.02, 0.09, 0.15)):
+        place(out, latch(0.06, 4400 + k, f=2400.0 + 300 * k, level=0.9), at)
+    whine = band(sweep(0.6, 300, 1500, 1.5, "saw"), 200, 5000) * np.sin(np.pi * np.clip((t[:int(0.6 * SR)]) / 0.6, 0, 1)) * 0.22
+    place(out, whine, 0.2)
+    place(out, beep(1800.0, 0.06), 0.85, 0.6)
+    place(out, beep(2700.0, 0.08), 0.93, 0.6)
+    return fade(normalize(close_space(out, 4410), -4.0), 0.001, 0.08)
+
+
+def revive_sound():
+    """A revive: the injector's hiss, a defibrillator thump, a rising chord."""
+    secs = 1.3
+    t = t_axis(secs)
+    out = np.zeros(int(secs * SR))
+    hiss = band(noise(0.25, 4500), 3000, 9000) * env_exp(0.25, 0.08, 0.01) * 0.4
+    place(out, hiss, 0.0)
+    thump = lowpass(noise(0.2, 4501), 200) * env_exp(0.2, 0.05, 0.002) * 1.5 + sweep(0.2, 120, 50, 3.0) * env_exp(0.2, 0.05, 0.002)
+    place(out, thump, 0.18)
+    for k, f in enumerate((392.0, 493.88, 587.33, 783.99)):
+        place(out, ring(0.9, (f, f * 2.0), (0.4, 0.15), (0.3, 0.06)), 0.3 + 0.07 * k, 0.8)
+    return fade(normalize(out, -5.0), 0.001, 0.2)
+
+
+def repair_tick(variant):
+    """A repair beat: a welder's crackle and a ratchet's click."""
+    seed = 4600 + variant
+    secs = 0.4
+    r = np.random.default_rng(seed)
+    out = np.zeros(int(secs * SR))
+    for k in range(int(r.integers(8, 14))):
+        place(out, highpass(noise(0.006, seed + k), 2500) * env_exp(0.006, 0.0012), r.uniform(0, 0.25), r.uniform(0.2, 0.6))
+    place(out, latch(0.05, seed + 50, f=3300.0, level=0.5), 0.3)
+    return fade(normalize(close_space(out, seed + 99), -9.0), 0.0005, 0.04)
+
+
+def hack_tick(variant):
+    """A hack's beat: a few quick data chirps."""
+    r = np.random.default_rng(4700 + variant)
+    secs = 0.32
+    out = np.zeros(int(secs * SR))
+    for k in range(4):
+        f = r.choice([1200.0, 1600.0, 2400.0, 3200.0])
+        place(out, beep(f, 0.035) * 0.7, 0.06 * k)
+    return fade(normalize(band(out, 600, 8000), -10.0), 0.0005, 0.03)
+
+
+def hacked():
+    """A turret taken over: a falling, then rising glitch, and a lock tone."""
+    secs = 0.8
+    t = t_axis(secs)
+    g = sweep(secs, 2400, 400, 3.0, "square") * (np.sin(2 * np.pi * 30 * t) > 0) * np.exp(-t / 0.25) * 0.4
+    out = band(g, 300, 6000)
+    place(out, beep(2000.0, 0.12), 0.45, 0.8)
+    place(out, beep(3000.0, 0.15), 0.58, 0.8)
+    return fade(normalize(out, -7.0), 0.001, 0.08)
+
+
+def dart_ping():
+    """A recon dart sticking and listening: a sonar ping, a soft echo."""
+    secs = 1.2
+    t = t_axis(secs)
+    p = np.sin(2 * np.pi * 1750 * t) * np.exp(-t / 0.12) * np.clip(t / 0.002, 0, 1)
+    out = p.copy()
+    place(out, p[:int(0.6 * SR)] * 0.35, 0.28)
+    place(out, p[:int(0.5 * SR)] * 0.15, 0.55)
+    return fade(normalize(out, -10.0), 0.001, 0.2)
+
+
+def ammo_tick():
+    """An ammo pack's refill reaching us: cells clacking into a pouch."""
+    secs = 0.35
+    out = np.zeros(int(secs * SR))
+    for k, at in enumerate((0.0, 0.07, 0.13)):
+        place(out, latch(0.05, 4800 + k, f=2900.0 - 200 * k, level=0.7), at)
+    return fade(normalize(close_space(out, 4810), -10.0), 0.0005, 0.04)
+
+
 # ---- beds (loops) -----------------------------------------------------------
 
 def loopify(x, xfade):
@@ -784,6 +952,21 @@ write("Battle_Small", battle(rate=4.0, seed=1400))
 write("Battle_Large", battle(rate=18.0, seed=1500))
 for v in range(4):
     write(f"Reed_Chime_{v}", reed_chime(v))
+for kind in BLASTS:
+    for v in range(2):
+        write(f"Blast_{kind}_{v}", blast(kind, v))
+for v in range(2):
+    write(f"Throw_{v}", throw_sound(v))
+    write(f"Gadget_Land_{v}", gadget_land(v))
+    write(f"Repair_Tick_{v}", repair_tick(v))
+    write(f"Hack_Tick_{v}", hack_tick(v))
+write("Beep", beep())
+write("Smoke_Pop", smoke_pop())
+write("Turret_Up", turret_up())
+write("Revive", revive_sound())
+write("Hacked", hacked())
+write("Dart_Ping", dart_ping())
+write("Ammo_Tick", ammo_tick())
 
 # ---- a preview sheet: waveform and spectrogram per sound --------------------
 if PREV:

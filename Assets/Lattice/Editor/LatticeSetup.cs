@@ -169,6 +169,7 @@ namespace Lattice.EditorTools
             var effects = combatGo.AddComponent<Lattice.Combat.Effects>();
             effects.Look = combatLook;
             effects.Crowd = crowd;
+            combatGo.AddComponent<Lattice.Combat.Gadgets>().Look = combatLook;
             var audioGo = new GameObject("Audio");
             var audio = audioGo.AddComponent<Lattice.Audio.BattleAudio>();
             audio.Look = AssetDatabase.LoadAssetAtPath<Lattice.Audio.AudioLook>(LatticeSetupAudio.LookPath);

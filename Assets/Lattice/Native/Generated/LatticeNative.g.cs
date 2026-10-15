@@ -15,11 +15,11 @@ namespace Lattice.Native
         /// <summary>
         /// The plugin API's version (lt_version).
         /// </summary>
-        public const uint Version = 12;
+        public const uint Version = 13;
         /// <summary>
         /// The layout hash of these bindings (lt_layout_hash).
         /// </summary>
-        public const ulong LayoutHash = 0x672EDE2B2D2F2D6E;
+        public const ulong LayoutHash = 0x965D438446F6433C;
         /// <summary>
         /// Game steps a second.
         /// </summary>
@@ -170,6 +170,62 @@ namespace Lattice.Native
         /// Enemies past this aren't sent a cloaked player, m.
         /// </summary>
         public const float CloakRange = 15.0f;
+        /// <summary>
+        /// Gadgets (U6): a frag's fuse, s;
+        /// </summary>
+        public const float FragFuse = 3.0000002f;
+        /// <summary>
+        /// smoke's, before it spreads, s,
+        /// </summary>
+        public const float SmokeFuse = 1.5000001f;
+        /// <summary>
+        /// how long its cloud lasts, s,
+        /// </summary>
+        public const float SmokeSecs = 12.000001f;
+        /// <summary>
+        /// and how wide, m.
+        /// </summary>
+        public const float SmokeRadius = 7.0f;
+        /// <summary>
+        /// A mine arms after this, s.
+        /// </summary>
+        public const float MineArm = 2.0f;
+        /// <summary>
+        /// An ammo pack refills friends within this, m.
+        /// </summary>
+        public const float PackRadius = 4.0f;
+        /// <summary>
+        /// A dart spots enemies within this, m.
+        /// </summary>
+        public const float DartRadius = 30.0f;
+        /// <summary>
+        /// A turret shoots enemies within this, m,
+        /// </summary>
+        public const float TurretRange = 35.0f;
+        /// <summary>
+        /// from its gun this far up, m.
+        /// </summary>
+        public const float TurretHeight = 0.9f;
+        /// <summary>
+        /// The use key reaches this far, m.
+        /// </summary>
+        public const float UseRange = 3.0f;
+        /// <summary>
+        /// Bursts reach this far, m: a frag,
+        /// </summary>
+        public const float FragReach = 6.0f;
+        /// <summary>
+        /// C4,
+        /// </summary>
+        public const float C4Reach = 5.0f;
+        /// <summary>
+        /// a mine,
+        /// </summary>
+        public const float MineReach = 4.0f;
+        /// <summary>
+        /// a launcher's shell.
+        /// </summary>
+        public const float ShellReach = 3.5f;
         /// <summary>
         /// Hitboxes: a body capsule (radius, and its segment's ends above the feet), m.
         /// </summary>
@@ -334,6 +390,86 @@ namespace Lattice.Native
         /// The class's ability: pressed (Bulwark, the Mend field, the cloak on or off) or held (jets).
         /// </summary>
         public const int ButtonAbility = 64;
+        /// <summary>
+        /// The use key held (U6): a medic heals or revives, an engineer repairs, a recon hacks what it faces.
+        /// </summary>
+        public const int ToolUse = 1;
+        /// <summary>
+        /// The class's first tool (a frag, C4, an ammo pack, a dart): thrown as the key goes down.
+        /// </summary>
+        public const int ToolOne = 2;
+        /// <summary>
+        /// The class's second tool (a mine, smoke).
+        /// </summary>
+        public const int ToolTwo = 4;
+        /// <summary>
+        /// No gadget (a class without that tool).
+        /// </summary>
+        public const int GadgetNone = 0;
+        /// <summary>
+        /// A frag grenade: bursts 3 s after the throw.
+        /// </summary>
+        public const int GadgetFrag = 1;
+        /// <summary>
+        /// A smoke grenade: a cloud after 1.5 s, for 12 s.
+        /// </summary>
+        public const int GadgetSmoke = 2;
+        /// <summary>
+        /// C4: sticks; its owner's key sets it off.
+        /// </summary>
+        public const int GadgetC4 = 3;
+        /// <summary>
+        /// A mine: arms in 2 s; bursts under an enemy.
+        /// </summary>
+        public const int GadgetMine = 4;
+        /// <summary>
+        /// An ammo pack: refills friends round it.
+        /// </summary>
+        public const int GadgetAmmoPack = 5;
+        /// <summary>
+        /// A recon dart: sticks; spots enemies round it for its side.
+        /// </summary>
+        public const int GadgetDart = 6;
+        /// <summary>
+        /// An engineer's turret (its ability): shoots enemies it sees.
+        /// </summary>
+        public const int GadgetTurret = 7;
+        /// <summary>
+        /// Not a gadget: the Exo launcher's shell, bursting (`LT_FX_BLAST`).
+        /// </summary>
+        public const int GadgetShell = 8;
+        /// <summary>
+        /// The use key is on nothing.
+        /// </summary>
+        public const int UsingNone = 0;
+        /// <summary>
+        /// Healing a friend (a medic).
+        /// </summary>
+        public const int UsingHeal = 1;
+        /// <summary>
+        /// Reviving a fallen friend (a medic): `use_progress` to 1.
+        /// </summary>
+        public const int UsingRevive = 2;
+        /// <summary>
+        /// Repairing a turret or an Exo (an engineer).
+        /// </summary>
+        public const int UsingRepair = 3;
+        /// <summary>
+        /// Hacking an enemy's turret (a recon): `use_progress` to 1.
+        /// </summary>
+        public const int UsingHack = 4;
+        /// <summary>
+        /// Killed by a gadget: this plus its kind (`LT_GADGET_*`).
+        /// </summary>
+        public const int CauseGadget = 200;
+        /// <summary>
+        /// A friend revived (`a`: who).
+        /// </summary>
+        public const int RewardRevive = 5;
+        /// <summary>
+        /// A turret's health, full.
+        /// </summary>
+        public const int TurretHealth = 200;
         /// <summary>
         /// 30 Hz, within 150 m (plus squad and contacts).
         /// </summary>
@@ -546,6 +682,14 @@ namespace Lattice.Native
         /// A tracer hit the ground or cover at `pos`.
         /// </summary>
         public const int FxImpact = 2;
+        /// <summary>
+        /// A burst at `pos` (U6): of what, in `weapon` (`LT_GADGET_*`: a frag, C4, a mine, a launcher's shell).
+        /// </summary>
+        public const int FxBlast = 3;
+        /// <summary>
+        /// A turret firing from its gun at `pos` along `dir` (its tracer flies too).
+        /// </summary>
+        public const int FxTurret = 4;
         /// <summary>
         /// Our shot.
         /// </summary>
@@ -875,6 +1019,12 @@ namespace Lattice.Native
         /// `LT_BUTTON_*`.
         /// </summary>
         [FieldOffset(16)] public byte buttons;
+        /// <summary>
+        /// `LT_TOOL_*` (U6): the use key held, a tool's key down. A press
+        /// is a key going down: hold it until an input has carried it (the
+        /// inputs go 30 times a second; 50 ms will do).
+        /// </summary>
+        [FieldOffset(17)] public byte tools;
     }
 
     /// <summary>
@@ -920,7 +1070,7 @@ namespace Lattice.Native
     /// <summary>
     /// Our own player.
     /// </summary>
-    [StructLayout(LayoutKind.Explicit, Size = 80)]
+    [StructLayout(LayoutKind.Explicit, Size = 88)]
     public unsafe partial struct LtOwn
     {
         /// <summary>
@@ -992,7 +1142,21 @@ namespace Lattice.Native
         /// It's on: a Bulwark or a Mend field running, cloaked, jets firing.
         /// </summary>
         [FieldOffset(76)] public byte abilityOn;
-        [FieldOffset(77)] public fixed byte reserved[3];
+        /// <summary>
+        /// Our class's two tools (U6; `LT_GADGET_*`, `LT_GADGET_NONE`: no
+        /// such tool), and how many of each we have left (the server's word).
+        /// </summary>
+        [FieldOffset(77)] public fixed byte toolKinds[2];
+        [FieldOffset(79)] public fixed byte tools[2];
+        /// <summary>
+        /// What our use key is doing (`LT_USING_*`).
+        /// </summary>
+        [FieldOffset(81)] public byte @using;
+        [FieldOffset(82)] public fixed byte reserved[2];
+        /// <summary>
+        /// How far a revive or a hack has got, 0..1.
+        /// </summary>
+        [FieldOffset(84)] public float useProgress;
     }
 
     /// <summary>
@@ -1320,7 +1484,7 @@ namespace Lattice.Native
     /// <summary>
     /// The connection and the client's numbers, for the net graph.
     /// </summary>
-    [StructLayout(LayoutKind.Explicit, Size = 432)]
+    [StructLayout(LayoutKind.Explicit, Size = 440)]
     public unsafe partial struct LtStats
     {
         /// <summary>
@@ -1375,42 +1539,46 @@ namespace Lattice.Native
         /// Snapshots whose rifle rounds disagreed with ours (replayed).
         /// </summary>
         [FieldOffset(136)] public ulong ammoCorrections;
-        [FieldOffset(144)] public ulong resyncs;
-        [FieldOffset(152)] public ulong shotsDropped;
-        [FieldOffset(160)] public ulong lifeEvents;
-        [FieldOffset(168)] public ulong shots;
-        [FieldOffset(176)] public ulong hitsConfirmed;
-        [FieldOffset(184)] public ulong killsConfirmed;
-        [FieldOffset(192)] public ulong hurts;
-        [FieldOffset(200)] public ulong damageTaken;
-        [FieldOffset(208)] public ulong killsHeard;
-        [FieldOffset(216)] public ulong shotsSeen;
-        [FieldOffset(224)] public ulong activityCells;
-        [FieldOffset(232)] public ulong activityShots;
-        [FieldOffset(240)] public ulong ambient;
-        [FieldOffset(248)] public ulong clockSnaps;
-        [FieldOffset(256)] public ulong nearDecodeErrors;
-        [FieldOffset(264)] public ulong badMessages;
+        /// <summary>
+        /// Of rounds that disagreed, an ammo pack's refills (no misprediction).
+        /// </summary>
+        [FieldOffset(144)] public ulong refills;
+        [FieldOffset(152)] public ulong resyncs;
+        [FieldOffset(160)] public ulong shotsDropped;
+        [FieldOffset(168)] public ulong lifeEvents;
+        [FieldOffset(176)] public ulong shots;
+        [FieldOffset(184)] public ulong hitsConfirmed;
+        [FieldOffset(192)] public ulong killsConfirmed;
+        [FieldOffset(200)] public ulong hurts;
+        [FieldOffset(208)] public ulong damageTaken;
+        [FieldOffset(216)] public ulong killsHeard;
+        [FieldOffset(224)] public ulong shotsSeen;
+        [FieldOffset(232)] public ulong activityCells;
+        [FieldOffset(240)] public ulong activityShots;
+        [FieldOffset(248)] public ulong ambient;
+        [FieldOffset(256)] public ulong clockSnaps;
+        [FieldOffset(264)] public ulong nearDecodeErrors;
+        [FieldOffset(272)] public ulong badMessages;
         /// <summary>
         /// Entity-frames per tier (near, mid, far) and how they were drawn
         /// (interpolated, extrapolated, held, new): [tier * 4 + how].
         /// </summary>
-        [FieldOffset(272)] public fixed ulong frames[12];
+        [FieldOffset(280)] public fixed ulong frames[12];
         /// <summary>
         /// Entity-frames drawn moving faster than any player runs, per tier.
         /// </summary>
-        [FieldOffset(368)] public fixed ulong streaks[3];
+        [FieldOffset(376)] public fixed ulong streaks[3];
         /// <summary>
         /// Samples that moved what's on screen by more than 5 cm, and the
         /// largest such pop (mm), per tier.
         /// </summary>
-        [FieldOffset(392)] public fixed ulong pops[3];
-        [FieldOffset(416)] public fixed uint popMaxMm[3];
+        [FieldOffset(400)] public fixed ulong pops[3];
+        [FieldOffset(424)] public fixed uint popMaxMm[3];
         /// <summary>
         /// 1: the server's world differs from the one we built from its id
         /// (its Welcome's digest): an older or newer plugin than the server.
         /// </summary>
-        [FieldOffset(428)] public byte worldMismatch;
+        [FieldOffset(436)] public byte worldMismatch;
     }
 
     /// <summary>
@@ -1698,6 +1866,57 @@ namespace Lattice.Native
     }
 
     /// <summary>
+    /// A gadget (U6, `lt_gadgets`): thrown, set down or built; drawn at the
+    /// render step.
+    /// </summary>
+    [StructLayout(LayoutKind.Explicit, Size = 64)]
+    public unsafe partial struct LtGadget
+    {
+        [FieldOffset(0)] public uint id;
+        /// <summary>
+        /// `LT_GADGET_*`.
+        /// </summary>
+        [FieldOffset(4)] public byte kind;
+        /// <summary>
+        /// Its side (a hacked turret's changes).
+        /// </summary>
+        [FieldOffset(5)] public byte faction;
+        /// <summary>
+        /// 1: lying still (stuck, or come to rest).
+        /// </summary>
+        [FieldOffset(6)] public byte resting;
+        /// <summary>
+        /// 1: ours (we threw it, built it or hacked it).
+        /// </summary>
+        [FieldOffset(7)] public byte ours;
+        /// <summary>
+        /// Who threw or built it (or hacked it).
+        /// </summary>
+        [FieldOffset(8)] public ushort owner;
+        /// <summary>
+        /// A turret's health (of `LT_TURRET_HEALTH`).
+        /// </summary>
+        [FieldOffset(10)] public ushort health;
+        /// <summary>
+        /// Where it is, between steps; the face it lies on; its velocity in flight.
+        /// </summary>
+        [FieldOffset(12)] public LtVec3 pos;
+        [FieldOffset(24)] public LtVec3 normal;
+        [FieldOffset(36)] public LtVec3 vel;
+        /// <summary>
+        /// Seconds since it was thrown or set down (a fuse's blink, smoke spreading).
+        /// </summary>
+        [FieldOffset(48)] public float age;
+        /// <summary>
+        /// A turret: where it last aimed (radians; none yet: yaw 0, pitch 0),
+        /// and seconds since that shot (large: never).
+        /// </summary>
+        [FieldOffset(52)] public float yaw;
+        [FieldOffset(56)] public float pitch;
+        [FieldOffset(60)] public float sinceShot;
+    }
+
+    /// <summary>
     /// Where a segment first hits the ground or cover.
     /// </summary>
     [StructLayout(LayoutKind.Explicit, Size = 32)]
@@ -1837,6 +2056,18 @@ namespace Lattice.Native
         /// (IntPtr s, LtTracer* out, int cap)
         /// </summary>
         [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtTracer*, int, int> lt_tracers;
+        /// <summary>
+        /// Every gadget (U6), flown to the render step: fills `out` (up to
+        /// `cap`), returns how many there are. After `lt_render`.
+        /// (IntPtr s, LtGadget* out, int cap)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtGadget*, int, int> lt_gadgets;
+        /// <summary>
+        /// The enemies our side's recon darts see now (entity ids): fills `out`
+        /// (up to `cap`), returns how many there are.
+        /// (IntPtr s, ushort* out, int cap)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, ushort*, int, int> lt_spotted;
         /// <summary>
         /// Where others' drawn muzzles are from their eyes (meters right, up and
         /// forward of their aim): their tracers leave from there.
@@ -2041,6 +2272,8 @@ namespace Lattice.Native
             p = proc("lt_events"); if (p == IntPtr.Zero) missing.Append(" lt_events"); lt_events = (delegate* unmanaged[Cdecl]<IntPtr, LtEvent*, int, int>)(void*)p;
             p = proc("lt_fx"); if (p == IntPtr.Zero) missing.Append(" lt_fx"); lt_fx = (delegate* unmanaged[Cdecl]<IntPtr, LtFx*, int, int>)(void*)p;
             p = proc("lt_tracers"); if (p == IntPtr.Zero) missing.Append(" lt_tracers"); lt_tracers = (delegate* unmanaged[Cdecl]<IntPtr, LtTracer*, int, int>)(void*)p;
+            p = proc("lt_gadgets"); if (p == IntPtr.Zero) missing.Append(" lt_gadgets"); lt_gadgets = (delegate* unmanaged[Cdecl]<IntPtr, LtGadget*, int, int>)(void*)p;
+            p = proc("lt_spotted"); if (p == IntPtr.Zero) missing.Append(" lt_spotted"); lt_spotted = (delegate* unmanaged[Cdecl]<IntPtr, ushort*, int, int>)(void*)p;
             p = proc("lt_set_others_muzzle"); if (p == IntPtr.Zero) missing.Append(" lt_set_others_muzzle"); lt_set_others_muzzle = (delegate* unmanaged[Cdecl]<IntPtr, LtVec3*, void>)(void*)p;
             p = proc("lt_flush"); if (p == IntPtr.Zero) missing.Append(" lt_flush"); lt_flush = (delegate* unmanaged[Cdecl]<IntPtr, void>)(void*)p;
             p = proc("lt_clock"); if (p == IntPtr.Zero) missing.Append(" lt_clock"); lt_clock = (delegate* unmanaged[Cdecl]<IntPtr, LtClock*, void>)(void*)p;

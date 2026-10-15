@@ -131,6 +131,8 @@ namespace Lattice.Net
         public bool Crouch;
         /// <summary>--ability: use the class's ability now and then (a self-check).</summary>
         public bool Ability;
+        /// <summary>--tools: throw the class's tools now and then and hold the use key (a self-check).</summary>
+        public bool Tools;
         /// <summary>Main-thread stalls to stage (--freeze AT:MS,...): at AT seconds after
         /// start, the frame stops for MS milliseconds. U3's self-check.</summary>
         public (float at, int ms)[] Freezes = new (float, int)[0];
@@ -179,6 +181,7 @@ namespace Lattice.Net
                     case "--autotarget": o.Autotarget = true; break;
                     case "--crouch": o.Crouch = true; break;
                     case "--ability": o.Ability = true; break;
+                    case "--tools": o.Tools = true; break;
                     case "--hud-test": o.HudTest = true; break;
                     case "--no-audio": o.NoAudio = true; break;
                     case "--windowed": o.Windowed = true; break;

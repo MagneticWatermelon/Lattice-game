@@ -22,7 +22,7 @@ namespace Lattice.Combat
     /// written into reused buffers, only when it changes).
     /// </summary>
     [DefaultExecutionOrder(200)]
-    public sealed class CombatHud : MonoBehaviour
+    public sealed partial class CombatHud : MonoBehaviour
     {
         public Gun Gun;
         /// <summary>Self-check (--hud-test): a scripted run of hits, hurts and kills fed
@@ -114,6 +114,7 @@ namespace Lattice.Combat
             BuildHealth();
             BuildAmmo();
             BuildAbility();
+            BuildTools();
             BuildFeed();
             BuildDeath();
             for (int i = 0; i < FeedLines; i++)
@@ -407,7 +408,7 @@ namespace Lattice.Combat
         {
             var o = f.Own;
             int kit = o.kit;
-            bool has = kit != LtCode.ClassEngineer;
+            bool has = true;
             // (Lock-down: a toggle, on or ready, like Bulwark's but no count down.)
             bool lockdown = kit == LtCode.ClassExo;
             bool on = shown && !dead && has;
@@ -459,7 +460,7 @@ namespace Lattice.Combat
             }
             float fill = mode == 0 || mode == 4 ? 1f
                 : mode == 1 ? o.abilityLeft / (kit == LtCode.ClassAssault ? 6f : 8f)
-                : mode == 2 ? 1f - o.abilityCooldown / (kit == LtCode.ClassAssault ? 25f : 40f)
+                : mode == 2 ? 1f - o.abilityCooldown / (kit == LtCode.ClassAssault ? 25f : kit == LtCode.ClassEngineer ? 20f : 40f)
                 : o.abilityEnergy;
             abilityFill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(fill), 1f);
             abilityFill.color = mode == 0 ? UiKit.Good : mode == 2 ? UiKit.Muted : running ? UiKit.Accent : UiKit.Ink;
@@ -553,6 +554,7 @@ namespace Lattice.Combat
             Vitals(f, body, dead, now, dt);
             Rounds(f, p, body, dead, now);
             Ability(f, body, dead, now, dt);
+            Tools(f, p, body, dead, now);
             Feed(f, now);
             Death(dead && f.Shell.away == 0, dt);
         }
