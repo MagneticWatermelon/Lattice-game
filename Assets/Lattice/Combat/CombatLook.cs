@@ -79,8 +79,8 @@ namespace Lattice.Combat
         public Vector3 LeftElbow = new Vector3(-0.55f, -0.75f, 0.2f);
         public float ShoulderSwing = 0.5f;
         /// <summary>Sprinting: the rifle lowered and turned in.</summary>
-        public Vector3 SprintOffset = new Vector3(0.05f, -0.1f, -0.06f);
-        public Vector3 SprintEuler = new Vector3(20f, -31f, 4f);
+        public Vector3 SprintOffset = new Vector3(0.05f, -0.09f, 0.04f);
+        public Vector3 SprintEuler = new Vector3(8f, -38f, 28f);
         /// <summary>A shot's kick: back (m) and up (degrees), from the hip and down the sights.</summary>
         public Vector2 KickHip = new Vector2(0.045f, 4.2f);
         public Vector2 KickAds = new Vector2(0.022f, 1.6f);

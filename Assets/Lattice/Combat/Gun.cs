@@ -84,7 +84,7 @@ namespace Lattice.Combat
         MeshRenderer cellRenderer;
         MaterialPropertyBlock cellProps;
         static readonly int EmissionId = Shader.PropertyToID("_EmissionColor");
-        float sprint, bobPhase, kick, kickRoll, flashUntil, dip, airTime, cellPulse, cellGlow;
+        float sprint, kick, kickRoll, flashUntil, dip, airTime, cellPulse, cellGlow;
         float sunlit = 1f;
         Vector2 debt;          // recoil not yet recovered: degrees (up, right)
         Vector2 sway, swayVel; // degrees (yaw, pitch) the rifle lags the view
@@ -359,8 +359,8 @@ namespace Lattice.Combat
             bool crouched = f.Own.crouched != 0;
             bool sprinting = speed > 7.5f && !Ads && grounded;
             sprint = Mathf.Lerp(sprint, sprinting ? 1f - busy : 0f, 1f - Mathf.Exp(-dt / 0.12f));
-            if (grounded)
-                bobPhase += speed * dt / (crouched ? 1.7f : 2.4f) * Mathf.PI * 2f;
+            // Our steps, as our footsteps keep them (Gait): a whole number is a footfall.
+            float steps = Gait.AdvanceOwn(speed, grounded, dt);
             if (!grounded)
                 airTime += dt;
             else
@@ -375,11 +375,12 @@ namespace Lattice.Combat
             wasCrouched = crouched;
             dip *= Mathf.Exp(-dt / 0.12f);
             float moving = Mathf.Min(speed / 6f, 1f) * (1f - 0.85f * a) * (grounded ? 1f : 0f) * (1f - 0.6f * busy);
-            // A stride (bobPhase's turn) is two steps: the rifle sways side to side once
-            // a stride and dips once a step, smoothly (a figure eight); never the sharp
-            // bounce of a rectified sine, which read as hopping.
-            var bob = new Vector3(Mathf.Sin(bobPhase) * 0.010f, (Mathf.Cos(bobPhase * 2f) - 1f) * 0.0045f, 0f) * moving;
-            float bobRoll = Mathf.Sin(bobPhase) * 0.8f * moving;
+            // The rifle sways to the foot that's down (side to side once every two
+            // steps) and dips as each lands, smoothly: a figure eight, in time with
+            // our footsteps (never the sharp bounce of a rectified sine, which hopped).
+            float side = Mathf.Cos(steps * Mathf.PI);
+            var bob = new Vector3(side * 0.010f, -(1f + Mathf.Cos(steps * 2f * Mathf.PI)) * 0.0045f, 0f) * moving;
+            float bobRoll = side * 0.8f * moving;
 
             // Sway: the rifle lags the view a little (a damped spring), less down the sights.
             float dYaw = Mathf.DeltaAngle(lastYaw * Mathf.Rad2Deg, p.Yaw * Mathf.Rad2Deg);

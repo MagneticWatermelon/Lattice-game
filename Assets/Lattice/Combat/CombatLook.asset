@@ -51,8 +51,8 @@ MonoBehaviour:
   RightElbow: {x: 0.55, y: -0.6, z: 0.05}
   LeftElbow: {x: -0.55, y: -0.75, z: 0.2}
   ShoulderSwing: 0.5
-  SprintOffset: {x: 0.05, y: -0.1, z: -0.06}
-  SprintEuler: {x: 20, y: -31, z: 4}
+  SprintOffset: {x: 0.05, y: -0.09, z: 0.04}
+  SprintEuler: {x: 8, y: -38, z: 28}
   KickHip: {x: 0.045, y: 4.2}
   KickAds: {x: 0.022, y: 1.6}
   KickTau: 0.075

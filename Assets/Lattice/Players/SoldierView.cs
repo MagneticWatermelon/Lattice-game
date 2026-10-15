@@ -437,6 +437,10 @@ namespace Lattice.Players
             float gait = crouched && speed > 0.3f ? Mathf.Min(speed, 2f) : speed;
             float rate = crouched && speed > 2f ? speed / 2f : Mathf.Max(1f, speed / 9f);
             animator.SetFloat(SpeedId, gait);
+            // Past a walk the stride stretches (Settle reaches the feet further): the clip
+            // plays that much slower, at a sprinter's cadence, not its own.
+            if (!crouched)
+                rate /= Gait.Stride(speed);
             animator.SetFloat(PlayRateId, (reverse ? -1f : 1f) * rate);
             animator.SetFloat(AimRateId, 0f);
             animator.SetBool(AirborneId, airborne && !dead);
@@ -597,12 +601,13 @@ namespace Lattice.Players
         }
 
         /// <summary>
-        /// The run's bounce, settled. The sprint clip drops the hips 15 cm at
-        /// every footfall, in a sharp V (it read as hopping): the hips ride its
-        /// height smoothed, and keep only <see cref="SoldierLook.SprintBounce"/>
-        /// of how far it strays from its slow average (all of a walk's); the legs
-        /// then reach back by IK to where the clip planted the feet, so nothing
-        /// slides or floats.
+        /// The run, settled. The sprint clip drops the hips 15 cm at every
+        /// footfall, in a sharp V (it read as hopping): the hips ride its height
+        /// smoothed, and keep only <see cref="SoldierLook.SprintBounce"/> of how far
+        /// it strays from its slow average (all of a walk's). And the stride
+        /// stretches (<see cref="Gait.Stride"/>, as the clip plays slower): each foot
+        /// reaches further along the way it's going, within the leg's reach. The
+        /// legs then take the feet there by IK.
         /// </summary>
         void Settle()
         {
@@ -616,18 +621,42 @@ namespace Lattice.Players
             hipsAverage = hipsAverage < 0f ? h : Mathf.Lerp(hipsAverage, h, 1f - Mathf.Exp(-rigDt / 0.45f));
             float keep = Mathf.Lerp(1f, look.SprintBounce, Smooth(Mathf.InverseLerp(5f, 8.5f, vel.magnitude)));
             float shift = hipsAverage + (hipsSmooth - hipsAverage) * keep - h;
-            if (Mathf.Abs(shift) < 0.002f)
+            float stride = Gait.Stride(vel.magnitude);
+            if (Mathf.Abs(shift) < 0.002f && stride < 1.001f)
                 return;
             var up = Vector3.up;
             var fwd = transform.forward;
+            var along = vel.sqrMagnitude > 0.01f ? new Vector3(vel.x, 0f, vel.y).normalized : fwd;
             Vector3 lf = lFoot.position, rf = rFoot.position;
             Quaternion lfr = lFoot.rotation, rfr = rFoot.rotation;
+            var hipsAt = hips.position;
             hips.position += up * shift;
+            lf = Stretch(lThigh, lShin, lFoot, lf, hipsAt, along, stride);
+            rf = Stretch(rThigh, rShin, rFoot, rf, hipsAt, along, stride);
             // (Knees bend forward, as the clip's do.)
             TwoBoneIK.Solve(lThigh, lShin, lFoot, lf, lShin.position + fwd * 0.5f, 1f);
             TwoBoneIK.Solve(rThigh, rShin, rFoot, rf, rShin.position + fwd * 0.5f, 1f);
             lFoot.rotation = lfr;
             rFoot.rotation = rfr;
+        }
+
+        /// <summary>Where a foot goes with the stride <paramref name="k"/> times the clip's:
+        /// its reach along the way it's going from the hips stretched, at its height,
+        /// never past 98% of its leg's length from the hip.</summary>
+        static Vector3 Stretch(Transform thigh, Transform shin, Transform foot, Vector3 at, Vector3 hipsAt, Vector3 along, float k)
+        {
+            if (k < 1.001f)
+                return at;
+            var target = at + along * (Vector3.Dot(at - hipsAt, along) * (k - 1f));
+            float reach = ((shin.position - thigh.position).magnitude + (foot.position - shin.position).magnitude) * 0.98f;
+            var d = target - thigh.position;
+            if (d.sqrMagnitude <= reach * reach)
+                return target;
+            // Too far: as far along as the leg reaches (the rest of it kept).
+            float a = Vector3.Dot(d, along);
+            var rest = d - along * a;
+            float most = Mathf.Sqrt(Mathf.Max(0f, reach * reach - rest.sqrMagnitude));
+            return thigh.position + rest + along * Mathf.Clamp(a, -most, most);
         }
 
         /// <summary>How far into the reload's pose (0..1), eased in and out with the

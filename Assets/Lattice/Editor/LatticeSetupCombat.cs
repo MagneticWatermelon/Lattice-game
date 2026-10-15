@@ -39,6 +39,10 @@ namespace Lattice.EditorTools
             look.ViewLeftGrip = new Vector3(-0.05f, -0.06f, 0.2f);
             look.ViewLeftFingers = new Vector3(0.35f, 0.45f, 0.82f);
             look.ViewLeftBack = new Vector3(-0.7f, -0.7f, 0.1f);
+            // Sprinting: carried low and canted across the body, muzzle to the left
+            // (the old carry, from 0.72 m out, dropped it nearly out of view).
+            look.SprintOffset = new Vector3(0.05f, -0.09f, 0.04f);
+            look.SprintEuler = new Vector3(8f, -38f, 28f);
             for (int k = 1; k < look.ViewWeapons.Length; k++)
                 if (LatticeSetupPlayers.WeaponNames[k] != null)
                     look.ViewWeapons[k] = AssetDatabase.LoadAllAssetsAtPath($"{LatticeSetupPlayers.WeaponDir}/{LatticeSetupPlayers.WeaponNames[k]}View.fbx").OfType<Mesh>().First();

@@ -682,7 +682,7 @@ namespace Lattice.Audio
 
         void Steps(NetFrame f, Lattice.LocalPlayer.LocalPlayer p, Vector3 ear, float now, float dt)
         {
-            // Ours: by the distance walked on the ground; a heavier pair on landing.
+            // Ours: on the gait's footfalls (Gait); a heavier pair on landing.
             if (f.Welcomed && f.Own.dead == 0)
             {
                 var v = f.Own.vel;
@@ -692,17 +692,17 @@ namespace Lattice.Audio
                 {
                     PlayHead(Pick(Look.Footstep), Look.Footsteps * 1.1f, 0.9f);
                     PlayHead(Pick(Look.Footstep), Look.Footsteps * 0.8f, 0.85f);
-                    ownStride = 0f;
                 }
                 ownAir = grounded ? 0f : ownAir + dt;
                 ownGrounded = grounded;
+                // On the gait's footfalls (the first-person bob dips with each).
+                float phase = Gait.AdvanceOwn(speed, grounded, dt);
+                bool fell = Mathf.Floor(phase) > Mathf.Floor(ownStride);
+                ownStride = phase;
                 if (grounded && speed > 0.8f)
                 {
-                    ownStride += speed * dt;
-                    float every = 0.7f + 0.1f * speed;
-                    if (ownStride >= every)
+                    if (fell)
                     {
-                        ownStride -= every;
                         nSteps++;
                         PlayHead(Pick(Look.Footstep), Look.Footsteps * Mathf.Clamp(0.35f + speed / 12f, 0.35f, 1f), 0.9f + 0.2f * Rand(), (Rand() - 0.5f) * 0.2f);
                     }
@@ -726,7 +726,8 @@ namespace Lattice.Audio
                     continue;
                 float speed = moved / Mathf.Max(dt, 1e-4f);
                 stride[id] += moved;
-                float every = 0.7f + 0.1f * speed;
+                // A step's length at that speed, as its legs take them (Gait).
+                float every = speed / Gait.Cadence(speed);
                 if (speed > 0.8f && stride[id] >= every)
                 {
                     stride[id] -= every;
