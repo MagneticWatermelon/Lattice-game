@@ -49,9 +49,9 @@ namespace Lattice.Players
         /// <summary>The poses again with each class's weapon (U6): a body is drawn from
         /// <see cref="poses"/>, its weapon (submesh 1) from its class's.</summary>
         Mesh[,] kitPoses;
-        static readonly int Kits = LtCode.Classes;
+        static readonly int Kits = LtCode.Weapons;
         readonly List<Matrix4x4>[,] batches = new List<Matrix4x4>[SoldierColors.Keys, Poses];
-        readonly List<Matrix4x4>[,] weaponBatches = new List<Matrix4x4>[LtCode.Classes, Poses];
+        readonly List<Matrix4x4>[,] weaponBatches = new List<Matrix4x4>[LtCode.Weapons, Poses];
         /// <summary>The crowd's cloaked (drawn by their shimmer, no weapon), by pose; Mend
         /// fields on the ground round every medic using one.</summary>
         readonly List<Matrix4x4>[] cloakBatches = new List<Matrix4x4>[Poses];
@@ -132,12 +132,13 @@ namespace Lattice.Players
         }
 
         /// <summary>The crowd's poses: the lightest LOD, posed by the animator and
-        /// baked into plain meshes, with each class's weapon in its hands.</summary>
+        /// baked into plain meshes, with each weapon in its hands (the Exo's: its armor).</summary>
         void BakePoses()
         {
             kitPoses = new Mesh[Kits, Poses];
             for (int k = 0; k < Kits; k++)
             {
+                own.Kit(Weapons.Arms(k) ? LtCode.ClassExo : 0, k);
                 var weapon = Look.LowOf(k);
                 kitPoses[k, (int)Pose.Stand] = own.Bake(0f, false, weapon);
                 kitPoses[k, (int)Pose.Run] = own.Bake(4.5f, false, weapon);
@@ -146,6 +147,7 @@ namespace Lattice.Players
                 kitPoses[k, (int)Pose.CrouchStand] = own.Bake(0f, false, weapon, true);
                 kitPoses[k, (int)Pose.CrouchRun] = own.Bake(3f, false, weapon, true);
             }
+            own.Kit(0, 0);
             poses = new Mesh[Poses];
             for (int p = 0; p < Poses; p++)
                 poses[p] = kitPoses[0, p];
@@ -268,7 +270,7 @@ namespace Lattice.Players
                     if (v != null)
                     {
                         v.Body(SoldierColors.Material(SoldierColors.Key(e)));
-                        v.Kit(e.kit);
+                        v.Kit(e.kit, e.weapon);
                         v.Ability(abilityE, e.faction);
                         if (v.AbilityStarted)
                             AbilityStarted?.Invoke(Coords.ToUnity(feet.x, feet.y, feet.z + 1.1f), e.kit);
@@ -299,7 +301,7 @@ namespace Lattice.Players
                 }
                 batches[SoldierColors.Key(e), (int)pose].Add(m);
                 if (!deadE)
-                    weaponBatches[e.kit < Kits ? e.kit : 0, (int)pose].Add(m);
+                    weaponBatches[e.weapon < Kits ? e.weapon : 0, (int)pose].Add(m);
                 crowd++;
             }
             CrowdDrawn = crowd;
@@ -311,7 +313,7 @@ namespace Lattice.Players
                 if (!own.Assigned || own.Entity != f.Own.entity)
                     own.Assign(f.Own.entity);
                 own.Body(SoldierColors.Material(f.Own.faction));
-                own.Kit(f.Own.kit);
+                own.Kit(f.Own.kit, f.Own.weapon);
                 own.Ability(f.Own.abilityOn != 0 && f.Own.dead == 0, f.Own.faction);
                 if (f.Own.abilityOn != 0 && f.Own.dead == 0 && f.Own.kit == LtCode.ClassMedic)
                     mendFields.Add(Matrix4x4.TRS(Coords.ToUnity(f.Own.pos.x, f.Own.pos.y, f.Own.pos.z + 0.12f), Quaternion.identity, new Vector3(field, 1f, field)));

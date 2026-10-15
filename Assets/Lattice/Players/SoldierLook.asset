@@ -34,20 +34,32 @@ MonoBehaviour:
   - {fileID: 3814378201483603881, guid: a3dc55cead46d9b479a51791e1d134cc, type: 3}
   - {fileID: 1348880320320514979, guid: a59f4d1009daaee498a7f70ab8343d9a, type: 3}
   - {fileID: -1538856867505734987, guid: 4c2e4a9dc5df44b45bd0401255e1a32a, type: 3}
+  - {fileID: -3690445936631014703, guid: 43c2fca691a524143ba9e1c0d50d64f5, type: 3}
+  - {fileID: -8310518740751045040, guid: 793481aed221d2941a26d43f292a577e, type: 3}
+  - {fileID: 0}
+  - {fileID: 0}
   WeaponsLow:
   - {fileID: -4423922550080184455, guid: 269b234d5d3e9fc46a72fa3b5763fbaf, type: 3}
   - {fileID: 6761297753763547438, guid: 1c14d1bfaa06cd147b3f78846e0e99ad, type: 3}
   - {fileID: -5985597849181632295, guid: 6c952818d3be3334385fd48b69f56184, type: 3}
   - {fileID: -491409215309448369, guid: 50322487796f6904fa3cf7508096e3b9, type: 3}
   - {fileID: -81013286218408616, guid: 769325345f0dc184bb6a34d5f1084160, type: 3}
+  - {fileID: 1795866771801897523, guid: c7c182346af92e543b3a4308b830a0b7, type: 3}
+  - {fileID: 4930796557606761730, guid: b91cf976ec81e8345b9dd34fe9b5415b, type: 3}
+  - {fileID: 0}
+  - {fileID: 0}
   Muzzles:
   - {x: 0, y: 0.069, z: 0.5}
   - {x: 0, y: 0.069, z: 0.3822}
   - {x: 0, y: 0.069, z: 0.4205}
   - {x: 0, y: 0.069, z: 0.7885}
   - {x: 0, y: 0.069, z: 0.283}
+  - {x: 0, y: 0.069, z: 0.6165}
+  - {x: 0, y: 0.069, z: 0.9405}
+  - {x: 0, y: 0.069, z: 0.5}
+  - {x: 0, y: 0.069, z: 0.5}
   Scope: {fileID: 5943889611964897698, guid: 16055f01fa5f18f46884b16c8d19d797, type: 3}
-  ScopedKit: 3
+  ExoPlate: {fileID: 2100000, guid: 7bd4afaec35d86e4a8cfdeaa611f11da, type: 2}
   BulwarkGlow: {fileID: 2100000, guid: 3fd316319fd9d7e418cb0f9cee9ba9ed, type: 2}
   CloakGlow: {fileID: 2100000, guid: eecce20a94e12244ab57f5491da31514, type: 2}
   JetFlame: {fileID: 2100000, guid: df09aab57ecb9c4409101c7804c53741, type: 2}

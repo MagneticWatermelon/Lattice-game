@@ -131,7 +131,7 @@ namespace Lattice.Native
         /// <summary>Asks to deploy at <paramref name="site"/> with loadout <paramref name="kit"/>
         /// (U4: when the server has us deploy); the answer comes as an event and in
         /// <see cref="Shell"/>. False if not asked (no deploy rule, not connected).</summary>
-        public bool Deploy(int site, int kit) => LtLibrary.Api.lt_deploy(handle, (ushort)site, (byte)kit) == 1;
+        public bool Deploy(int site, int kit, int weapon) => LtLibrary.Api.lt_deploy(handle, (ushort)site, (byte)kit, (byte)weapon) == 1;
 
         /// <summary>The shell's state: deploying, recaps, fights, XP.</summary>
         public void Shell(out LtShell shell)

@@ -31,22 +31,25 @@ namespace Lattice.Players
         public Vector3 RifleEuler = new Vector3(90f, 90f, 0f);
         /// <summary>The rifle's size (its model is 1 m long; offsets above are at size 1).</summary>
         public float RifleScale = 0.85f;
-        [Header("The classes' weapons (U6: Tools/Blender/weapons_fbx.py), by kit")]
-        /// <summary>Each class's weapon (0: the rifle above; the carbine, the shotgun, the
-        /// marksman rifle, the SMG), in the rifle's frame: the same receiver, cell and grip,
-        /// so hands and reloads hold them all alike. Their crowd's light copies.</summary>
-        public Mesh[] Weapons = new Mesh[5];
-        public Mesh[] WeaponsLow = new Mesh[5];
+        [Header("The weapons (U6: Tools/Blender/weapons_fbx.py), by id (LT_WEAPON_*)")]
+        /// <summary>Each weapon (0: the rifle above; the carbine, the shotgun, the marksman
+        /// rifle, the SMG, the LMG, the sniper rifle; the Exo's are on its arms, none here),
+        /// in the rifle's frame: the same receiver, cell and grip, so hands and reloads hold
+        /// them all alike. Their crowd's light copies.</summary>
+        public Mesh[] Weapons = new Mesh[9];
+        public Mesh[] WeaponsLow = new Mesh[9];
         /// <summary>Each one's muzzle (m at size 1, the rifle's frame), as the script prints them.</summary>
         public Vector3[] Muzzles =
         {
             new Vector3(0f, 0.069f, 0.5f), new Vector3(0f, 0.069f, 0.3822f), new Vector3(0f, 0.069f, 0.4205f),
-            new Vector3(0f, 0.069f, 0.7885f), new Vector3(0f, 0.069f, 0.283f),
+            new Vector3(0f, 0.069f, 0.7885f), new Vector3(0f, 0.069f, 0.283f), new Vector3(0f, 0.069f, 0.6165f),
+            new Vector3(0f, 0.069f, 0.9405f), new Vector3(0f, 0.069f, 0.5f), new Vector3(0f, 0.069f, 0.5f),
         };
-        /// <summary>The marksman rifle's scope, in place of the holographic sight (the same
-        /// space and materials: body, lens caps, glass), and the class that carries it.</summary>
+        /// <summary>The scope (the marksman and sniper rifles'), in place of the holographic
+        /// sight (the same space and materials: body, lens caps, glass).</summary>
         public Mesh Scope;
-        public int ScopedKit = 3;
+        /// <summary>The Exo's armor plates (Lattice/Lit, dark metal; tinted toward the faction per soldier).</summary>
+        public Material ExoPlate;
 
         [Header("The classes' abilities (U6), as others see them")]
         /// <summary>A Bulwark's shell (its faction's color set per soldier), a cloaked soldier's
@@ -56,11 +59,11 @@ namespace Lattice.Players
         public Vector2 ShellRadii = new Vector2(0.62f, 1.05f);
         public float ShellHeight = 0.95f;
 
-        public Mesh WeaponOf(int kit) => kit > 0 && kit < Weapons.Length && Weapons[kit] != null ? Weapons[kit] : Rifle;
-        public Mesh LowOf(int kit) => kit > 0 && kit < WeaponsLow.Length && WeaponsLow[kit] != null ? WeaponsLow[kit] : RifleLow != null ? RifleLow : Rifle;
-        public Vector3 MuzzleOf(int kit) => kit >= 0 && kit < Muzzles.Length ? Muzzles[kit] : RifleMuzzle;
-        public bool Scoped(int kit) => kit == ScopedKit && Scope != null;
-        public Mesh SightOf(int kit) => Scoped(kit) ? Scope : Holo;
+        public Mesh WeaponOf(int id) => id > 0 && id < Weapons.Length && Weapons[id] != null ? Weapons[id] : Rifle;
+        public Mesh LowOf(int id) => id > 0 && id < WeaponsLow.Length && WeaponsLow[id] != null ? WeaponsLow[id] : RifleLow != null ? RifleLow : Rifle;
+        public Vector3 MuzzleOf(int id) => id >= 0 && id < Muzzles.Length ? Muzzles[id] : RifleMuzzle;
+        public bool Scoped(int id) => Lattice.Native.Weapons.Scoped(id) && Scope != null;
+        public Mesh SightOf(int id) => Scoped(id) ? Scope : Holo;
 
         /// <summary>The model is scaled so its head sits on the head hitbox (1.6 m).</summary>
         public float ModelScale = 0.95f;

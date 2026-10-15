@@ -31,7 +31,8 @@ namespace Lattice.EditorTools
             look.ScopeSight = new Vector3(0f, 0.206f, -0.2565f);
             look.ScopeZoom = 3f;
             for (int k = 1; k < look.ViewWeapons.Length; k++)
-                look.ViewWeapons[k] = AssetDatabase.LoadAllAssetsAtPath($"{LatticeSetupPlayers.WeaponDir}/{LatticeSetupPlayers.WeaponNames[k]}View.fbx").OfType<Mesh>().First();
+                if (LatticeSetupPlayers.WeaponNames[k] != null)
+                    look.ViewWeapons[k] = AssetDatabase.LoadAllAssetsAtPath($"{LatticeSetupPlayers.WeaponDir}/{LatticeSetupPlayers.WeaponNames[k]}View.fbx").OfType<Mesh>().First();
             look.Arms = AssetDatabase.LoadAssetAtPath<GameObject>($"{Dir}/Arms/SoldierArms.fbx");
             look.ViewHoloGlass = LatticeSetupPlayers.HoloGlass($"{Dir}/Rifle/HoloGlassView.mat", true);
             look.Cell = AssetDatabase.LoadAllAssetsAtPath($"{Dir}/Rifle/Cell.fbx").OfType<Mesh>().FirstOrDefault();

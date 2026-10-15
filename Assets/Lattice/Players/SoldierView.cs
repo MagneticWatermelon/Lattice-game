@@ -20,7 +20,7 @@ namespace Lattice.Players
     /// crouched head hitbox and the legs fold by IK: a kneel standing still, a low
     /// walk moving. Reloading, the rifle cants and the left hand works its bay.
     /// </summary>
-    public sealed class SoldierView : MonoBehaviour
+    public sealed partial class SoldierView : MonoBehaviour
     {
         public ushort Entity { get; private set; }
         public bool Assigned { get; private set; }
@@ -40,8 +40,8 @@ namespace Lattice.Players
         int lod = -2;
         MeshRenderer rifleRenderer, holoRenderer;
         MeshFilter rifleFilter, holoFilter;
-        /// <summary>The class whose weapon it carries (U6).</summary>
-        int kit;
+        /// <summary>Its class and the weapon it carries (U6).</summary>
+        int kit, weapon;
         // Its ability, as others see it (U6): a Bulwark's shell, the jets' plumes,
         // the cloak (drawn with nothing but its shimmer).
         Transform shell;
@@ -201,6 +201,8 @@ namespace Lattice.Players
         /// </summary>
         public void Ability(bool on, int faction)
         {
+            if (exoOn)
+                ExoFaction(faction);
             bool b = on && !dead && kit == LtCode.ClassAssault, j = on && !dead && kit == LtCode.ClassSkirmisher, c = on && !dead && kit == LtCode.ClassRecon;
             AbilityStarted = on && !dead && !wasOn;
             wasOn = on && !dead;
@@ -282,15 +284,17 @@ namespace Lattice.Players
                 r.sharedMaterial = mat;
         }
 
-        /// <summary>Carries class <paramref name="k"/>'s weapon (and its sight).</summary>
-        public void Kit(int k)
+        /// <summary>Is class <paramref name="k"/> carrying weapon <paramref name="w"/> (and its
+        /// sight; an Exo, its armor and arm weapons).</summary>
+        public void Kit(int k, int w)
         {
-            if (k == kit)
+            if (k == kit && w == weapon)
                 return;
-            kit = k;
-            rifleFilter.sharedMesh = look.WeaponOf(k);
+            (kit, weapon) = (k, w);
+            rifleFilter.sharedMesh = look.WeaponOf(w);
             if (holoFilter != null)
-                holoFilter.sharedMesh = look.SightOf(k);
+                holoFilter.sharedMesh = look.SightOf(w);
+            ExoShow(k == LtCode.ClassExo, w);
         }
 
         public void Release()
@@ -311,6 +315,7 @@ namespace Lattice.Players
             rifleRenderer.shadowCastingMode = mode;
             if (holoRenderer != null)
                 holoRenderer.shadowCastingMode = mode;
+            ExoShadows();
         }
 
         /// <summary>
@@ -350,7 +355,11 @@ namespace Lattice.Players
         }
 
         /// <summary>It was drawn firing now.</summary>
-        public void Fired(float time) => firedAt = time;
+        public void Fired(float time)
+        {
+            firedAt = time;
+            nextArm++;
+        }
 
         /// <summary>
         /// Places it where it's drawn (game space feet, aim in radians) and sets
@@ -428,7 +437,7 @@ namespace Lattice.Players
             animator.SetBool(AirborneId, airborne && !dead);
             animator.SetBool(DeadId, dead);
             animator.SetLayerWeight(1, aimWeight);
-            rifleRenderer.enabled = !dead;
+            rifleRenderer.enabled = !dead && !exoOn;
             if (holoRenderer != null)
                 holoRenderer.enabled = !dead;
         }
@@ -503,7 +512,7 @@ namespace Lattice.Players
                 pos += (-up * 0.06f - transform.right * 0.04f) * reload;
             }
             rifle.SetPositionAndRotation(pos, frame * Quaternion.Euler(look.RifleEuler));
-            Muzzle = pos + frame * (look.MuzzleOf(kit) * size);
+            Muzzle = pos + frame * (look.MuzzleOf(weapon) * size);
             // The jets: two nozzles on the back, burning down and a little back.
             if (jetting && upperChest != null)
             {
@@ -514,6 +523,7 @@ namespace Lattice.Players
                         jets[i].SetPositionAndRotation(back + transform.right * (i == 0 ? -0.13f : 0.13f), dir);
             }
             MuzzleForward = frame * Vector3.forward;
+            ExoPlace(aim);
 
             if (visible && w > 0.01f && !small)
             {
@@ -657,13 +667,19 @@ namespace Lattice.Players
             {
                 new CombineInstance { mesh = body, transform = toRoot * place },
             };
-            if (rifleMesh != null)
+            // An Exo's armor in its weapon's place (the rifle's material, its darkest texel).
+            Mesh armor = exoOn && !fallen ? ExoMesh(toRoot) : null;
+            if (armor != null)
+                parts.Add(new CombineInstance { mesh = armor, transform = Matrix4x4.identity });
+            else if (rifleMesh != null)
                 parts.Add(new CombineInstance { mesh = rifleMesh, transform = toRoot * rifle.localToWorldMatrix });
             var mesh = new Mesh { name = (fallen ? "Crowd fallen" : speed > 1f ? "Crowd running" : "Crowd standing") + (crouching ? ", crouched" : "") };
             mesh.CombineMeshes(parts.ToArray(), false, true);
             mesh.RecalculateBounds();
             mesh.UploadMeshData(true);
             Destroy(body);
+            if (armor != null)
+                Destroy(armor);
             animator.cullingMode = cull;
             dead = false;
             crouched = false;

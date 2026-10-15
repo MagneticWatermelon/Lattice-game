@@ -15,11 +15,11 @@ namespace Lattice.Native
         /// <summary>
         /// The plugin API's version (lt_version).
         /// </summary>
-        public const uint Version = 11;
+        public const uint Version = 12;
         /// <summary>
         /// The layout hash of these bindings (lt_layout_hash).
         /// </summary>
-        public const ulong LayoutHash = 0x07AFC050F7F69B85;
+        public const ulong LayoutHash = 0x672EDE2B2D2F2D6E;
         /// <summary>
         /// Game steps a second.
         /// </summary>
@@ -447,7 +447,11 @@ namespace Lattice.Native
         /// </summary>
         public const int RefusedInvalid = 5;
         /// <summary>
-        /// Killed by the assault rifle (any other weapon: its kit).
+        /// An Exo again before its 3 minutes are up.
+        /// </summary>
+        public const int RefusedExo = 6;
+        /// <summary>
+        /// Killed by the assault rifle (any other weapon: its id, `LT_WEAPON_*`).
         /// </summary>
         public const int CauseRifle = 0;
         /// <summary>
@@ -479,9 +483,53 @@ namespace Lattice.Native
         /// </summary>
         public const int ClassSkirmisher = 4;
         /// <summary>
+        /// The Exo: heavy armor, twin guns or a launcher, Lock-down; one every 3 minutes.
+        /// </summary>
+        public const int ClassExo = 5;
+        /// <summary>
+        /// Weapons (`lt_weapon`, `lt_class_weapons`): the assault rifle,
+        /// </summary>
+        public const int WeaponRifle = 0;
+        /// <summary>
+        /// the carbine,
+        /// </summary>
+        public const int WeaponCarbine = 1;
+        /// <summary>
+        /// the shotgun,
+        /// </summary>
+        public const int WeaponShotgun = 2;
+        /// <summary>
+        /// the marksman rifle,
+        /// </summary>
+        public const int WeaponMarksman = 3;
+        /// <summary>
+        /// the SMG,
+        /// </summary>
+        public const int WeaponSmg = 4;
+        /// <summary>
+        /// the LMG,
+        /// </summary>
+        public const int WeaponLmg = 5;
+        /// <summary>
+        /// the sniper rifle,
+        /// </summary>
+        public const int WeaponSniper = 6;
+        /// <summary>
+        /// the Exo's twin guns,
+        /// </summary>
+        public const int WeaponExoGuns = 7;
+        /// <summary>
+        /// and its launcher.
+        /// </summary>
+        public const int WeaponExoLauncher = 8;
+        /// <summary>
+        /// How many weapons there are.
+        /// </summary>
+        public const int Weapons = 9;
+        /// <summary>
         /// How many classes there are.
         /// </summary>
-        public const int Classes = 5;
+        public const int Classes = 6;
         /// <summary>
         /// A head shot.
         /// </summary>
@@ -915,13 +963,15 @@ namespace Lattice.Native
         /// </summary>
         [FieldOffset(52)] public byte crouched;
         /// <summary>
-        /// Our class (`LT_CLASS_*`, U6): our weapon (`lt_weapon`), this life's.
+        /// Our class (`LT_CLASS_*`, U6) and the weapon we carry (`LT_WEAPON_*`,
+        /// `lt_weapon`), this life's.
         /// </summary>
         [FieldOffset(53)] public byte kit;
+        [FieldOffset(54)] public byte weapon;
         /// <summary>
         /// The rifle's rounds (predicted): in the magazine, and carried.
         /// </summary>
-        [FieldOffset(54)] public byte mag;
+        [FieldOffset(55)] public byte mag;
         [FieldOffset(56)] public ushort reserve;
         /// <summary>
         /// Seconds left of the reload under way; 0: none.
@@ -967,15 +1017,16 @@ namespace Lattice.Native
         [FieldOffset(5)] public byte flags;
         [FieldOffset(6)] public byte health;
         /// <summary>
-        /// Its class (`LT_CLASS_*`, U6): its weapon and its look.
+        /// Its class (`LT_CLASS_*`, U6) and the weapon it carries (`LT_WEAPON_*`).
         /// </summary>
         [FieldOffset(7)] public byte kit;
+        [FieldOffset(8)] public byte weapon;
         /// <summary>
         /// The feet.
         /// </summary>
-        [FieldOffset(8)] public LtVec3 pos;
-        [FieldOffset(20)] public float yaw;
-        [FieldOffset(24)] public float pitch;
+        [FieldOffset(12)] public LtVec3 pos;
+        [FieldOffset(24)] public float yaw;
+        [FieldOffset(28)] public float pitch;
         /// <summary>
         /// The game step it's drawn at.
         /// </summary>
@@ -1024,7 +1075,7 @@ namespace Lattice.Native
     /// The game's shell (U4, `lt_shell`): deploying, the death recap, the
     /// continent's fights, our XP.
     /// </summary>
-    [StructLayout(LayoutKind.Explicit, Size = 36)]
+    [StructLayout(LayoutKind.Explicit, Size = 40)]
     public unsafe partial struct LtShell
     {
         /// <summary>
@@ -1067,6 +1118,10 @@ namespace Lattice.Native
         /// The newest fights' step (`lt_fights`).
         /// </summary>
         [FieldOffset(32)] public uint fightsStep;
+        /// <summary>
+        /// Seconds until we may deploy an Exo again (0: now).
+        /// </summary>
+        [FieldOffset(36)] public float exoSecs;
     }
 
     /// <summary>
@@ -1224,9 +1279,9 @@ namespace Lattice.Native
         /// </summary>
         [FieldOffset(4)] public ushort shooter;
         /// <summary>
-        /// Shots: the shooter's weapon (its kit; a distant fight's, 0).
+        /// Shots: the shooter's weapon (`LT_WEAPON_*`; a distant fight's, 0).
         /// </summary>
-        [FieldOffset(6)] public byte kit;
+        [FieldOffset(6)] public byte weapon;
         [FieldOffset(7)] public byte reserved;
         /// <summary>
         /// Shots: the muzzle; impacts: the point hit.
@@ -1813,9 +1868,9 @@ namespace Lattice.Native
         /// body. The answer comes as an `LT_EVENT_DEPLOYING` or `LT_EVENT_REFUSED`,
         /// and in `lt_shell`. Returns 1 if asked, 0 if not (the server doesn't
         /// deploy, or we aren't connected).
-        /// (IntPtr s, ushort site, byte kit)
+        /// (IntPtr s, ushort site, byte kit, byte weapon)
         /// </summary>
-        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, ushort, byte, int> lt_deploy;
+        [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, ushort, byte, byte, int> lt_deploy;
         /// <summary>
         /// The shell's state (U4): deploying, recaps, fights, XP.
         /// (IntPtr s, LtShell* out)
@@ -1844,9 +1899,15 @@ namespace Lattice.Native
         /// <summary>
         /// Kit `kit`'s weapon (a class's, `LT_CLASS_*`) into `out`; returns 1,
         /// or 0 for no such kit (`out` is then the assault rifle's).
-        /// (byte kit, LtWeapon* out)
+        /// (byte id, LtWeapon* out)
         /// </summary>
         [NonSerialized] public delegate* unmanaged[Cdecl]<byte, LtWeapon*, int> lt_weapon;
+        /// <summary>
+        /// The weapons class `kit` may carry (`LT_WEAPON_*`), its own first, into
+        /// `out` (as many as fit in `cap`); returns how many there are.
+        /// (byte kit, byte* out, uint cap)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<byte, byte*, uint, uint> lt_class_weapons;
         /// <summary>
         /// The net graph's numbers.
         /// (IntPtr s, LtStats* out)
@@ -1984,12 +2045,13 @@ namespace Lattice.Native
             p = proc("lt_flush"); if (p == IntPtr.Zero) missing.Append(" lt_flush"); lt_flush = (delegate* unmanaged[Cdecl]<IntPtr, void>)(void*)p;
             p = proc("lt_clock"); if (p == IntPtr.Zero) missing.Append(" lt_clock"); lt_clock = (delegate* unmanaged[Cdecl]<IntPtr, LtClock*, void>)(void*)p;
             p = proc("lt_territory"); if (p == IntPtr.Zero) missing.Append(" lt_territory"); lt_territory = (delegate* unmanaged[Cdecl]<IntPtr, LtSiteState*, int, int>)(void*)p;
-            p = proc("lt_deploy"); if (p == IntPtr.Zero) missing.Append(" lt_deploy"); lt_deploy = (delegate* unmanaged[Cdecl]<IntPtr, ushort, byte, int>)(void*)p;
+            p = proc("lt_deploy"); if (p == IntPtr.Zero) missing.Append(" lt_deploy"); lt_deploy = (delegate* unmanaged[Cdecl]<IntPtr, ushort, byte, byte, int>)(void*)p;
             p = proc("lt_shell"); if (p == IntPtr.Zero) missing.Append(" lt_shell"); lt_shell = (delegate* unmanaged[Cdecl]<IntPtr, LtShell*, void>)(void*)p;
             p = proc("lt_spawn_options"); if (p == IntPtr.Zero) missing.Append(" lt_spawn_options"); lt_spawn_options = (delegate* unmanaged[Cdecl]<IntPtr, LtSpawnOption*, int, int>)(void*)p;
             p = proc("lt_recap"); if (p == IntPtr.Zero) missing.Append(" lt_recap"); lt_recap = (delegate* unmanaged[Cdecl]<IntPtr, LtRecap*, int>)(void*)p;
             p = proc("lt_fights"); if (p == IntPtr.Zero) missing.Append(" lt_fights"); lt_fights = (delegate* unmanaged[Cdecl]<IntPtr, LtFight*, int, int>)(void*)p;
             p = proc("lt_weapon"); if (p == IntPtr.Zero) missing.Append(" lt_weapon"); lt_weapon = (delegate* unmanaged[Cdecl]<byte, LtWeapon*, int>)(void*)p;
+            p = proc("lt_class_weapons"); if (p == IntPtr.Zero) missing.Append(" lt_class_weapons"); lt_class_weapons = (delegate* unmanaged[Cdecl]<byte, byte*, uint, uint>)(void*)p;
             p = proc("lt_stats"); if (p == IntPtr.Zero) missing.Append(" lt_stats"); lt_stats = (delegate* unmanaged[Cdecl]<IntPtr, LtStats*, void>)(void*)p;
             p = proc("lt_snapshot_gaps"); if (p == IntPtr.Zero) missing.Append(" lt_snapshot_gaps"); lt_snapshot_gaps = (delegate* unmanaged[Cdecl]<IntPtr, float*, int, int>)(void*)p;
             p = proc("lt_summary"); if (p == IntPtr.Zero) missing.Append(" lt_summary"); lt_summary = (delegate* unmanaged[Cdecl]<IntPtr, byte*, int, int>)(void*)p;

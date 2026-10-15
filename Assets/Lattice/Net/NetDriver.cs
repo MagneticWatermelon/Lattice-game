@@ -168,7 +168,7 @@ namespace Lattice.Net
         }
 
         /// <summary>Asks to deploy at <paramref name="site"/> (U4); false if not asked.</summary>
-        public static bool Deploy(int site, int kit) => Session != null && Session.Deploy(site, kit);
+        public static bool Deploy(int site, int kit, int weapon) => Session != null && Session.Deploy(site, kit, weapon);
 
         static void EarlyUpdate()
         {

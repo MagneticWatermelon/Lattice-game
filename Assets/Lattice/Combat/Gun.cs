@@ -51,13 +51,13 @@ namespace Lattice.Combat
         public bool Ads { get; private set; }
         /// <summary>0 from the hip, 1 down the sights (eased between).</summary>
         public float Blend { get; private set; }
-        public float SensitivityScale => 1f - Blend * (1f - 1f / AdsZoom(NetDriver.Frame.Own.kit));
+        public float SensitivityScale => 1f - Blend * (1f - 1f / AdsZoom(NetDriver.Frame.Own.weapon));
         /// <summary>How far into the scope's own picture (0..1): the marksman rifle's,
         /// fully down its sights; at 1 the rifle isn't drawn (the HUD shows the scope).</summary>
         public float Scoped { get; private set; }
 
-        /// <summary>The view's zoom down kit <paramref name="kit"/>'s sights.</summary>
-        float AdsZoom(int kit) => Soldier != null && Soldier.Scoped(kit) ? Look.ScopeZoom : LtConst.AdsZoom;
+        /// <summary>The view's zoom down weapon <paramref name="id"/>'s sights (a scope's: 3x, a sniper rifle's 6x).</summary>
+        float AdsZoom(int id) => Soldier != null && Soldier.Scoped(id) ? Weapons.ScopeZoom(id) : LtConst.AdsZoom;
         public float LastShot { get; private set; } = -10f;
         /// <summary>When the trigger was last pulled dry (no rounds at all), for the HUD; how often (the report).</summary>
         public float DryAt { get; private set; } = -10f;
@@ -74,6 +74,11 @@ namespace Lattice.Combat
         Transform rifle, flash, cell;
         MeshFilter rifleFilter, sightFilter;
         int shownKit;
+        // An Exo's arm weapons in view (U6): two housings and their barrels, by
+        // turns the shot's arm; its plates' faction tint.
+        readonly Transform[] exoView = new Transform[4];
+        MaterialPropertyBlock exoProps;
+        int exoArm, exoFaction = -1;
         Light flashLight;
         ViewArms arms;
         MeshRenderer cellRenderer;
@@ -188,6 +193,22 @@ namespace Lattice.Combat
 
             if (Look.Arms != null && Soldier != null)
                 arms = new ViewArms(Look.Arms, go.transform, ViewLayer, Soldier);
+            if (Soldier != null && Soldier.ExoPlate != null)
+            {
+                exoProps = new MaterialPropertyBlock();
+                for (int i = 0; i < exoView.Length; i++)
+                {
+                    var e = new GameObject(i < 2 ? "Exo housing" : "Exo barrel") { layer = ViewLayer };
+                    e.transform.SetParent(go.transform, false);
+                    e.AddComponent<MeshFilter>().sharedMesh = i < 2 ? ExoMeshes.Box : ExoMeshes.Tube;
+                    var er = e.AddComponent<MeshRenderer>();
+                    er.sharedMaterial = i < 2 ? Soldier.ExoPlate : Soldier.HoloBody;
+                    er.shadowCastingMode = ShadowCastingMode.Off;
+                    GpuDriven.Exclude(er);
+                    exoView[i] = e.transform;
+                    e.SetActive(false);
+                }
+            }
         }
 
         MeshRenderer CellRenderer(string name, Transform parent, int layer)
@@ -225,8 +246,8 @@ namespace Lattice.Combat
             Ads = aim && !reloading;
             Blend = Mathf.MoveTowards(Blend, Ads ? 1f : 0f, dt / AdsTime);
             if (Rig != null)
-                Rig.Zoom = Mathf.Lerp(1f, AdsZoom(own.kit), Ease(Blend));
-            Scoped = Soldier != null && Soldier.Scoped(own.kit) ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.72f, 0.97f, Blend)) : 0f;
+                Rig.Zoom = Mathf.Lerp(1f, AdsZoom(own.weapon), Ease(Blend));
+            Scoped = Soldier != null && Soldier.Scoped(own.weapon) ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.72f, 0.97f, Blend)) : 0f;
 
             if (trigger && session != null)
             {
@@ -250,7 +271,7 @@ namespace Lattice.Combat
             triggerWas = trigger;
 
             // Recoil drifts back down once the burst is over.
-            if (t - LastShot > Mathf.Max(LtConst.RecoilDelay, Weapons.Of(NetDriver.Frame.Own.kit).intervalSecs) && debt.x > 0f)
+            if (t - LastShot > Mathf.Max(LtConst.RecoilDelay, Weapons.Of(NetDriver.Frame.Own.weapon).intervalSecs) && debt.x > 0f)
             {
                 float back = Mathf.Min(LtConst.RecoilRecovery * dt, debt.x);
                 float side = debt.y * back / debt.x;
@@ -265,8 +286,9 @@ namespace Lattice.Combat
         void Shot(Lattice.LocalPlayer.LocalPlayer player, float t)
         {
             // This class's weapon's kick (U6): a shotgun's and a marksman rifle's each shot, a burst's the first.
-            ref readonly var w = ref Weapons.Of(NetDriver.Frame.Own.kit);
+            ref readonly var w = ref Weapons.Of(NetDriver.Frame.Own.weapon);
             bool first = t - LastShot > Mathf.Max(LtConst.BurstGap, w.intervalSecs * 1.5f);
+            exoArm++;
             float up = w.recoilUp * (first ? w.recoilFirst : 1f);
             float side;
             unsafe
@@ -292,24 +314,28 @@ namespace Lattice.Combat
             var f = NetDriver.Frame;
             float t = Time.unscaledTime, dt = Mathf.Min(Time.unscaledDeltaTime, 0.1f);
             // The reload runs whatever the view (its sounds play in every view).
+            // This weapon and its sight (U6); an Exo's are on its arms (no rifle, no cell).
+            int weapon = f.Own.weapon;
+            bool exo = Weapons.Arms(weapon);
             if (Soldier != null)
-                Reloading.Follow(f.Welcomed && f.Own.dead == 0 ? f.Own.reload : 0f, t, Soldier.LeftGrip, Soldier.LeftFingers, Soldier.LeftBack);
+                Reloading.Follow(f.Welcomed && f.Own.dead == 0 && !exo ? f.Own.reload : 0f, t, Soldier.LeftGrip, Soldier.LeftFingers, Soldier.LeftBack);
             UpdateSpent(dt);
-            // This class's weapon and its sight (U6).
-            int kit = f.Own.kit;
-            if (kit != shownKit)
+            if (weapon != shownKit)
             {
-                shownKit = kit;
-                rifleFilter.sharedMesh = Look.ViewWeaponOf(kit);
+                shownKit = weapon;
+                rifleFilter.sharedMesh = Look.ViewWeaponOf(weapon);
                 if (sightFilter != null)
-                    sightFilter.sharedMesh = Soldier.SightOf(kit);
+                    sightFilter.sharedMesh = Soldier.SightOf(weapon);
             }
             // (Not while the debug camera follows someone else, nor all the way down a
             // scope: the view is then the scope's picture.)
             bool show = p != null && p.Mode == ViewMode.FirstPerson && f.Welcomed && f.Own.dead == 0 && CameraRig.Follow == 0 && Scoped < 0.999f;
-            if (rifle.gameObject.activeSelf != show)
-                rifle.gameObject.SetActive(show);
-            arms?.Show(show);
+            if (rifle.gameObject.activeSelf != (show && !exo))
+                rifle.gameObject.SetActive(show && !exo);
+            arms?.Show(show && !exo);
+            foreach (var e in exoView)
+                if (e != null && e.gameObject.activeSelf != (show && exo))
+                    e.gameObject.SetActive(show && exo);
             if (!show)
             {
                 flash.gameObject.SetActive(false);
@@ -363,7 +389,7 @@ namespace Lattice.Combat
             var kb = Vector2.Lerp(Look.KickHip, Look.KickAds, a);
 
             float size = Look.ViewScale;
-            var sight = Soldier != null && Soldier.Scoped(kit) ? Look.ScopeSight : Look.Sight;
+            var sight = Soldier != null && Soldier.Scoped(weapon) ? Look.ScopeSight : Look.Sight;
             var adsPos = new Vector3(0f, 0f, Look.SightDistance) - sight * size;
             var pos = Vector3.Lerp(Look.Hip, adsPos, a) + Look.SprintOffset * sprint + bob
                       + new Vector3(0f, -0.035f * dip, -kb.x * kick) + new Vector3(sway.x * 0.002f, -sway.y * 0.002f, 0f);
@@ -377,6 +403,41 @@ namespace Lattice.Combat
             rifle.localPosition = pos;
             rifle.localRotation = rot * Quaternion.Euler(Look.ViewRifleEuler);
             rifle.localScale = Vector3.one * size;
+            Vector3 mv;
+            if (exo)
+            {
+                // The Exo's arms: low either side, reloading dipped and turned down.
+                float re = f.Own.reload > 0f ? 1f : 0f;
+                var shift = pos - Look.Hip + new Vector3(0f, -0.12f * re, 0f);
+                var turn = rot * Quaternion.Euler(25f * re, 0f, 0f);
+                bool launcher = weapon == LtCode.WeaponExoLauncher;
+                float r = launcher ? 0.07f : 0.034f, len = launcher ? 0.38f : 0.42f;
+                if (exoFaction != f.Own.faction && exoProps != null)
+                {
+                    exoFaction = f.Own.faction;
+                    var ink = Lattice.Players.SoldierColors.Ink(exoFaction);
+                    exoProps.SetColor("_BaseColor", Color.Lerp(new Color(0.16f, 0.17f, 0.18f), ink, 0.38f));
+                    for (int i = 0; i < 2; i++)
+                        exoView[i].GetComponent<MeshRenderer>().SetPropertyBlock(exoProps);
+                }
+                for (int i = 0; i < 2; i++)
+                {
+                    var at = new Vector3(i == 0 ? 0.27f : -0.27f, -0.3f, 0.42f) + shift;
+                    exoView[i].localPosition = at;
+                    exoView[i].localRotation = turn;
+                    exoView[i].localScale = new Vector3(0.16f, 0.17f, 0.5f);
+                    exoView[2 + i].localPosition = at + turn * new Vector3(0f, 0.02f, 0.22f);
+                    exoView[2 + i].localRotation = turn;
+                    exoView[2 + i].localScale = new Vector3(r, r, len);
+                }
+                // Shots leave the arms by turns.
+                int arm = exoArm & 1;
+                mv = exoView[2 + arm].localPosition + turn * new Vector3(0f, 0f, len);
+                if (cell != null && cell.gameObject.activeSelf)
+                    cell.gameObject.SetActive(false);
+            }
+            else
+                mv = pos + rot * ((Soldier != null ? Soldier.MuzzleOf(weapon) : Look.Muzzle) * size);
 
             // The world's shade on the rifle (it samples no shadow map): a ray from
             // the eye toward the sun, over the ground and cover as the game has
@@ -395,7 +456,7 @@ namespace Lattice.Combat
 
             // Both hands on it, as soldiers hold it; the left one off to swap the cell.
             bool reloadHand = Reloading.Hand(pos, rot, size, out var handPos, out var handGrip, out float handWeight);
-            if (arms != null)
+            if (arms != null && !exo)
             {
                 var cam = view;
                 var frame = cam.rotation * rot;
@@ -414,11 +475,11 @@ namespace Lattice.Combat
                           lWrist, lGrip, Look.ShoulderSwing);
             }
 
-            Cell(f, pos, rot, size, reloadHand, handPos, handGrip, dt);
+            if (!exo)
+                Cell(f, pos, rot, size, reloadHand, handPos, handGrip, dt);
 
             // Where the tracer leaves from: the drawn muzzle, as the world camera
             // sees that point (the view's field of view differs from the world's).
-            var mv = pos + rot * ((Soldier != null ? Soldier.MuzzleOf(kit) : Look.Muzzle) * size);
             float k = Mathf.Tan(Rig.Camera.fieldOfView * 0.5f * Mathf.Deg2Rad) / Mathf.Tan(viewFov * 0.5f * Mathf.Deg2Rad);
             muzzleView = new Vector3(mv.x * k, mv.y * k, mv.z);
             MuzzleWorld = Rig.Camera.transform.TransformPoint(muzzleView);
@@ -450,7 +511,7 @@ namespace Lattice.Combat
             if (cell == null)
                 return;
             int mag = f.Own.mag;
-            float charge = mag == 0 ? 0.04f : 0.3f + 0.7f * mag / (float)Mathf.Max(1, Weapons.Of(f.Own.kit).magazine);
+            float charge = mag == 0 ? 0.04f : 0.3f + 0.7f * mag / (float)Mathf.Max(1, Weapons.Of(f.Own.weapon).magazine);
             var state = Reloading.Cell(charge, out float pulled, out _, out float glow);
             Vector3 cp;
             Quaternion cr;

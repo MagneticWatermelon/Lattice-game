@@ -26,6 +26,8 @@ namespace Lattice.Shell
         public string ShowAtStart;
         /// <summary>A self-check's class (--kit N; -1: the one chosen last).</summary>
         public int Kit = -1;
+        /// <summary>A self-check's weapon (--weapon N, <c>LT_WEAPON_*</c>; -1: the class's last).</summary>
+        public int Weapon = -1;
 
         Lattice.World.WorldView world;
         DeployScreen deploy;
@@ -164,6 +166,10 @@ namespace Lattice.Shell
             deploy.Auto = Auto;
             if (Kit >= 0)
                 deploy.Kit = Kit;
+            if (Weapon >= 0)
+                deploy.Weapon = Weapon;
+            else if (Kit >= 0)
+                deploy.Weapon = Weapons.Own(Kit);
             Show(death, showDeath && !menuOpen && !mapOpen);
             Show(map, mapOpen && !menuOpen);
             if (menuOpen && !menu.gameObject.activeSelf)

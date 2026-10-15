@@ -31,6 +31,11 @@ namespace Lattice.EditorTools
             (look.ShotgunOwn, look.ShotgunNear) = (Many("Shotgun_Own"), Many("Shotgun_Near"));
             (look.MarksmanOwn, look.MarksmanNear) = (Many("Marksman_Own"), Many("Marksman_Near"));
             (look.SmgOwn, look.SmgNear) = (Many("Smg_Own"), Many("Smg_Near"));
+            (look.LmgOwn, look.LmgNear) = (Many("Lmg_Own"), Many("Lmg_Near"));
+            (look.SniperOwn, look.SniperNear) = (Many("Sniper_Own"), Many("Sniper_Near"));
+            (look.ExoGunsOwn, look.ExoGunsNear) = (Many("ExoGuns_Own"), Many("ExoGuns_Near"));
+            (look.LauncherOwn, look.LauncherNear) = (Many("Launcher_Own"), Many("Launcher_Near"));
+            (look.LockDown, look.LockUp) = (One("Lock_Down"), One("Lock_Up"));
             look.Crack = Many("Crack");
             look.ImpactDirt = Many("Impact_Dirt");
             look.ImpactHard = Many("Impact_Hard");

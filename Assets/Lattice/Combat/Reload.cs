@@ -193,7 +193,7 @@ namespace Lattice.Combat
         {
             // The motion is keyed to the assault rifle's reloads; another weapon's
             // plays it paced to its own (U6).
-            ref readonly var w = ref Weapons.Of(NetDriver.Frame.Own.kit);
+            ref readonly var w = ref Weapons.Of(NetDriver.Frame.Own.weapon);
             float tactical = w.reloadSecs, empty = w.reloadEmptySecs;
             if (DebugAt >= 0f)
             {

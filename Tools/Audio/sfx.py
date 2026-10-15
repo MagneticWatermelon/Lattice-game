@@ -206,6 +206,14 @@ VOICES = {
     "Shotgun": dict(crack=0.7, body=(90, 2600, 0.036), thump=(130, 42, 0.95), zap=(1500, 260, 0.09), clacks=((0.30, 1900, 0.32), (0.43, 2300, 0.36)), length=0.62),
     "Marksman": dict(crack=1.35, body=(150, 3000, 0.034), thump=(150, 48, 0.62), zap=(2300, 380, 0.2), clacks=((0.075, 2700, 0.26),), length=0.42),
     "Smg": dict(crack=0.75, body=(280, 4400, 0.014), thump=(230, 85, 0.2), zap=(3600, 820, 0.11), clacks=((0.026, 4200, 0.15),), length=0.26),
+    # The LMG: the rifle's report, heavier, the belt's rattle.
+    "Lmg": dict(crack=1.0, body=(170, 3400, 0.026), thump=(170, 55, 0.5), zap=(2600, 520, 0.12), clacks=((0.03, 3000, 0.22),), length=0.32),
+    # The sniper rifle: a hard crack, a long boom, the bolt worked twice after.
+    "Sniper": dict(crack=1.8, body=(110, 2600, 0.05), thump=(120, 38, 0.95), zap=(1900, 300, 0.25), clacks=((0.35, 2100, 0.3), (0.55, 2500, 0.28)), length=0.75),
+    # The Exo's twin guns: deep thuds, little crack.
+    "ExoGuns": dict(crack=0.6, body=(140, 2400, 0.03), thump=(150, 50, 0.8), zap=(1200, 300, 0.25), clacks=((0.02, 1500, 0.25),), length=0.3),
+    # The launcher: a hollow chunk and the shell's hiss away.
+    "Launcher": dict(crack=0.3, body=(70, 1500, 0.06), thump=(90, 30, 1.2), zap=(800, 200, 0.15), clacks=((0.25, 1700, 0.3),), length=0.5),
 }
 
 
@@ -631,6 +639,23 @@ def mend_tick():
     return fade(normalize(ring(secs, (1318.5, 2637.0, 3955.0), (0.12, 0.05, 0.03), (0.5, 0.15, 0.06)), -10.0), 0.001, 0.08)
 
 
+def lock(down):
+    """An Exo's Lock-down: servos winding (down, falling; up, rising), clamps striking the ground."""
+    secs = 0.7
+    t = t_axis(secs)
+    whine = sweep(secs, 900 if down else 300, 300 if down else 900, 2.5, "saw")
+    whine = band(whine, 200, 4000) * np.sin(np.pi * np.clip(t / 0.45, 0, 1)) * 0.25
+    out = whine
+    if down:
+        for at in (0.38, 0.44):
+            thud = lowpass(noise(0.15, 3150 + int(at * 100)), 220) * env_exp(0.15, 0.04, 0.002) * 1.6
+            clank = ring(0.12, (420, 1130, 2210), (0.06, 0.03, 0.02), (0.4, 0.25, 0.12))
+            place(out, thud + pad(clank, 0.15), at, 1.0)
+    else:
+        place(out, ring(0.1, (900, 1800), (0.03, 0.02), (0.3, 0.15)), 0.05, 1.0)
+    return fade(normalize(close_space(out, 3160 + down), -4.0), 0.002, 0.08)
+
+
 def cloak(on):
     """Cloaking (a breath drawn in, falling and thinning to nothing) or uncloaking (the reverse, out)."""
     secs = 0.6
@@ -748,6 +773,8 @@ write("Jets_Ignite", jets_ignite())
 write("Bulwark_On", bulwark_on())
 write("Mend_On", mend_on())
 write("Mend_Tick", mend_tick())
+write("Lock_Down", lock(True))
+write("Lock_Up", lock(False))
 write("Cloak_On", cloak(True))
 write("Cloak_Off", cloak(False))
 write("Crouch_Down", crouch(True))

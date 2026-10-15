@@ -16,8 +16,9 @@ namespace Lattice.EditorTools
         const string Dir = "Assets/Lattice/Players/Soldier";
         const string RifleDir = "Assets/Lattice/Combat/Rifle";
         public const string WeaponDir = "Assets/Lattice/Combat/Weapons";
-        /// <summary>The classes' weapons' files by kit (Tools/Blender/weapons_fbx.py; kit 0 is the rifle).</summary>
-        public static readonly string[] WeaponNames = { "Rifle", "Carbine", "Shotgun", "Marksman", "Smg" };
+        /// <summary>The weapons' files by id (Tools/Blender/weapons_fbx.py; 0 is the rifle; the
+        /// Exo's guns and launcher are on its arms, built in code: none).</summary>
+        public static readonly string[] WeaponNames = { "Rifle", "Carbine", "Shotgun", "Marksman", "Smg", "Lmg", "Sniper", null, null };
         public const string LookPath = "Assets/Lattice/Players/SoldierLook.asset";
         static readonly string[] FactionNames = { "Ordinate", "Compact", "Resonance" };
 
@@ -42,9 +43,24 @@ namespace Lattice.EditorTools
             (look.Weapons[0], look.WeaponsLow[0]) = (look.Rifle, look.RifleLow);
             for (int k = 1; k < WeaponNames.Length; k++)
             {
+                if (WeaponNames[k] == null)
+                    continue;
                 look.Weapons[k] = AssetDatabase.LoadAllAssetsAtPath($"{WeaponDir}/{WeaponNames[k]}.fbx").OfType<Mesh>().First();
                 look.WeaponsLow[k] = AssetDatabase.LoadAllAssetsAtPath($"{WeaponDir}/{WeaponNames[k]}Low.fbx").OfType<Mesh>().First();
             }
+            look.Muzzles = new[]
+            {
+                new Vector3(0f, 0.069f, 0.5f), new Vector3(0f, 0.069f, 0.3822f), new Vector3(0f, 0.069f, 0.4205f),
+                new Vector3(0f, 0.069f, 0.7885f), new Vector3(0f, 0.069f, 0.283f), new Vector3(0f, 0.069f, 0.6165f),
+                new Vector3(0f, 0.069f, 0.9405f), new Vector3(0f, 0.069f, 0.5f), new Vector3(0f, 0.069f, 0.5f),
+            };
+            look.ExoPlate = Lit($"{Dir}/ExoPlate.mat");
+            look.ExoPlate.SetColor("_BaseColor", new Color(0.3f, 0.31f, 0.33f));
+            look.ExoPlate.SetFloat("_Metallic", 0.55f);
+            look.ExoPlate.SetFloat("_Smoothness", 0.42f);
+            look.ExoPlate.SetFloat("_TintStrength", 0f);
+            look.ExoPlate.enableInstancing = true;
+            EditorUtility.SetDirty(look.ExoPlate);
             look.Scope = AssetDatabase.LoadAllAssetsAtPath($"{WeaponDir}/Scope.fbx").OfType<Mesh>().First();
             look.RifleMaterial = RifleMaterial("Rifle", 0.62f);
             RifleMaterial("RifleView", 0.62f);

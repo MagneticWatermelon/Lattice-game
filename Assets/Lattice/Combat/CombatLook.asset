@@ -29,6 +29,10 @@ MonoBehaviour:
   - {fileID: -9115550942314561706, guid: 97fe5cf790e307b49bf2cf55a348f9a5, type: 3}
   - {fileID: -4570024056787598942, guid: a2665894f901945489c9102f4943644f, type: 3}
   - {fileID: 3935673884406830558, guid: 464a7d798d5ec874799055daf1b91a4c, type: 3}
+  - {fileID: -1785729534063686837, guid: 814c41a33b48ebd4b86f10b449b14150, type: 3}
+  - {fileID: -2420387180689603729, guid: 5ceb22881996f5c48a20e47df4beafa7, type: 3}
+  - {fileID: 0}
+  - {fileID: 0}
   ScopeSight: {x: 0, y: 0.206, z: -0.2565}
   ScopeZoom: 3
   Cell: {fileID: 5264201581553841347, guid: 7a202e327b6cdb34291c37d988b8e1c6, type: 3}

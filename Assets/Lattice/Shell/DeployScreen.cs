@@ -26,9 +26,11 @@ namespace Lattice.Shell
         public MapView Map { get; private set; }
         /// <summary>Self-checks: deploy at the top spawn a second after the screen opens.</summary>
         public bool Auto;
-        /// <summary>The class to deploy as (U6: a kit, <see cref="Weapons"/>), remembered between games.</summary>
-        public int Kit;
-        const string KitPref = "Lattice.Kit";
+        /// <summary>The class to deploy as (U6: a kit, <see cref="Weapons"/>) and the weapon it
+        /// carries (one of its own, <see cref="Weapons.OfClass"/>), remembered between games
+        /// (the weapon per class).</summary>
+        public int Kit, Weapon;
+        const string KitPref = "Lattice.Kit", WeaponPref = "Lattice.Weapon.";
 
         RectTransform column;
         TextMeshProUGUI side, xp, status, deployText;
@@ -38,10 +40,15 @@ namespace Lattice.Shell
         Clickable deploy;
         Image deployFill;
         RectTransform loadout;
-        readonly Clickable[] kits = new Clickable[5];
-        readonly Image[] kitBars = new Image[5];
+        readonly Clickable[] kits = new Clickable[6];
+        readonly Image[] kitBars = new Image[6];
+        TextMeshProUGUI exoTime;
+        readonly Clickable[] arms = new Clickable[3];
+        readonly Image[] armBars = new Image[3];
+        readonly TextMeshProUGUI[] armNames = new TextMeshProUGUI[3];
         TextMeshProUGUI kitAbout;
-        int shownKit = -1;
+        readonly CharBuf aboutBuf = new CharBuf(160), exoBuf = new CharBuf(24);
+        int shownKit = -1, shownWeapon = -1, shownExo = -1;
         readonly List<Option> options = new List<Option>();
         int selected = -1;
         /// <summary>Rows shown: fewer under a recap, so the loadout and the button fit.</summary>
@@ -110,21 +117,37 @@ namespace Lattice.Shell
             Widgets.Heading(listTop, "WHERE TO", 0f, 0f, Column);
             for (int i = 0; i < Rows; i++)
                 rows[i] = MakeRow(i, 38f + i * RowH);
-            loadout = Widgets.At(column, "Loadout", 0f, 0f, Column, 110f);
+            loadout = Widgets.At(column, "Loadout", 0f, 0f, Column, 180f);
             Widgets.Heading(loadout, "CLASS", 0f, 0f, Column);
-            // A tile a class (GDD §4.3): its name and its weapon; the chosen one's numbers below.
-            Kit = Mathf.Clamp(PlayerPrefs.GetInt(KitPref, 0), 0, Weapons.Count - 1);
-            float tile = (Column - 4 * 8f) / 5f;
-            for (int k = 0; k < kits.Length && k < Weapons.Count; k++)
+            // A tile a class (GDD §4.3): its name and its role; under them its weapons, the
+            // chosen one's numbers below.
+            Kit = Mathf.Clamp(PlayerPrefs.GetInt(KitPref, 0), 0, Weapons.ClassCount - 1);
+            Weapon = PlayerPrefs.GetInt(WeaponPref + Kit, Weapons.Own(Kit));
+            float tile = (Column - 5 * 8f) / 6f;
+            for (int k = 0; k < kits.Length && k < Weapons.ClassCount; k++)
             {
                 int kit = k;
-                var c = Widgets.Clickable(loadout, $"Class {k}", k * (tile + 8f), 36f, tile, 50f, Widgets.Row, Widgets.RowHover, () => PickKit(kit));
-                kitBars[k] = Widgets.Box(c.transform, UiKit.Accent, 0f, 46f, tile, 4f);
-                Widgets.Label(c.transform, Weapons.Class(k), 10f, 4f, tile - 20f, 26f, 21f);
-                Widgets.Label(c.transform, Weapons.Name(k).ToLowerInvariant(), 10f, 26f, tile - 20f, 18f, 13f, true, UiKit.Muted);
+                var c = Widgets.Clickable(loadout, $"Class {k}", k * (tile + 8f), 34f, tile, 46f, Widgets.Row, Widgets.RowHover, () => PickKit(kit));
+                kitBars[k] = Widgets.Box(c.transform, UiKit.Accent, 0f, 42f, tile, 4f);
+                Widgets.Label(c.transform, Weapons.Class(k), 9f, 4f, tile - 18f, 24f, 19f);
+                if (k == LtCode.ClassExo)
+                {
+                    exoTime = Widgets.Label(c.transform, "", 9f, 23f, tile - 18f, 18f, 13f, true, UiKit.Warn);
+                    UiKit.Warm(exoTime, 24);
+                }
                 kits[k] = c;
             }
-            kitAbout = Widgets.Label(loadout, "", 0f, 92f, Column, 22f, 15f, true, UiKit.Muted);
+            float wide = (Column - 2 * 8f) / 3f;
+            for (int i = 0; i < arms.Length; i++)
+            {
+                int slot = i;
+                var c = Widgets.Clickable(loadout, $"Weapon {i}", i * (wide + 8f), 90f, wide, 38f, Widgets.Row, Widgets.RowHover, () => PickWeapon(slot));
+                armBars[i] = Widgets.Box(c.transform, UiKit.Accent, 0f, 0f, 4f, 38f);
+                armNames[i] = Widgets.Label(c.transform, "", 14f, 6f, wide - 24f, 26f, 18f);
+                arms[i] = c;
+            }
+            kitAbout = Widgets.Label(loadout, "", 0f, 138f, Column, 22f, 15f, true, UiKit.Muted);
+            UiKit.Warm(kitAbout, 160);
             deploy = Widgets.Button(column, "DEPLOY", 0f, 1000f - 84f, Column, 84f, Deploy, true, UiKit.Accent, 30f);
             deployText = deploy.Text;
             deployText.textWrappingMode = TextWrappingModes.NoWrap;
@@ -197,11 +220,30 @@ namespace Lattice.Shell
         {
             Kit = kit;
             PlayerPrefs.SetInt(KitPref, kit);
+            // Its weapon as last chosen for it (one it may carry).
+            Weapon = PlayerPrefs.GetInt(WeaponPref + kit, Weapons.Own(kit));
+            if (System.Array.IndexOf(Weapons.OfClass(kit), (byte)Weapon) < 0)
+                Weapon = Weapons.Own(kit);
         }
 
-        /// <summary>The classes' tiles, the chosen one lit; its weapon in numbers.</summary>
+        void PickWeapon(int slot)
+        {
+            var list = Weapons.OfClass(Kit);
+            if (slot >= list.Length)
+                return;
+            Weapon = list[slot];
+            PlayerPrefs.SetInt(WeaponPref + Kit, Weapon);
+        }
+
+        /// <summary>Seconds until we may deploy an Exo again (0: now).</summary>
+        float ExoWait => NetDriver.Frame.Shell.exoSecs;
+
+        /// <summary>The classes' tiles and the chosen class's weapons, the chosen lit; the
+        /// weapon in numbers; the Exo's tile counting its cooldown down.</summary>
         void Kits(Color ink)
         {
+            if (System.Array.IndexOf(Weapons.OfClass(Kit), (byte)Weapon) < 0)
+                Weapon = Weapons.Own(Kit);
             for (int k = 0; k < kits.Length && kits[k] != null; k++)
             {
                 bool on = k == Kit;
@@ -209,16 +251,47 @@ namespace Lattice.Shell
                 kits[k].SetColors(on ? new Color(ink.r, ink.g, ink.b, 0.14f) : Widgets.Row, on ? new Color(ink.r, ink.g, ink.b, 0.2f) : Widgets.RowHover);
                 kitBars[k].color = on ? ink : new Color(1f, 1f, 1f, 0.06f);
             }
-            if (Kit == shownKit)
+            var list = Weapons.OfClass(Kit);
+            for (int i = 0; i < arms.Length; i++)
+            {
+                bool there = i < list.Length;
+                if (arms[i].gameObject.activeSelf != there)
+                    arms[i].gameObject.SetActive(there);
+                if (!there)
+                    continue;
+                bool on = list[i] == Weapon;
+                arms[i].Lit = on;
+                arms[i].SetColors(on ? new Color(ink.r, ink.g, ink.b, 0.14f) : Widgets.Row, on ? new Color(ink.r, ink.g, ink.b, 0.2f) : Widgets.RowHover);
+                armBars[i].color = on ? ink : new Color(1f, 1f, 1f, 0.06f);
+            }
+            int exo = Mathf.CeilToInt(ExoWait);
+            if (exoTime != null && exo != shownExo)
+            {
+                shownExo = exo;
+                exoBuf.Clear();
+                if (exo > 0)
+                    exoBuf.Append(exo / 60).Append(':').Append(exo % 60 < 10 ? "0" : "").Append(exo % 60);
+                exoTime.SetCharArray(exoBuf.Chars, 0, exoBuf.Length);
+            }
+            if (Kit == shownKit && Weapon == shownWeapon)
                 return;
-            shownKit = Kit;
-            ref readonly var w = ref Weapons.Of(Kit);
+            if (Kit != shownKit)
+                for (int i = 0; i < arms.Length && i < list.Length; i++)
+                    armNames[i].text = Weapons.Name(list[i]);
+            (shownKit, shownWeapon) = (Kit, Weapon);
+            ref readonly var w = ref Weapons.Of(Weapon);
             unsafe
             {
-                string dmg = w.damage[0] == w.farDamage[0] ? $"{w.damage[0]}" : $"{w.damage[0]}-{w.farDamage[0]}";
-                string pellets = w.pellets > 1 ? $"{w.pellets} x " : "";
-                kitAbout.text = $"{Weapons.Roles[Kit]}  ·  {pellets}{dmg} a hit, {1f / w.intervalSecs:0.#}/s  ·  {w.magazine} + {w.reserve}  ·  {w.speed:0} m/s";
+                aboutBuf.Clear().Append(Weapons.Roles[Mathf.Clamp(Kit, 0, Weapons.Roles.Length - 1)]).Append("  ·  ");
+                if (w.pellets > 1)
+                    aboutBuf.Append(w.pellets).Append(" x ");
+                aboutBuf.Append(w.damage[0]);
+                if (w.damage[0] != w.farDamage[0])
+                    aboutBuf.Append('-').Append(w.farDamage[0]);
+                aboutBuf.Append(" a hit, ").Append(1f / w.intervalSecs, 1).Append("/s  ·  ").Append(w.magazine).Append(" + ").Append(w.reserve)
+                    .Append("  ·  ").Append(Mathf.RoundToInt(w.speed)).Append(" m/s");
             }
+            kitAbout.SetCharArray(aboutBuf.Chars, 0, aboutBuf.Length);
         }
 
         void Pick(int site)
@@ -245,7 +318,9 @@ namespace Lattice.Shell
             if (selected < 0)
                 return;
             refusal = "";
-            if (NetDriver.Deploy(selected, Kit))
+            if (Kit == LtCode.ClassExo && ExoWait > 0f)
+                return;
+            if (NetDriver.Deploy(selected, Kit, Weapon))
                 deployTotal = NetDriver.Frame.Spawns[selected].transitSecs;
         }
 
@@ -275,7 +350,7 @@ namespace Lattice.Shell
             if (recap.gameObject.activeSelf != died)
                 recap.gameObject.SetActive(died);
             float listY = died ? 104f + RecapCard.Height + 24f : 104f;
-            int shown = died ? 5 : Rows;
+            int shown = died ? 4 : Rows;
             if (shown != rowsShown)
                 (rowsShown, listKey) = (shown, -1);
             listTop.anchoredPosition = new Vector2(0f, -listY);
@@ -300,6 +375,7 @@ namespace Lattice.Shell
                     LtCode.RefusedContested => $"{where} is past halfway to its attacker: pick another spawn",
                     LtCode.RefusedNoSpawn => $"{where} has no spawn room",
                     LtCode.RefusedAlive => "you're alive: no need",
+                LtCode.RefusedExo => "an Exo is one every 3 minutes: pick another class",
                     _ => "the server won't deploy us there",
                 };
                 if (selected == site)
@@ -416,13 +492,15 @@ namespace Lattice.Shell
             deploy.Interactable = going || selected >= 0;
             deploy.SetColors(ink, Color.Lerp(ink, Color.white, 0.25f));
             // The text only when what it says changes (tenths of a second in transit).
-            int tenths = going ? Mathf.CeilToInt(f.Shell.deploySecs * 10f) : -1;
+            int tenths = going ? Mathf.CeilToInt(f.Shell.deploySecs * 10f) : Kit == LtCode.ClassExo && ExoWait > 0f ? -2 - Mathf.CeilToInt(ExoWait) : -1;
             int what = going ? f.Shell.deploySite : selected;
             if (tenths != shownTenths || what != shownSelected)
             {
                 (shownTenths, shownSelected) = (tenths, what);
                 deployBuf.Clear();
-                if (going)
+                if (!going && Kit == LtCode.ClassExo && ExoWait > 0f)
+                    deployBuf.Append("AN EXO AGAIN IN ").Append(Mathf.CeilToInt(ExoWait)).Append(" s");
+                else if (going)
                     deployBuf.Append("DEPLOYING  ·  ").Append(what < names.Length ? names[what] : "").Append("  ·  ").Append(tenths / 10).Append('.').Append(tenths % 10).Append(" s");
                 else if (selected >= 0)
                     deployBuf.Append("DEPLOY  ·  ").Append(names[selected]).Append("  ·  ").Append(Mathf.RoundToInt(f.Spawns[selected].transitSecs)).Append(" s");

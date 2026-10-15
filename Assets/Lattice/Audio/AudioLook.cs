@@ -17,15 +17,27 @@ namespace Lattice.Audio
         /// the shotgun, the marksman rifle, the SMG (far shots share the rifle's).</summary>
         public AudioClip[] CarbineOwn, CarbineNear, ShotgunOwn, ShotgunNear, MarksmanOwn, MarksmanNear, SmgOwn, SmgNear;
 
-        /// <summary>A shot by kit <paramref name="kit"/>'s weapon: ours (in the head) or someone's near.</summary>
-        public AudioClip[] Shot(int kit, bool own) => kit switch
+        /// <summary>The LMG, the sniper rifle, the Exo's twin guns and launcher.</summary>
+        public AudioClip[] LmgOwn, LmgNear, SniperOwn, SniperNear, ExoGunsOwn, ExoGunsNear, LauncherOwn, LauncherNear;
+
+        /// <summary>A shot by weapon <paramref name="id"/> (<c>LT_WEAPON_*</c>): ours (in the head) or someone's near.</summary>
+        public AudioClip[] Shot(int id, bool own) => id switch
         {
             1 => own ? CarbineOwn : CarbineNear,
             2 => own ? ShotgunOwn : ShotgunNear,
             3 => own ? MarksmanOwn : MarksmanNear,
             4 => own ? SmgOwn : SmgNear,
+            5 => Or(own ? LmgOwn : LmgNear, own ? ShotOwn : ShotNear),
+            6 => Or(own ? SniperOwn : SniperNear, own ? MarksmanOwn : MarksmanNear),
+            7 => Or(own ? ExoGunsOwn : ExoGunsNear, own ? SmgOwn : SmgNear),
+            8 => Or(own ? LauncherOwn : LauncherNear, own ? ShotgunOwn : ShotgunNear),
             _ => own ? ShotOwn : ShotNear,
         };
+
+        static AudioClip[] Or(AudioClip[] a, AudioClip[] b) => a != null && a.Length > 0 ? a : b;
+
+        /// <summary>A shot's pitch by weapon (1: as recorded).</summary>
+        public float ShotPitch(int id) => 1f;
 
         /// <summary>A slug passing close: the supersonic crack.</summary>
         public AudioClip[] Crack;
@@ -46,6 +58,8 @@ namespace Lattice.Audio
         /// <summary>The jets' roar while they burn (a loop) and their lighting; a Bulwark
         /// rising; a Mend field opening and a heal landing; cloaking and uncloaking.</summary>
         public AudioClip JetsLoop, JetsIgnite, BulwarkOn, MendOn, MendTick, CloakOn, CloakOff;
+        /// <summary>An Exo's Lock-down: planting, and standing up again.</summary>
+        public AudioClip LockDown, LockUp;
         /// <summary>Their level, ours; others' within <see cref="HandlingDistance"/> × 2.</summary>
         [Range(0f, 1f)] public float Ability = 0.6f;
 

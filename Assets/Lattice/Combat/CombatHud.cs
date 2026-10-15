@@ -408,6 +408,8 @@ namespace Lattice.Combat
             var o = f.Own;
             int kit = o.kit;
             bool has = kit != LtCode.ClassEngineer;
+            // (Lock-down: a toggle, on or ready, like Bulwark's but no count down.)
+            bool lockdown = kit == LtCode.ClassExo;
             bool on = shown && !dead && has;
             if (abilityPanel.gameObject.activeSelf != on)
                 abilityPanel.gameObject.SetActive(on);
@@ -438,7 +440,7 @@ namespace Lattice.Combat
             abilityAccent.color = SoldierColors.Ink(o.faction);
             // How it stands: 0 ready, 1 on (seconds left), 2 waiting (seconds), 3 energy (percent).
             bool energy = kit == LtCode.ClassRecon || kit == LtCode.ClassSkirmisher;
-            int mode = energy ? 3 : running ? 1 : o.abilityCooldown > 0f ? 2 : 0;
+            int mode = energy ? 3 : lockdown ? (running ? 4 : 0) : running ? 1 : o.abilityCooldown > 0f ? 2 : 0;
             int value = mode == 1 ? Mathf.CeilToInt(o.abilityLeft) : mode == 2 ? Mathf.CeilToInt(o.abilityCooldown) : mode == 3 ? Mathf.RoundToInt(o.abilityEnergy * 100f) + (running ? 1000 : 0) : 0;
             if (mode != shownAbilityMode || value != shownAbilityValue)
             {
@@ -446,14 +448,16 @@ namespace Lattice.Combat
                 abilityBuf.Clear();
                 if (mode == 0)
                     abilityBuf.Append("READY");
+                else if (mode == 4)
+                    abilityBuf.Append("LOCKED");
                 else if (mode == 3)
                     abilityBuf.Append(value % 1000).Append('%');
                 else
                     abilityBuf.Append(value).Append(" S");
                 abilityState.SetCharArray(abilityBuf.Chars, 0, abilityBuf.Length);
-                abilityState.color = mode == 0 ? UiKit.Good : mode == 1 || value >= 1000 ? UiKit.Accent : UiKit.Muted;
+                abilityState.color = mode == 0 ? UiKit.Good : mode == 1 || mode == 4 || value >= 1000 ? UiKit.Accent : UiKit.Muted;
             }
-            float fill = mode == 0 ? 1f
+            float fill = mode == 0 || mode == 4 ? 1f
                 : mode == 1 ? o.abilityLeft / (kit == LtCode.ClassAssault ? 6f : 8f)
                 : mode == 2 ? 1f - o.abilityCooldown / (kit == LtCode.ClassAssault ? 25f : 40f)
                 : o.abilityEnergy;
@@ -461,7 +465,7 @@ namespace Lattice.Combat
             abilityFill.color = mode == 0 ? UiKit.Good : mode == 2 ? UiKit.Muted : running ? UiKit.Accent : UiKit.Ink;
         }
 
-        static readonly string[] AbilityNames = { "BULWARK", "MEND FIELD", "TURRET", "CLOAK", "JUMP JETS" };
+        static readonly string[] AbilityNames = { "BULWARK", "MEND FIELD", "TURRET", "CLOAK", "JUMP JETS", "LOCK-DOWN" };
 
         /// <summary>The first <paramref name="n"/> segments across the track (a magazine's
         /// rounds), the rest hidden.</summary>
@@ -744,7 +748,7 @@ namespace Lattice.Combat
                 ammoPanel.gameObject.SetActive(on);
             int mag = f.Own.mag, reserve = f.Own.reserve;
             bool reloading = f.Own.reload > 0f;
-            int magazine = Weapons.Of(f.Own.kit).magazine;
+            int magazine = Weapons.Of(f.Own.weapon).magazine;
             if (magazine != shownRounds)
                 LayRounds(magazine);
             bool low = mag * 4 <= magazine;

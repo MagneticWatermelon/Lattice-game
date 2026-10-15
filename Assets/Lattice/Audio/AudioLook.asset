@@ -59,6 +59,38 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 898506b113e0dee4c94e9e7a5ffc2f01, type: 3}
   - {fileID: 8300000, guid: 55d87fd0b8bd0e54394e009a80990cfe, type: 3}
   - {fileID: 8300000, guid: 12ad7d9b2b9927b48a575504fe8cd2cd, type: 3}
+  LmgOwn:
+  - {fileID: 8300000, guid: a183606962ef255448c21ac06e314bc7, type: 3}
+  - {fileID: 8300000, guid: 48a5f4f9523ea7c449914737131a6474, type: 3}
+  - {fileID: 8300000, guid: df892e9f094a5524ab6227d329499bb3, type: 3}
+  LmgNear:
+  - {fileID: 8300000, guid: f2e94308e5b9fe744a98eed8f224c308, type: 3}
+  - {fileID: 8300000, guid: 0c8c362038328f946875333f1e04f49a, type: 3}
+  - {fileID: 8300000, guid: 2c6d22403e065b141bba8d0814145ed4, type: 3}
+  SniperOwn:
+  - {fileID: 8300000, guid: fb8ef9972e79dce4aafed621cc25d97a, type: 3}
+  - {fileID: 8300000, guid: 534a0c84a5686ea4c8f1881ddaf05dd3, type: 3}
+  - {fileID: 8300000, guid: aebe0e46313f2f14d8193a81ca20bc55, type: 3}
+  SniperNear:
+  - {fileID: 8300000, guid: 6a36019935b83d54e8a8e7cd4b60536f, type: 3}
+  - {fileID: 8300000, guid: 481946c00fb0269458614ede15c1705b, type: 3}
+  - {fileID: 8300000, guid: 001ca89527be3e640944c1d060b68798, type: 3}
+  ExoGunsOwn:
+  - {fileID: 8300000, guid: e035f56a0a9d9374cb8039cb151d6e62, type: 3}
+  - {fileID: 8300000, guid: c59627c272e794448b06cca07ffc8c62, type: 3}
+  - {fileID: 8300000, guid: b983beef194f34140bde7ffcfcc8adf7, type: 3}
+  ExoGunsNear:
+  - {fileID: 8300000, guid: eef62b1394fd4dc42a0e1c85b2b1339c, type: 3}
+  - {fileID: 8300000, guid: 608ef30536955b1429d9d1978ba1a613, type: 3}
+  - {fileID: 8300000, guid: 86e6897f48052a2478bb535494b9cdd3, type: 3}
+  LauncherOwn:
+  - {fileID: 8300000, guid: dc7ba24a3ad489a47895c2a596f3ef4a, type: 3}
+  - {fileID: 8300000, guid: 16ec6fe8ca515554ebd2df381f1ea8b0, type: 3}
+  - {fileID: 8300000, guid: 824900c7377b73043bcc3791491a27ce, type: 3}
+  LauncherNear:
+  - {fileID: 8300000, guid: 09d9de13f182c294d988c790382e2010, type: 3}
+  - {fileID: 8300000, guid: 46c8ef6e9f6967849be0b036c8ba7467, type: 3}
+  - {fileID: 8300000, guid: 858eb1644c672624cba531847d5583dc, type: 3}
   Crack:
   - {fileID: 8300000, guid: 0f2ec4a36b831464585e85a460083679, type: 3}
   - {fileID: 8300000, guid: 1b0faddf2ef57b94db7c1361f3c40ae1, type: 3}
@@ -109,6 +141,8 @@ MonoBehaviour:
   MendTick: {fileID: 8300000, guid: 37fa8b7d001fdf343aebfcefa7e9a08b, type: 3}
   CloakOn: {fileID: 8300000, guid: 41a76bab20524a0438b5ca2a156c1676, type: 3}
   CloakOff: {fileID: 8300000, guid: fefe8c208c6640641b56fba3c064e2e1, type: 3}
+  LockDown: {fileID: 8300000, guid: c246c09700105084a98a6a2e152bcab8, type: 3}
+  LockUp: {fileID: 8300000, guid: d3fe28a3cf6567f4297c58a2c9454b93, type: 3}
   Ability: 0.6
   Wind: {fileID: 8300000, guid: fcb659dca13d1214694d9cdaaf0ddffe, type: 3}
   BattleSmall: {fileID: 8300000, guid: b39aa30e84da68545a505062ec1cd9fc, type: 3}

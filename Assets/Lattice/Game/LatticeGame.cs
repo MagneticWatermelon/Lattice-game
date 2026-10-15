@@ -159,6 +159,7 @@ namespace Lattice.Game
             shell.Auto = Options.Autoplay || Options.Autotarget || Options.Autofire || Options.HudTest;
             shell.ShowAtStart = Options.Show;
             shell.Kit = Options.Kit;
+            shell.Weapon = Options.Weapon;
             shell.Quit = Quit;
             shell.Connect = Join;
             if (title)

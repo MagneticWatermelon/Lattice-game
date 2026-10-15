@@ -278,7 +278,8 @@ namespace Lattice.Audio
         void OnOwnShot()
         {
             nOwn++;
-            PlayHead(Pick(Look.Shot(NetDriver.Frame.Own.kit, true)), Look.OwnShot, 0.97f + 0.06f * Rand());
+            int arms = NetDriver.Frame.Own.weapon;
+            PlayHead(Pick(Look.Shot(arms, true)), Look.OwnShot, Look.ShotPitch(arms) * (0.97f + 0.06f * Rand()));
         }
 
         /// <summary>Our reload, as its motion passes each sound: a little left of
@@ -429,8 +430,8 @@ namespace Lattice.Audio
                 level *= 0.6f;
             if (far) nFar++; else nNear++;
             // A far shot's the rifle's report for every weapon, a shotgun's lower.
-            float pitch = (far && fx.kit == 2 ? 0.8f : 0.95f) + 0.1f * Rand();
-            PlayAt(Pick(far ? Look.ShotFar : Look.Shot(fx.kit, false)), pos, level, Air(d), d / Look.SoundSpeed, pitch);
+            float pitch = Look.ShotPitch(fx.weapon) * ((far && fx.weapon == LtCode.WeaponShotgun ? 0.8f : 0.95f) + 0.1f * Rand());
+            PlayAt(Pick(far ? Look.ShotFar : Look.Shot(fx.weapon, false)), pos, level, Air(d), d / Look.SoundSpeed, pitch);
         }
 
         void Impact(in LtFx fx, Vector3 ear)
@@ -539,6 +540,8 @@ namespace Lattice.Audio
             }
             else if (!on && wasOn && kit == LtCode.ClassRecon && !dead)
                 PlayHead(Look.CloakOff, Look.Ability * 0.9f);
+            else if (!on && wasOn && kit == LtCode.ClassExo && !dead)
+                PlayHead(Look.LockUp, Look.Ability);
             wasOn = on;
             float dt = Mathf.Min(Time.unscaledDeltaTime, 0.1f);
             bool burning = on && kit == LtCode.ClassSkirmisher;
@@ -557,6 +560,7 @@ namespace Lattice.Audio
             LtCode.ClassMedic => Look.MendOn,
             LtCode.ClassRecon => Look.CloakOn,
             LtCode.ClassSkirmisher => Look.JetsIgnite,
+            LtCode.ClassExo => Look.LockDown,
             _ => null,
         };
 

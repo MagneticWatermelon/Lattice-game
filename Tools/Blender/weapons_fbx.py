@@ -29,7 +29,13 @@ WEAPONS = {
     "Shotgun": dict(mid=0.55, swell=1.3, barrels=[(-0.03, 0.026, 0.06), (0.03, 0.026, 0.06)]),
     "Marksman": dict(mid=1.35, barrels=[(0.0, 0.018, 0.12)], brake=(0.06, 0.027)),
     "Smg": dict(mid=0.3),
+    # The LMG: long, a drum under the receiver, a bipod folded under the barrel.
+    "Lmg": dict(mid=1.15, barrels=[(0.0, 0.02, 0.07)], drum=True, bipod=True),
+    # The sniper rifle: the longest barrel and a heavy brake (and the scope).
+    "Sniper": dict(mid=1.55, barrels=[(0.0, 0.016, 0.2)], brake=(0.07, 0.03)),
 }
+# The weapons that wear the scope (as the crowd's light copies have it).
+SCOPED = ("Marksman", "Sniper")
 
 
 def remap_x(x, mid):
@@ -180,6 +186,19 @@ def add_barrels(m, name, p, uv, segs):
                 xa = x0 - 0.012 - i * 0.016
                 box_bm(bm, xa - 0.006, xa, -br - 0.006, br + 0.006, BORE_Z - 0.008, BORE_Z + 0.008)
     attach(m, make_mesh(name + "_barrels", build), uv)
+    if p.get("drum") or p.get("bipod"):
+        def gear(bm):
+            if p.get("drum"):
+                # A drum under the receiver, ahead of the trigger: a box with its corners cut.
+                box_bm(bm, -0.005, 0.115, -0.055, 0.055, -0.215, -0.085)
+                box_bm(bm, 0.01, 0.1, -0.062, 0.062, -0.2, -0.1)
+            if p.get("bipod"):
+                # Two legs folded back under the barrel, their hinge at the muzzle block.
+                for y in (-0.028, 0.028):
+                    box_bm(bm, front + 0.02, front + 0.29, y - 0.007, y + 0.007, BORE_Z - 0.09, BORE_Z - 0.075)
+                box_bm(bm, front + 0.005, front + 0.035, -0.04, 0.04, BORE_Z - 0.095, BORE_Z - 0.06)
+        front = remap_x(FRONT, p.get("mid", 1.0))
+        attach(m, make_mesh(name + "_gear", gear), uv)
 
 
 def export(obj, path):
@@ -308,7 +327,7 @@ for src_path, suffix in ((view_glb, "View"), (rifle_glb, "")):
             body = variant(src, name + "Body", p, uv, extras=False)
             lo = decimate(body, name + "Low", 540 if "barrels" in p else 600)
             add_barrels(lo, name, p, uv, 8)
-            if name == "Marksman":
+            if name in SCOPED:
                 attach(lo, make_scope(8), uv)
             print(name + "Low", sum(len(f.vertices) - 2 for f in lo.data.polygons), "triangles")
             export(lo, os.path.join(out_dir, name + "Low.fbx"))

@@ -101,6 +101,8 @@ namespace Lattice.Net
         public string Show;
         /// <summary>--kit N: deploy as class N (a self-check; -1: the one chosen last).</summary>
         public int Kit = -1;
+        /// <summary>--weapon N: carry weapon N (LT_WEAPON_*; a self-check).</summary>
+        public int Weapon = -1;
         /// <summary>The command line said where to connect or ran a self-check: no title
         /// screen. --title shows it anyway.</summary>
         public bool Joins, Title;
@@ -155,6 +157,7 @@ namespace Lattice.Net
                     case "--title": o.Title = true; break;
                     case "--show": o.Show = Val(); break;
                     case "--kit": o.Kit = (int)F(); break;
+                    case "--weapon": o.Weapon = (int)F(); break;
                     case "--world":
                         var w = Val();
                         o.World = w == "kiln" ? (ulong)LtCode.WorldKiln : w == "kit" ? (ulong)LtCode.WorldKit : w == "harrow" ? 1UL : w == "none" ? 0UL : ulong.TryParse(w, out var id) ? id : 0UL;

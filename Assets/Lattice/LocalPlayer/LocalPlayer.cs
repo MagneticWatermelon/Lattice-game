@@ -244,7 +244,7 @@ namespace Lattice.LocalPlayer
             bool alive = NetDriver.Frame.Welcomed && own.dead == 0 && !Held && !UiOpen;
             bool onTarget = Autotarget && alive && Mode != ViewMode.Spectator && Target(dt);
             // The self-check tops up between fights, as a player would.
-            if (Autotarget && alive && !onTarget && targetId == LtCode.Nobody && own.reload <= 0f && own.reserve > 0 && own.mag < Weapons.Of(own.kit).magazine / 3)
+            if (Autotarget && alive && !onTarget && targetId == LtCode.Nobody && own.reload <= 0f && own.reserve > 0 && own.mag < Weapons.Of(own.weapon).magazine / 3)
                 reloadUntil = Time.unscaledTime + ReloadPress;
             // The press is held out until the reload shows as under way: held past
             // the reload's end, the next shot would start another.
@@ -286,7 +286,7 @@ namespace Lattice.LocalPlayer
         {
             var f = NetDriver.Frame;
             var me = f.Own.pos;
-            float reach = Reach(f.Own.kit);
+            float reach = Reach(f.Own.weapon);
             float best = reach * reach;
             int k = -1;
             var world = NetDriver.World;
@@ -324,7 +324,7 @@ namespace Lattice.LocalPlayer
                 targetVel = Vector3.Lerp(targetVel, (at - targetLast) / dt, 1f - Mathf.Exp(-dt / 0.2f));
             (targetId, targetLast) = (t.id, at);
             float tx = at.x - me.x, ty = at.y - me.y;
-            float flight = Mathf.Sqrt(tx * tx + ty * ty) / Weapons.Of(f.Own.kit).speed;
+            float flight = Mathf.Sqrt(tx * tx + ty * ty) / Weapons.Of(f.Own.weapon).speed;
             tx += targetVel.x * flight;
             ty += targetVel.y * flight;
             // The chest, standing or crouched; from our own eyes, standing or crouched.
