@@ -123,15 +123,15 @@ namespace Lattice.Shell
             ownImage.raycastTarget = false;
             own.gameObject.SetActive(false);
             // A site's card, by the pointer.
-            card = UiKit.Rect("Card", frame, Vector2.zero, new Vector2(0f, 0f), Vector2.zero, new Vector2(300f, 120f));
+            card = UiKit.Rect("Card", frame, Vector2.zero, new Vector2(0f, 0f), Vector2.zero, new Vector2(320f, 150f));
             var cardBg = UiKit.Box("Back", card, new Color(0.03f, 0.04f, 0.045f, 0.94f));
             UiKit.Fill(cardBg.rectTransform);
             cardTitle = UiKit.Text("Name", card, UiKit.Display, 22f, UiKit.Ink, TextAlignmentOptions.TopLeft);
             Widgets.Place(cardTitle.rectTransform, 12f, 8f, 276f, 26f);
             cardBody = UiKit.Text("About", card, UiKit.Mono, 15f, UiKit.Muted, TextAlignmentOptions.TopLeft);
-            Widgets.Place(cardBody.rectTransform, 12f, 38f, 276f, 80f);
+            Widgets.Place(cardBody.rectTransform, 12f, 38f, 296f, 108f);
             cardBody.textWrappingMode = TextWrappingModes.Normal;
-            UiKit.Warm(cardBody, 200);
+            UiKit.Warm(cardBody, 320);
             card.gameObject.SetActive(false);
         }
 
@@ -530,10 +530,8 @@ namespace Lattice.Shell
                 if (s.contested != 0)
                     cardText.Append("  ·  CONTESTED");
                 cardText.Append('\n');
-                if (players > 0)
-                    cardText.Append(players).Append(" here, ").Append(ours).Append(" ours");
-                else
-                    cardText.Append("quiet");
+                Presence.At(i, cardCounts, out int heat);
+                Presence.Append(cardText, cardCounts, NetDriver.Frame.Own.faction, heat);
                 if (extraText.Length > 0)
                 {
                     cardText.Append('\n');
@@ -545,8 +543,8 @@ namespace Lattice.Shell
             }
             var p = SiteLocal(i);
             float x = p.x + 18f, y = p.y + 14f;
-            if (x + 300f > Side) x = p.x - 318f;
-            if (y + 120f > Side) y = p.y - 134f;
+            if (x + 320f > Side) x = p.x - 338f;
+            if (y + 150f > Side) y = p.y - 164f;
             card.anchoredPosition = new Vector2(x, y);
             if (!card.gameObject.activeSelf)
                 card.gameObject.SetActive(true);
@@ -554,6 +552,8 @@ namespace Lattice.Shell
         }
 
         /// <summary>Everyone at site <paramref name="i"/> by the latest fights, and how many of them are ours.</summary>
+        readonly int[] cardCounts = new int[3];
+
         public unsafe int PlayersAt(int i, out int ours)
         {
             var f = NetDriver.Frame;

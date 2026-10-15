@@ -70,6 +70,8 @@ namespace Lattice.Shell
             public int Site;
             public float Transit;
             public int Here, Ours;
+            /// <summary>Each faction's players there, and its shots a second (the fights').</summary>
+            public int P0, P1, P2, Heat;
             public bool Front, Attacked, Recommended;
             public float Score;
         }
@@ -79,6 +81,7 @@ namespace Lattice.Shell
             public Clickable Hit;
             public Image Bar;
             public TextMeshProUGUI Name, About, Time, Tag;
+            public Presence.Bar Who;
             // What it says, written into reused buffers only when it changes.
             public CharBuf AboutBuf, TimeBuf;
             public long Key;
@@ -86,6 +89,7 @@ namespace Lattice.Shell
 
         // The texts that change while the screen is open, built without allocating.
         readonly CharBuf xpBuf = new CharBuf(24), deployBuf = new CharBuf(96);
+        readonly int[] counts = new int[3];
 
         public static DeployScreen Create(Transform parent)
         {
@@ -165,14 +169,17 @@ namespace Lattice.Shell
         {
             int k = i;
             var hit = Widgets.Clickable(listTop, $"Row {i}", 0f, y, Column, RowH - 6f, Widgets.Row, Widgets.RowHover, () => PickRow(k));
-            var r = new Row { Hit = hit, AboutBuf = new CharBuf(96), TimeBuf = new CharBuf(12), Key = -1 };
+            var r = new Row { Hit = hit, AboutBuf = new CharBuf(224), TimeBuf = new CharBuf(12), Key = -1 };
             r.Bar = Widgets.Box(hit.transform, UiKit.Accent, 0f, 0f, 4f, RowH - 6f);
             r.Name = Widgets.Label(hit.transform, "", 18f, 6f, 470f, 28f, 24f);
-            r.About = Widgets.Label(hit.transform, "", 18f, 33f, 560f, 20f, 14f, true, UiKit.Muted);
+            r.About = Widgets.Label(hit.transform, "", 18f, 33f, 470f, 20f, 14f, true, UiKit.Muted);
+            r.About.richText = true;
+            // Who's there, in proportion: ours first, in the factions' colors.
+            r.Who = new Presence.Bar(hit.transform, 500f, 41f, 100f, 5f);
             r.Tag = Widgets.Label(hit.transform, "", 420f, 9f, 200f, 20f, 13f, false, UiKit.Accent, TextAlignmentOptions.MidlineRight);
             r.Tag.characterSpacing = 6f;
             r.Time = Widgets.Label(hit.transform, "", Column - 140f, 0f, 124f, RowH - 6f, 26f, true, UiKit.Ink, TextAlignmentOptions.MidlineRight);
-            UiKit.Warm(r.About, 80);
+            UiKit.Warm(r.About, 224);
             return r;
         }
 
@@ -409,7 +416,10 @@ namespace Lattice.Shell
                 if (s.ok == 0)
                     continue;
                 var o = new Option { Site = i, Transit = s.transitSecs };
-                o.Here = Map.PlayersAt(i, out o.Ours);
+                Presence.At(i, counts, out o.Heat);
+                (o.P0, o.P1, o.P2) = (counts[0], counts[1], counts[2]);
+                o.Here = o.P0 + o.P1 + o.P2;
+                o.Ours = us < 3 ? counts[us] : 0;
                 foreach (var j in adjacent[i])
                     if (j < f.SiteCount && f.Sites[j].owner != us)
                         o.Front = true;
@@ -460,8 +470,9 @@ namespace Lattice.Shell
                 int kind = o.Attacked ? 0 : sites[o.Site].kind == LtCode.SiteLanding ? 1 : o.Front ? 2 : 3;
                 int transit = Mathf.RoundToInt(o.Transit);
                 // (Rewritten only when what it says changes.)
-                long rowKey = o.Site | (long)(pct + 1) << 8 | (long)kind << 16 | (long)Mathf.Min(o.Here, 1023) << 18 | (long)Mathf.Min(o.Ours, 1023) << 28
-                    | (long)Mathf.Min(transit, 255) << 38 | (o.Recommended ? 1L : 0L) << 46 | (picked ? 1L : 0L) << 47;
+                long rowKey = o.Site | (long)(pct + 1) << 8 | (long)kind << 16 | (long)Mathf.Min(o.P0, 255) << 18 | (long)Mathf.Min(o.P1, 255) << 26
+                    | (long)Mathf.Min(o.P2, 255) << 34 | (long)Mathf.Min(transit, 255) << 42 | (o.Recommended ? 1L : 0L) << 50 | (picked ? 1L : 0L) << 51
+                    | (o.Heat > 0 ? 1L : 0L) << 52;
                 if (rowKey == r.Key)
                     continue;
                 r.Key = rowKey;
@@ -472,11 +483,10 @@ namespace Lattice.Shell
                 else
                     r.AboutBuf.Append(kind == 1 ? "OUR LANDING" : kind == 2 ? "FRONT" : "BEHIND THE LINES");
                 r.AboutBuf.Append("  ·  ");
-                if (o.Here > 0)
-                    r.AboutBuf.Append(o.Here).Append(" here, ").Append(o.Ours).Append(" ours");
-                else
-                    r.AboutBuf.Append("quiet");
+                (counts[0], counts[1], counts[2]) = (o.P0, o.P1, o.P2);
+                Presence.Append(r.AboutBuf, counts, f.Own.faction, o.Heat);
                 r.About.SetCharArray(r.AboutBuf.Chars, 0, r.AboutBuf.Length);
+                r.Who.Show(counts, f.Own.faction);
                 r.TimeBuf.Clear().Append(transit).Append(" s");
                 r.Time.SetCharArray(r.TimeBuf.Chars, 0, r.TimeBuf.Length);
                 r.Tag.text = o.Recommended ? "RECOMMENDED" : "";
