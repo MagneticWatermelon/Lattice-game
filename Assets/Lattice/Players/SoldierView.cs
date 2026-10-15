@@ -71,6 +71,10 @@ namespace Lattice.Players
         /// <summary>How crouched it's drawn (eased); how far into a reload (s; -1: none) and
         /// how much of its pose shows (eased in and out with the flag).</summary>
         float crouch, reloadAt = -1f, reloadWeight;
+        /// <summary>The run's bounce, settled (<see cref="Settle"/>): the hips' height over the
+        /// feet as the clip has it, smoothed, and its slow average (m; -1: none yet); the
+        /// last frame's time step.</summary>
+        float hipsSmooth = -1f, hipsAverage = -1f, rigDt = 1f / 60f;
         bool shadowsOnly, alwaysAnimate;
         Material body;
 
@@ -368,6 +372,7 @@ namespace Lattice.Players
         public void Place(Vector3 feet, float yaw, float pitch, bool isAirborne, bool isDead, bool ads, bool isCrouched, bool isReloading, float dt, float time)
         {
             dt = Mathf.Max(dt, 1e-4f);
+            rigDt = dt;
             bool teleport = !hasLast || (feet - lastPos).sqrMagnitude > LtConst.Teleport * LtConst.Teleport || (dead && !isDead);
             if (teleport)
             {
@@ -470,6 +475,10 @@ namespace Lattice.Players
             bool small = (lod < 0 || lod >= look.FullRigLods) && !alwaysAnimate;
             if (crouch > 0.001f && (visible || alwaysAnimate))
                 Crouch(crouch, !small);
+            else if (visible && !small)
+                Settle();
+            else
+                hipsSmooth = hipsAverage = -1f;
             var aim = Coords.View(aimYaw, aimPitch);
             var up = Vector3.up;
             float twist = Mathf.DeltaAngle(90f - legsYaw * Mathf.Rad2Deg, 90f - aimYaw * Mathf.Rad2Deg);
@@ -585,6 +594,40 @@ namespace Lattice.Players
             TwoBoneIK.Solve(rThigh, rShin, rFoot, rTarget, rShin.position + fwd * 0.5f - up * (0.3f * still), w);
             lFoot.rotation = lfr;
             rFoot.rotation = Quaternion.Slerp(rfr, Quaternion.AngleAxis(50f, right) * rfr, still * w);
+        }
+
+        /// <summary>
+        /// The run's bounce, settled. The sprint clip drops the hips 15 cm at
+        /// every footfall, in a sharp V (it read as hopping): the hips ride its
+        /// height smoothed, and keep only <see cref="SoldierLook.SprintBounce"/>
+        /// of how far it strays from its slow average (all of a walk's); the legs
+        /// then reach back by IK to where the clip planted the feet, so nothing
+        /// slides or floats.
+        /// </summary>
+        void Settle()
+        {
+            if (hips == null || lFoot == null || rFoot == null || airborne)
+            {
+                hipsSmooth = hipsAverage = -1f;
+                return;
+            }
+            float h = hips.position.y - transform.position.y;
+            hipsSmooth = hipsSmooth < 0f ? h : Mathf.Lerp(hipsSmooth, h, 1f - Mathf.Exp(-rigDt / 0.05f));
+            hipsAverage = hipsAverage < 0f ? h : Mathf.Lerp(hipsAverage, h, 1f - Mathf.Exp(-rigDt / 0.45f));
+            float keep = Mathf.Lerp(1f, look.SprintBounce, Smooth(Mathf.InverseLerp(5f, 8.5f, vel.magnitude)));
+            float shift = hipsAverage + (hipsSmooth - hipsAverage) * keep - h;
+            if (Mathf.Abs(shift) < 0.002f)
+                return;
+            var up = Vector3.up;
+            var fwd = transform.forward;
+            Vector3 lf = lFoot.position, rf = rFoot.position;
+            Quaternion lfr = lFoot.rotation, rfr = rFoot.rotation;
+            hips.position += up * shift;
+            // (Knees bend forward, as the clip's do.)
+            TwoBoneIK.Solve(lThigh, lShin, lFoot, lf, lShin.position + fwd * 0.5f, 1f);
+            TwoBoneIK.Solve(rThigh, rShin, rFoot, rf, rShin.position + fwd * 0.5f, 1f);
+            lFoot.rotation = lfr;
+            rFoot.rotation = rfr;
         }
 
         /// <summary>How far into the reload's pose (0..1), eased in and out with the

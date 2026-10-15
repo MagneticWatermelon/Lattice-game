@@ -17,7 +17,7 @@ MonoBehaviour:
   ViewRifleEuler: {x: 90, y: 90, z: 0}
   ViewScale: 0.85
   ViewFov: 64
-  Hip: {x: 0.21, y: -0.26, z: 0.72}
+  Hip: {x: 0.17, y: -0.22, z: 0.46}
   HipEuler: {x: -3, y: -5, z: -5}
   Sight: {x: 0, y: 0.224, z: -0.198}
   SightDistance: 0.11
@@ -43,10 +43,13 @@ MonoBehaviour:
   CellHalf: 0.0962
   CellGlowStrength: 1.1
   Arms: {fileID: 919132149155446097, guid: afdaa8a21a8e4c448ab3c0cb6df37c8d, type: 3}
+  ViewLeftGrip: {x: -0.05, y: -0.06, z: 0.2}
+  ViewLeftFingers: {x: 0.35, y: 0.45, z: 0.82}
+  ViewLeftBack: {x: -0.7, y: -0.7, z: 0.1}
   RightCollar: {x: 0.04, y: -0.24, z: -0.02}
-  LeftCollar: {x: -0.14, y: -0.3, z: -0.02}
+  LeftCollar: {x: -0.22, y: -0.42, z: -0.12}
   RightElbow: {x: 0.55, y: -0.6, z: 0.05}
-  LeftElbow: {x: -0.7, y: -0.6, z: 0.3}
+  LeftElbow: {x: -0.55, y: -0.75, z: 0.2}
   ShoulderSwing: 0.5
   SprintOffset: {x: 0.05, y: -0.1, z: -0.06}
   SprintEuler: {x: 20, y: -31, z: 4}

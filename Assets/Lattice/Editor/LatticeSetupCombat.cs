@@ -30,6 +30,15 @@ namespace Lattice.EditorTools
             // (Set here, not left to the fields' defaults: the asset keeps what it had.)
             look.ScopeSight = new Vector3(0f, 0.206f, -0.2565f);
             look.ScopeZoom = 3f;
+            // From the hip the rifle is held in, not at arm's length (0.72 m out, it
+            // hung small with both arms straight); the left hand under the handguard's
+            // front, the shoulder low and left, so the forearm comes in on a diagonal.
+            look.Hip = new Vector3(0.17f, -0.22f, 0.46f);
+            look.LeftCollar = new Vector3(-0.22f, -0.42f, -0.12f);
+            look.LeftElbow = new Vector3(-0.55f, -0.75f, 0.2f);
+            look.ViewLeftGrip = new Vector3(-0.05f, -0.06f, 0.2f);
+            look.ViewLeftFingers = new Vector3(0.35f, 0.45f, 0.82f);
+            look.ViewLeftBack = new Vector3(-0.7f, -0.7f, 0.1f);
             for (int k = 1; k < look.ViewWeapons.Length; k++)
                 if (LatticeSetupPlayers.WeaponNames[k] != null)
                     look.ViewWeapons[k] = AssetDatabase.LoadAllAssetsAtPath($"{LatticeSetupPlayers.WeaponDir}/{LatticeSetupPlayers.WeaponNames[k]}View.fbx").OfType<Mesh>().First();

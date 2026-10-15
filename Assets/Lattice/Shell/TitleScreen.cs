@@ -25,7 +25,7 @@ namespace Lattice.Shell
 
         public static TitleScreen Create(Transform parent)
         {
-            var canvas = UiKit.Canvas("Title", 25, parent);
+            var canvas = UiKit.Canvas("Title", 25, parent, clickable: true);
             var t = canvas.gameObject.AddComponent<TitleScreen>();
             t.Build((RectTransform)canvas.transform);
             return t;

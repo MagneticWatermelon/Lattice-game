@@ -34,8 +34,10 @@ namespace Lattice.UI
             return f;
         }
 
-        /// <summary>A full-screen overlay canvas, scaled as if the screen were 1080 px tall.</summary>
-        public static Canvas Canvas(string name, int order, Transform parent = null)
+        /// <summary>A full-screen overlay canvas, scaled as if the screen were 1080 px tall.
+        /// <paramref name="clickable"/>: it takes the mouse (a raycaster for the event system:
+        /// without one no click, hover or drag ever reaches its widgets). HUDs don't.</summary>
+        public static Canvas Canvas(string name, int order, Transform parent = null, bool clickable = false)
         {
             var go = new GameObject(name, typeof(RectTransform));
             if (parent != null)
@@ -49,6 +51,8 @@ namespace Lattice.UI
             s.referenceResolution = new Vector2(1920f, 1080f);
             s.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             s.matchWidthOrHeight = 1f;
+            if (clickable)
+                go.AddComponent<GraphicRaycaster>();
             return c;
         }
 

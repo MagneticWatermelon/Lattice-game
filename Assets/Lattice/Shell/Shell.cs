@@ -42,7 +42,7 @@ namespace Lattice.Shell
 
         public static Shell Create(Transform parent, Lattice.World.WorldView world, bool titleFirst)
         {
-            var canvas = UiKit.Canvas("Shell", 15, parent);
+            var canvas = UiKit.Canvas("Shell", 15, parent, clickable: true);
             var s = canvas.gameObject.AddComponent<Shell>();
             s.world = world;
             s.Build(canvas.transform, titleFirst, parent);

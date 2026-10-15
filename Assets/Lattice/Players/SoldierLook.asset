@@ -79,6 +79,7 @@ MonoBehaviour:
   RightElbowHint: {x: 0.35, y: -0.35, z: -0.2}
   LeftElbowHint: {x: -0.3, y: -0.45, z: 0.1}
   MaxTwist: 75
+  SprintBounce: 0.4
   CrouchHipsStill: 0.52
   CrouchHipsMoving: 0.58
   CrouchLeanStill: 8

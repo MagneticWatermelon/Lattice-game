@@ -375,8 +375,11 @@ namespace Lattice.Combat
             wasCrouched = crouched;
             dip *= Mathf.Exp(-dt / 0.12f);
             float moving = Mathf.Min(speed / 6f, 1f) * (1f - 0.85f * a) * (grounded ? 1f : 0f) * (1f - 0.6f * busy);
-            var bob = new Vector3(Mathf.Sin(bobPhase) * 0.012f, -Mathf.Abs(Mathf.Sin(bobPhase * 2f)) * 0.009f, 0f) * moving;
-            float bobRoll = Mathf.Sin(bobPhase) * 1.2f * moving;
+            // A stride (bobPhase's turn) is two steps: the rifle sways side to side once
+            // a stride and dips once a step, smoothly (a figure eight); never the sharp
+            // bounce of a rectified sine, which read as hopping.
+            var bob = new Vector3(Mathf.Sin(bobPhase) * 0.010f, (Mathf.Cos(bobPhase * 2f) - 1f) * 0.0045f, 0f) * moving;
+            float bobRoll = Mathf.Sin(bobPhase) * 0.8f * moving;
 
             // Sway: the rifle lags the view a little (a damped spring), less down the sights.
             float dYaw = Mathf.DeltaAngle(lastYaw * Mathf.Rad2Deg, p.Yaw * Mathf.Rad2Deg);
@@ -461,8 +464,8 @@ namespace Lattice.Combat
                 var cam = view;
                 var frame = cam.rotation * rot;
                 var center = cam.TransformPoint(pos);
-                var lWrist = center + frame * (Soldier.LeftGrip * size);
-                var lGrip = SoldierLook.Grip(frame, Soldier.LeftFingers, Soldier.LeftBack);
+                var lWrist = center + frame * (Look.ViewLeftGrip * size);
+                var lGrip = SoldierLook.Grip(frame, Look.ViewLeftFingers, Look.ViewLeftBack);
                 if (reloadHand)
                 {
                     lWrist = Vector3.Lerp(lWrist, cam.TransformPoint(handPos), handWeight);

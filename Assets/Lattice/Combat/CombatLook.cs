@@ -22,7 +22,7 @@ namespace Lattice.Combat
         /// never stretches with the world's FOV setting), degrees.</summary>
         public float ViewFov = 64f;
         /// <summary>The rifle's center from the hip.</summary>
-        public Vector3 Hip = new Vector3(0.21f, -0.26f, 0.72f);
+        public Vector3 Hip = new Vector3(0.17f, -0.22f, 0.46f);
         /// <summary>The rifle's turn from the hip (angled in toward the crosshair), degrees.</summary>
         public Vector3 HipEuler = new Vector3(-3f, -5f, -5f);
         /// <summary>The holographic sight's line of sight, at its rear window, in the rifle's
@@ -64,12 +64,19 @@ namespace Lattice.Combat
         [Header("First-person arms")]
         /// <summary>The soldier's arms alone (Combat/Arms), held by <see cref="ViewArms"/>.</summary>
         public GameObject Arms;
+        /// <summary>The left hand on the first-person rifle (its frame, m at size 1; as
+        /// SoldierLook's grips): the wrist under the handguard's front, the fingers curling up
+        /// its left side, the back of the hand out and down. Seen from the eye, not from
+        /// outside: further along and lower than a soldier's.</summary>
+        public Vector3 ViewLeftGrip = new Vector3(-0.05f, -0.06f, 0.2f);
+        public Vector3 ViewLeftFingers = new Vector3(0.35f, 0.45f, 0.82f);
+        public Vector3 ViewLeftBack = new Vector3(-0.7f, -0.7f, 0.1f);
         /// <summary>Where the collarbones are rooted (by the neck) and the elbows' pull, in the
         /// first-person camera's space (m); how far the shoulders swing toward the hands (0..1).</summary>
         public Vector3 RightCollar = new Vector3(0.04f, -0.24f, -0.02f);
-        public Vector3 LeftCollar = new Vector3(-0.14f, -0.3f, -0.02f);
+        public Vector3 LeftCollar = new Vector3(-0.22f, -0.42f, -0.12f);
         public Vector3 RightElbow = new Vector3(0.55f, -0.6f, 0.05f);
-        public Vector3 LeftElbow = new Vector3(-0.7f, -0.6f, 0.3f);
+        public Vector3 LeftElbow = new Vector3(-0.55f, -0.75f, 0.2f);
         public float ShoulderSwing = 0.5f;
         /// <summary>Sprinting: the rifle lowered and turned in.</summary>
         public Vector3 SprintOffset = new Vector3(0.05f, -0.1f, -0.06f);

@@ -95,6 +95,9 @@ namespace Lattice.Players
         public Vector3 LeftElbowHint = new Vector3(-0.3f, -0.45f, 0.1f);
         /// <summary>The most the upper body twists from the legs, degrees.</summary>
         public float MaxTwist = 75f;
+        /// <summary>How much of the sprint clip's vertical bounce the hips keep (1: all of it;
+        /// a walk keeps all of its own, the share falling to this from 5 to 8.5 m/s).</summary>
+        public float SprintBounce = 0.4f;
 
         [Header("Crouch (there's no crouch clip: the hips go down, the legs fold by IK)")]
         /// <summary>The hips' height (m) crouched still (a kneel, the right knee down) and
