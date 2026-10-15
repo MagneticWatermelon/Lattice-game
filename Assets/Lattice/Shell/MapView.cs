@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Lattice.Diagnostics;
 using Lattice.Native;
 using Lattice.Net;
 using Lattice.UI;
@@ -30,7 +31,7 @@ namespace Lattice.Shell
         /// <summary>Sites drawn with a spawn's ring (ours to deploy at): set by the deploy screen.</summary>
         public Func<int, bool> Lit;
         /// <summary>A line more for a site's card (its transit, say), or null.</summary>
-        public Func<int, string> Extra;
+        public Action<int, CharBuf> Extra;
         public int Hovered { get; private set; } = -1;
 
         const float WorldSize = 8192f;
@@ -48,7 +49,8 @@ namespace Lattice.Shell
         Image ownImage;
         float cardAt;
         TextMeshProUGUI cardTitle, cardBody;
-        readonly System.Text.StringBuilder cardText = new System.Text.StringBuilder(256);
+        readonly CharBuf cardText = new CharBuf(320), extraText = new CharBuf(160);
+        static readonly Vector4[] inks = new Vector4[4];
         readonly TextMeshProUGUI[] gridCols = new TextMeshProUGUI[Names.GridSquares], gridRows = new TextMeshProUGUI[Names.GridSquares];
         byte[] owners;
         Vector4[] siteData;
@@ -372,7 +374,8 @@ namespace Lattice.Shell
                 siteData[i] = new Vector4(sites[i].x / WorldSize, sites[i].y / WorldSize, owners[i] < 3 ? owners[i] : 3, 0f);
             material.SetVectorArray("_Sites", siteData);
             material.SetFloat("_SiteCount", n);
-            material.SetVectorArray("_Inks", new Vector4[] { Names.Ink(0), Names.Ink(1), Names.Ink(2), Names.NoOneInk });
+            (inks[0], inks[1], inks[2], inks[3]) = (Names.Ink(0), Names.Ink(1), Names.Ink(2), Names.NoOneInk);
+            material.SetVectorArray("_Inks", inks);
         }
 
         void Grid()
@@ -513,7 +516,8 @@ namespace Lattice.Shell
                 shownCard = i;
                 cardKey = key;
                 cardAt = Time.unscaledTime + 0.5f;
-                string extra = Extra?.Invoke(i);
+                extraText.Clear();
+                Extra?.Invoke(i, extraText);
                 cardTitle.text = names[i];
                 cardText.Clear();
                 cardText.Append("<color=").Append(Names.Hex(s.owner)).Append('>').Append(s.owner < 3 ? Names.Faction(s.owner) : "NO ONE").Append("</color>");
@@ -530,9 +534,13 @@ namespace Lattice.Shell
                     cardText.Append(players).Append(" here, ").Append(ours).Append(" ours");
                 else
                     cardText.Append("quiet");
-                if (!string.IsNullOrEmpty(extra))
-                    cardText.Append('\n').Append(extra);
-                cardBody.SetText(cardText);
+                if (extraText.Length > 0)
+                {
+                    cardText.Append('\n');
+                    for (int c = 0; c < extraText.Length; c++)
+                        cardText.Append(extraText.Chars[c]);
+                }
+                cardBody.SetCharArray(cardText.Chars, 0, cardText.Length);
                 cardTitle.color = Names.Ink(s.owner);
             }
             var p = SiteLocal(i);

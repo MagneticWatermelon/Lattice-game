@@ -21,6 +21,7 @@ namespace Lattice.Shell
         Clickable button;
         float diedAt = -1f;
         int shownTenths = -2;
+        readonly Lattice.Diagnostics.CharBuf nextBuf = new Lattice.Diagnostics.CharBuf(32);
         bool shownDeploys;
 
         public static DeathScreen Create(Transform parent)
@@ -36,6 +37,7 @@ namespace Lattice.Shell
             RecapCard.Create(root, 0f, 0f, 760f);
             button = Widgets.Button(root, "CHOOSE A SPAWN  ·  SPACE", 0f, RecapCard.Height + 16f, 760f, 60f, () => Release?.Invoke(), true, null, 24f);
             next = Widgets.Label(root, "", 0f, RecapCard.Height + 16f, 760f, 60f, 26f, true, UiKit.Ink, TextAlignmentOptions.Center);
+            UiKit.Warm(next, 32);
         }
 
         void OnEnable() => diedAt = Time.unscaledTime;
@@ -65,7 +67,8 @@ namespace Lattice.Shell
             if (tenths != shownTenths)
             {
                 shownTenths = tenths;
-                next.text = $"RESPAWN  {tenths / 10}.{tenths % 10} s";
+                nextBuf.Clear().Append("RESPAWN  ").Append(tenths / 10).Append('.').Append(tenths % 10).Append(" s");
+                next.SetCharArray(nextBuf.Chars, 0, nextBuf.Length);
             }
         }
     }

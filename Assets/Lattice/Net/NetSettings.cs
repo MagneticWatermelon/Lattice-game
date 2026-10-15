@@ -123,6 +123,8 @@ namespace Lattice.Net
         public float After = 5f, ExitAfter = -1f, ShotEvery = 1f;
         public int Shots = 1;
         public bool NoVsync, Ghosts, Autoplay, Autofire, Autoaim, Autotarget, HudTest, NoAudio, Windowed, FactionColors, TierColors, Controls, Pump, NetGraph;
+        /// <summary>--alloc-probe [systems]: where managed allocations happen, by player loop phase (or system).</summary>
+        public bool AllocProbe, AllocProbeSystems;
         /// <summary>--crouch: the self-check plays crouched (with --autotarget, it fights crouched).</summary>
         public bool Crouch;
         /// <summary>--ability: use the class's ability now and then (a self-check).</summary>
@@ -181,6 +183,8 @@ namespace Lattice.Net
                     case "--tier-colors": o.TierColors = true; break;
                     case "--controls": o.Controls = true; break;
                     case "--net-graph": o.NetGraph = true; break;
+                    case "--alloc-probe": o.AllocProbe = true; break;
+                    case "--alloc-probe-systems": o.AllocProbe = o.AllocProbeSystems = true; break;
                     case "--off": o.Off = Val(); break;
                     case "--render-scale": o.RenderScale = F(); break;
                     case "--pump": o.Pump = true; break;

@@ -38,6 +38,20 @@ namespace Lattice.Native
             return ref table[kit >= 0 && kit < table.Length ? kit : 0];
         }
 
+        static string[] lower;
+
+        /// <summary>Weapon <paramref name="kit"/>'s name in lower case (made once).</summary>
+        public static string Lower(int kit)
+        {
+            if (lower == null)
+            {
+                lower = new string[Names.Length];
+                for (int i = 0; i < Names.Length; i++)
+                    lower[i] = Names[i].ToLowerInvariant();
+            }
+            return lower[kit >= 0 && kit < lower.Length ? kit : 0];
+        }
+
         public static string Class(int kit) => kit >= 0 && kit < Classes.Length ? Classes[kit] : Classes[0];
         public static string Name(int kit) => kit >= 0 && kit < Names.Length ? Names[kit] : Names[0];
     }

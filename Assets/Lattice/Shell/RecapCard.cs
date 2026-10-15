@@ -24,6 +24,9 @@ namespace Lattice.Shell
         Image accent;
         float width;
         int shown = -1;
+        // Written into reused buffers: a death allocates nothing.
+        readonly Lattice.Diagnostics.CharBuf killerBuf = new Lattice.Diagnostics.CharBuf(160), howBuf = new Lattice.Diagnostics.CharBuf(120);
+        readonly Lattice.Diagnostics.CharBuf[] whoBufs = new Lattice.Diagnostics.CharBuf[Lines], whatBufs = new Lattice.Diagnostics.CharBuf[Lines];
 
         public static RecapCard Create(Transform parent, float x, float y, float w)
         {
@@ -50,7 +53,14 @@ namespace Lattice.Shell
                 tracks[i] = Widgets.Box(transform, new Color(1f, 1f, 1f, 0.07f), 220f, y + 8f, w - 220f - 170f, 8f);
                 bars[i] = Widgets.Box(transform, UiKit.Warn, 220f, y + 8f, 0f, 8f);
                 what[i] = Widgets.Label(transform, "", w - 160f, y, 140f, 24f, 15f, true, UiKit.Muted, TextAlignmentOptions.MidlineRight);
+                // Sized for what they'll say now, not at the first death.
+                UiKit.Warm(who[i], 96);
+                UiKit.Warm(what[i], 48);
+                whoBufs[i] = new Lattice.Diagnostics.CharBuf(96);
+                whatBufs[i] = new Lattice.Diagnostics.CharBuf(48);
             }
+            UiKit.Warm(killer, 160);
+            UiKit.Warm(how, 120);
         }
 
         static int FactionOf(ushort id) => id % 3;
@@ -93,8 +103,16 @@ namespace Lattice.Shell
             {
                 title.text = "KILLED BY";
                 int fac = r.killerFaction < 3 ? r.killerFaction : FactionOf(r.killer);
-                killer.text = $"<color={Names.Hex(fac)}>{Names.Faction(fac)}</color> <size=70%><color=#9AA4A6>#{r.killer}</color></size>{(r.head != 0 ? "  <size=55%><color=#FFA020>HEADSHOT</color></size>" : "")}";
-                how.text = $"{Weapons.Name(r.cause).ToLowerInvariant()}  ·  {r.distance:F0} m  ·  {(r.killerHealth > 0 ? $"they had {r.killerHealth} health" : "they died too")}";
+                killerBuf.Clear().Append("<color=").Append(Names.Hex(fac)).Append('>').Append(Names.Faction(fac)).Append("</color> <size=70%><color=#9AA4A6>#").Append(r.killer).Append("</color></size>");
+                if (r.head != 0)
+                    killerBuf.Append("  <size=55%><color=#FFA020>HEADSHOT</color></size>");
+                killer.SetCharArray(killerBuf.Chars, 0, killerBuf.Length);
+                howBuf.Clear().Append(Weapons.Lower(r.cause)).Append("  ·  ").Append(Mathf.RoundToInt(r.distance)).Append(" m  ·  ");
+                if (r.killerHealth > 0)
+                    howBuf.Append("they had ").Append(r.killerHealth).Append(" health");
+                else
+                    howBuf.Append("they died too");
+                how.SetCharArray(howBuf.Chars, 0, howBuf.Length);
                 accent.color = Names.Ink(fac);
             }
             int n = Mathf.Min(r.lines, Lines);
@@ -117,12 +135,24 @@ namespace Lattice.Shell
                 else
                 {
                     int fac = FactionOf(from);
-                    who[i].text = $"<color={Names.Hex(fac)}>#{from}</color>{(from == r.killer ? " <size=80%><color=#9AA4A6>killer</color></size>" : "")}";
+                    var wb = whoBufs[i] ??= new Lattice.Diagnostics.CharBuf(96);
+                    wb.Clear().Append("<color=").Append(Names.Hex(fac)).Append(">#").Append(from).Append("</color>");
+                    if (from == r.killer)
+                        wb.Append(" <size=80%><color=#9AA4A6>killer</color></size>");
+                    who[i].SetCharArray(wb.Chars, 0, wb.Length);
                     bars[i].color = Names.Ink(fac);
                 }
                 float span = width - 220f - 170f;
                 bars[i].rectTransform.sizeDelta = new Vector2(span * Mathf.Clamp01(dmg / 100f), 8f);
-                what[i].text = from == LtCode.Nobody ? $"{dmg}" : $"{dmg}  ·  {hits} hit{(hits == 1 ? "" : "s")}{(heads > 0 ? $", {heads} head" : "")}";
+                var hb = whatBufs[i] ??= new Lattice.Diagnostics.CharBuf(48);
+                hb.Clear().Append(dmg);
+                if (from != LtCode.Nobody)
+                {
+                    hb.Append("  ·  ").Append(hits).Append(hits == 1 ? " hit" : " hits");
+                    if (heads > 0)
+                        hb.Append(", ").Append(heads).Append(" head");
+                }
+                what[i].SetCharArray(hb.Chars, 0, hb.Length);
             }
         }
     }

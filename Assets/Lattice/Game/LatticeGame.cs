@@ -184,6 +184,8 @@ namespace Lattice.Game
                 urp.renderScale = Mathf.Clamp(Options.RenderScale, 0.1f, 2f);
             if (ConnectOnStart && !NetDriver.Start(Settings, out var error))
                 Debug.LogError($"Lattice: couldn't connect to {NetDriver.Address}: {error}");
+            if (Options.AllocProbe)
+                Lattice.Diagnostics.AllocProbe.Install(Options.AllocProbeSystems);
             if (Options.Screenshot != null && Options.Shots > 0)
             {
                 // Relative to where the game was started (a player resolves bare
@@ -322,6 +324,7 @@ namespace Lattice.Game
                     sb.Append(string.Format(CultureInfo.InvariantCulture, " {0} ms at {1:F0} s", ms, at));
             }
             sb.Append('\n');
+            sb.Append(Lattice.Diagnostics.AllocProbe.Summary());
             // The rifle's rounds: predicted exactly (no corrections), and what the reloads did.
             var gun = FindAnyObjectByType<Lattice.Combat.Gun>();
             if (gun != null && gun.Reloading != null)

@@ -18,6 +18,8 @@ namespace Lattice.Shell
 
         readonly TextMeshProUGUI[] lines = new TextMeshProUGUI[Lines];
         readonly float[] at = new float[Lines];
+        // Each line's text in a reused buffer; a new one shifts them down (no allocation).
+        readonly Lattice.Diagnostics.CharBuf[] bufs = new Lattice.Diagnostics.CharBuf[Lines];
         string[] names;
 
         public static RewardTicker Create(Transform parent)
@@ -57,22 +59,26 @@ namespace Lattice.Shell
 
         void Push(in LtEvent e, NetFrame f, float now)
         {
-            // Older lines move down one.
+            for (int i = 0; i < Lines; i++)
+                bufs[i] ??= new Lattice.Diagnostics.CharBuf(96);
+            // Older lines move down one (the buffers turn round: the last becomes the first).
+            var first = bufs[Lines - 1];
             for (int i = Lines - 1; i > 0; i--)
             {
-                lines[i].text = lines[i - 1].text;
+                bufs[i] = bufs[i - 1];
+                lines[i].SetCharArray(bufs[i].Chars, 0, bufs[i].Length);
                 at[i] = at[i - 1];
             }
-            var ink = Names.Hex(f.Own.faction);
-            string what = e.flags switch
+            bufs[0] = first;
+            first.Clear().Append("<color=").Append(Names.Hex(f.Own.faction)).Append(">+").Append(e.value).Append("</color>  ");
+            switch (e.flags)
             {
-                LtCode.RewardKill => e.value > 100 ? "KILL  ·  HEADSHOT" : "KILL",
-                LtCode.RewardAssist => "ASSIST",
-                LtCode.RewardCapture => $"{SiteName(e.a)} TAKEN",
-                LtCode.RewardDefend => $"{SiteName(e.a)} HELD",
-                _ => "",
-            };
-            lines[0].text = $"<color={ink}>+{e.value}</color>  {what}";
+                case LtCode.RewardKill: first.Append(e.value > 100 ? "KILL  ·  HEADSHOT" : "KILL"); break;
+                case LtCode.RewardAssist: first.Append("ASSIST"); break;
+                case LtCode.RewardCapture: first.Append(SiteName(e.a)).Append(" TAKEN"); break;
+                case LtCode.RewardDefend: first.Append(SiteName(e.a)).Append(" HELD"); break;
+            }
+            lines[0].SetCharArray(first.Chars, 0, first.Length);
             at[0] = now;
         }
 

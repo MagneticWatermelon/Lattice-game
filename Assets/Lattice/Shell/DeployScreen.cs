@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Lattice.Diagnostics;
 using Lattice.Native;
 using Lattice.Net;
 using Lattice.UI;
@@ -71,7 +72,13 @@ namespace Lattice.Shell
             public Clickable Hit;
             public Image Bar;
             public TextMeshProUGUI Name, About, Time, Tag;
+            // What it says, written into reused buffers only when it changes.
+            public CharBuf AboutBuf, TimeBuf;
+            public long Key;
         }
+
+        // The texts that change while the screen is open, built without allocating.
+        readonly CharBuf xpBuf = new CharBuf(24), deployBuf = new CharBuf(96);
 
         public static DeployScreen Create(Transform parent)
         {
@@ -121,6 +128,7 @@ namespace Lattice.Shell
             deploy = Widgets.Button(column, "DEPLOY", 0f, 1000f - 84f, Column, 84f, Deploy, true, UiKit.Accent, 30f);
             deployText = deploy.Text;
             deployText.textWrappingMode = TextWrappingModes.NoWrap;
+            UiKit.Warm(deployText, 64);
             deployFill = UiKit.Box("Transit", deploy.transform, new Color(1f, 1f, 1f, 0.28f));
             var fr = deployFill.rectTransform;
             fr.anchorMin = Vector2.zero;
@@ -134,7 +142,7 @@ namespace Lattice.Shell
         {
             int k = i;
             var hit = Widgets.Clickable(listTop, $"Row {i}", 0f, y, Column, RowH - 6f, Widgets.Row, Widgets.RowHover, () => PickRow(k));
-            var r = new Row { Hit = hit };
+            var r = new Row { Hit = hit, AboutBuf = new CharBuf(96), TimeBuf = new CharBuf(12), Key = -1 };
             r.Bar = Widgets.Box(hit.transform, UiKit.Accent, 0f, 0f, 4f, RowH - 6f);
             r.Name = Widgets.Label(hit.transform, "", 18f, 6f, 470f, 28f, 24f);
             r.About = Widgets.Label(hit.transform, "", 18f, 33f, 560f, 20f, 14f, true, UiKit.Muted);
@@ -170,20 +178,19 @@ namespace Lattice.Shell
                 }
         }
 
-        string Describe(int i)
+        /// <summary>The map card's line about deploying at site <paramref name="i"/>.</summary>
+        void Describe(int i, CharBuf to)
         {
             var f = NetDriver.Frame;
             if (i >= f.SpawnCount)
-                return null;
+                return;
             var o = f.Spawns[i];
             if (o.ok != 0)
-                return $"<color=#8EA5FF>deploy here: {o.transitSecs:F0} s</color>";
-            return o.reason switch
-            {
-                LtCode.RefusedContested => "<color=#E3824F>no spawn: past halfway to its attacker</color>",
-                LtCode.RefusedNoSpawn => "an outpost: no spawn room",
-                _ => null,
-            };
+                to.Append("<color=#8EA5FF>deploy here: ").Append(Mathf.RoundToInt(o.transitSecs)).Append(" s</color>");
+            else if (o.reason == LtCode.RefusedContested)
+                to.Append("<color=#E3824F>no spawn: past halfway to its attacker</color>");
+            else if (o.reason == LtCode.RefusedNoSpawn)
+                to.Append("an outpost: no spawn room");
         }
 
         void PickKit(int kit)
@@ -261,7 +268,8 @@ namespace Lattice.Shell
             if (f.Shell.xp != shownXp)
             {
                 shownXp = f.Shell.xp;
-                xp.text = $"XP {f.Shell.xp}";
+                xpBuf.Clear().Append("XP ").Append(f.Shell.xp);
+                xp.SetCharArray(xpBuf.Chars, 0, xpBuf.Length);
             }
             bool died = f.Recaps > 0 && f.Shell.diedIn != LtCode.NoSite;
             if (recap.gameObject.activeSelf != died)
@@ -363,7 +371,7 @@ namespace Lattice.Shell
             listKey = key;
             for (int i = 0; i < Rows; i++)
             {
-                var r = rows[i];
+                ref var r = ref rows[i];
                 bool on = i < options.Count && i < rowsShown;
                 if (r.Hit.gameObject.activeSelf != on)
                     r.Hit.gameObject.SetActive(on);
@@ -371,15 +379,31 @@ namespace Lattice.Shell
                     continue;
                 var o = options[i];
                 var st = o.Site < f.SiteCount ? f.Sites[o.Site] : default;
-                r.Name.text = names[o.Site];
-                string state = o.Attacked ? $"<color=#E3824F>UNDER ATTACK {Mathf.FloorToInt(st.meter * 100f)}%</color>"
-                    : sites[o.Site].kind == LtCode.SiteLanding ? "OUR LANDING"
-                    : o.Front ? "FRONT" : "BEHIND THE LINES";
-                string who = o.Here > 0 ? $"{o.Here} here, {o.Ours} ours" : "quiet";
-                r.About.text = $"{state}  ·  {who}";
-                r.Time.text = $"{o.Transit:F0} s";
-                r.Tag.text = o.Recommended ? "RECOMMENDED" : "";
                 bool picked = o.Site == selected;
+                int pct = o.Attacked ? Mathf.FloorToInt(st.meter * 100f) : -1;
+                int kind = o.Attacked ? 0 : sites[o.Site].kind == LtCode.SiteLanding ? 1 : o.Front ? 2 : 3;
+                int transit = Mathf.RoundToInt(o.Transit);
+                // (Rewritten only when what it says changes.)
+                long rowKey = o.Site | (long)(pct + 1) << 8 | (long)kind << 16 | (long)Mathf.Min(o.Here, 1023) << 18 | (long)Mathf.Min(o.Ours, 1023) << 28
+                    | (long)Mathf.Min(transit, 255) << 38 | (o.Recommended ? 1L : 0L) << 46 | (picked ? 1L : 0L) << 47;
+                if (rowKey == r.Key)
+                    continue;
+                r.Key = rowKey;
+                r.Name.text = names[o.Site];
+                r.AboutBuf.Clear();
+                if (kind == 0)
+                    r.AboutBuf.Append("<color=#E3824F>UNDER ATTACK ").Append(pct).Append("%</color>");
+                else
+                    r.AboutBuf.Append(kind == 1 ? "OUR LANDING" : kind == 2 ? "FRONT" : "BEHIND THE LINES");
+                r.AboutBuf.Append("  ·  ");
+                if (o.Here > 0)
+                    r.AboutBuf.Append(o.Here).Append(" here, ").Append(o.Ours).Append(" ours");
+                else
+                    r.AboutBuf.Append("quiet");
+                r.About.SetCharArray(r.AboutBuf.Chars, 0, r.AboutBuf.Length);
+                r.TimeBuf.Clear().Append(transit).Append(" s");
+                r.Time.SetCharArray(r.TimeBuf.Chars, 0, r.TimeBuf.Length);
+                r.Tag.text = o.Recommended ? "RECOMMENDED" : "";
                 r.Hit.Lit = picked;
                 r.Bar.color = picked ? ink : new Color(ink.r, ink.g, ink.b, 0.25f);
                 r.Hit.SetColors(picked ? new Color(ink.r, ink.g, ink.b, 0.12f) : Widgets.Row, picked ? new Color(ink.r, ink.g, ink.b, 0.18f) : Widgets.RowHover);
@@ -397,17 +421,19 @@ namespace Lattice.Shell
             if (tenths != shownTenths || what != shownSelected)
             {
                 (shownTenths, shownSelected) = (tenths, what);
+                deployBuf.Clear();
                 if (going)
-                {
-                    string where = what < names.Length ? names[what] : "";
-                    deployText.text = $"DEPLOYING  ·  {where}  ·  {tenths / 10}.{tenths % 10} s";
-                }
+                    deployBuf.Append("DEPLOYING  ·  ").Append(what < names.Length ? names[what] : "").Append("  ·  ").Append(tenths / 10).Append('.').Append(tenths % 10).Append(" s");
+                else if (selected >= 0)
+                    deployBuf.Append("DEPLOY  ·  ").Append(names[selected]).Append("  ·  ").Append(Mathf.RoundToInt(f.Spawns[selected].transitSecs)).Append(" s");
                 else
-                    deployText.text = selected >= 0 ? $"DEPLOY  ·  {names[selected]}  ·  {f.Spawns[selected].transitSecs:F0} s" : "NO SPAWN";
+                    deployBuf.Append("NO SPAWN");
+                deployText.SetCharArray(deployBuf.Chars, 0, deployBuf.Length);
             }
             if (going)
             {
-                float total = Mathf.Max(deployTotal, f.Shell.deploySecs, 0.1f);
+                // (Two at a time: Mathf.Max of three takes a params array, a new one each frame.)
+                float total = Mathf.Max(Mathf.Max(deployTotal, f.Shell.deploySecs), 0.1f);
                 deployFill.rectTransform.anchorMax = new Vector2(1f - Mathf.Clamp01(f.Shell.deploySecs / total), 1f);
             }
             else
