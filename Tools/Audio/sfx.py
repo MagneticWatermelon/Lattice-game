@@ -197,6 +197,59 @@ def rifle_dry(seed, close=1.0):
     return softclip(out * 1.5, 1.8)
 
 
+# ---- the classes' weapons (U6) ----------------------------------------------
+# Each its own voice on the rifle's recipe: how hard the front cracks, the
+# blast's band and length, the thump under it, the zap, and the action
+# (a shotgun racks its pump twice, a marksman rifle's bolt is heavier).
+VOICES = {
+    "Carbine": dict(crack=0.85, body=(230, 3800, 0.019), thump=(195, 70, 0.28), zap=(3100, 640, 0.15), clacks=((0.034, 3500, 0.18),), length=0.3),
+    "Shotgun": dict(crack=0.7, body=(90, 2600, 0.036), thump=(130, 42, 0.95), zap=(1500, 260, 0.09), clacks=((0.30, 1900, 0.32), (0.43, 2300, 0.36)), length=0.62),
+    "Marksman": dict(crack=1.35, body=(150, 3000, 0.034), thump=(150, 48, 0.62), zap=(2300, 380, 0.2), clacks=((0.075, 2700, 0.26),), length=0.42),
+    "Smg": dict(crack=0.75, body=(280, 4400, 0.014), thump=(230, 85, 0.2), zap=(3600, 820, 0.11), clacks=((0.026, 4200, 0.15),), length=0.26),
+}
+
+
+def gun_dry(voice, seed, close=1.0):
+    """One shot of a class's weapon, dry, at the shooter (`rifle_dry`'s parts, in its voice)."""
+    v = VOICES[voice]
+    r = np.random.default_rng(seed)
+    out = np.zeros(int(v["length"] * SR))
+    crack = highpass(noise(0.03, seed), 700) * env_exp(0.03, 0.0032 * r.uniform(0.9, 1.15), 0.00006)
+    place(out, crack, 0, v["crack"])
+    lo, hi, decay = v["body"]
+    body = tilt(band(noise(decay * 6, seed + 1), lo, hi), -1.5) * env_exp(decay * 6, decay * r.uniform(0.9, 1.1), 0.0002)
+    place(out, body, 0.0, 1.0)
+    f0, f1, amp = v["thump"]
+    thump = sweep(0.14, f0 * r.uniform(0.92, 1.08), f1, 5.0) * env_exp(0.14, 0.024 + 0.02 * (amp > 0.8), 0.0005)
+    place(out, thump, 0.0003, amp * close)
+    z0, z1, za = v["zap"]
+    zap = band(sweep(0.07, z0 * r.uniform(0.95, 1.05), z1, 3.0, "saw"), 300, 7000) * env_exp(0.07, 0.016, 0.0004)
+    place(out, zap, 0.001, za)
+    for k, (at, f, a) in enumerate(v["clacks"]):
+        clack = (band(noise(0.05, seed + 2 + k), 1800, 9000) * env_exp(0.05, 0.004, 0.0001) * 0.6
+                 + ring(0.05, [f * r.uniform(0.97, 1.03), f * 1.5, f * 2.19], [0.01, 0.007, 0.005], [0.35, 0.25, 0.12]))
+        place(out, clack, at * r.uniform(0.94, 1.06), a * close)
+    return softclip(out * 1.5, 1.8)
+
+
+def gun_own(voice, variant):
+    seed = 1000 + 37 * list(VOICES).index(voice) + variant
+    dry = gun_dry(voice, seed, close=1.0)
+    secs = 1.4 if voice == "Shotgun" else 1.3
+    L = convolve(dry, outdoor_ir(secs, seed * 7 + 1, tail_db=-17.0))[:int(secs * SR)]
+    R = convolve(dry, outdoor_ir(secs, seed * 7 + 2, tail_db=-17.0))[:int(secs * SR)]
+    m = max(np.abs(L).max(), np.abs(R).max())
+    return fade(L / m * 0.89), fade(R / m * 0.89)
+
+
+def gun_near(voice, variant):
+    seed = 2000 + 37 * list(VOICES).index(voice) + variant
+    dry = gun_dry(voice, seed, close=0.5)
+    secs = 1.5 if voice == "Shotgun" else 1.4
+    x = convolve(dry, outdoor_ir(secs, seed * 3, ground=0.003, slaps=((0.12, -16.0), (0.26, -20.0)), tail_db=-11.0, decay=0.42))[:int(secs * SR)]
+    return fade(normalize(x, -1.0))
+
+
 def rifle_own(variant):
     seed = 100 + variant
     dry = rifle_dry(seed, close=1.0)
@@ -594,6 +647,10 @@ def reed_chime(v):
 
 # ---- write ------------------------------------------------------------------
 
+for voice in VOICES:
+    for v in range(3):
+        write(f"{voice}_Own_{v}", gun_own(voice, v), stereo=True)
+        write(f"{voice}_Near_{v}", gun_near(voice, v))
 for v in range(4):
     write(f"Shot_Own_{v}", rifle_own(v), stereo=True)
     write(f"Shot_Near_{v}", rifle_near(v))

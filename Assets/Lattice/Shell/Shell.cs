@@ -24,6 +24,8 @@ namespace Lattice.Shell
         public bool Auto;
         /// <summary>Open this screen once the world is up (screenshots): map, menu, settings.</summary>
         public string ShowAtStart;
+        /// <summary>A self-check's class (--kit N; -1: the one chosen last).</summary>
+        public int Kit = -1;
 
         Lattice.World.WorldView world;
         DeployScreen deploy;
@@ -160,6 +162,8 @@ namespace Lattice.Shell
 
             Show(deploy, showDeploy);
             deploy.Auto = Auto;
+            if (Kit >= 0)
+                deploy.Kit = Kit;
             Show(death, showDeath && !menuOpen && !mapOpen);
             Show(map, mapOpen && !menuOpen);
             if (menuOpen && !menu.gameObject.activeSelf)

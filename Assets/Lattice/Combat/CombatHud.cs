@@ -43,7 +43,9 @@ namespace Lattice.Combat
         const float MarkSecs = 0.26f, KillMarkSecs = 0.42f, ArcSecs = 1.4f, FeedSecs = 6f;
         const int Arcs = 4, FeedLines = 5;
 
-        RectTransform root, reticle, marker;
+        RectTransform root, reticle, marker, scope;
+        Graphic[] scopeParts;
+        float shownScope = -1f;
         readonly RectTransform[] ticks = new RectTransform[4];
         readonly Image[] tickImages = new Image[8];
         Image centerDot, centerShadow;
@@ -81,7 +83,7 @@ namespace Lattice.Combat
         TextMeshProUGUI ammoLabel, ammoCount, ammoPrompt;
         Image[] rounds;
         readonly CharBuf ammoBuf = new CharBuf(64);
-        int shownMag = -1, shownReserve = -1, shownFill = -1, shownAmmoState = -1, shownPrompt = -1;
+        int shownMag = -1, shownReserve = -1, shownFill = -1, shownAmmoState = -1, shownPrompt = -1, shownRounds = -1;
         static readonly Color Low = new Color(0.98f, 0.72f, 0.22f);
         static readonly Color Out = new Color(0.95f, 0.3f, 0.24f);
         static readonly Color Spent = new Color(1f, 1f, 1f, 0.09f);
@@ -97,6 +99,7 @@ namespace Lattice.Combat
             var canvas = UiKit.Canvas("Combat HUD", 5, transform);
             root = (RectTransform)canvas.transform;
             BuildVignette();
+            BuildScope();
             BuildReticle();
             BuildMarker();
             BuildArcs();
@@ -118,6 +121,78 @@ namespace Lattice.Combat
             vignette = UiKit.Box("Hurt vignette", root, new Color(Blood.r, Blood.g, Blood.b, 0f));
             vignette.sprite = Sprites.Vignette;
             UiKit.Fill(vignette.rectTransform);
+        }
+
+        /// <summary>The scope's picture, fully down the marksman rifle's sights: its lens
+        /// a circle the screen's height, black around it, a crosshair with heavy posts
+        /// and an amber dot (the aim, at the screen's center).</summary>
+        void BuildScope()
+        {
+            scope = UiKit.Rect("Scope", root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1080f, 1080f));
+            var lens = new GameObject("Lens", typeof(RectTransform)).AddComponent<RawImage>();
+            lens.transform.SetParent(scope, false);
+            lens.texture = ScopeTexture();
+            lens.raycastTarget = false;
+            UiKit.Fill(lens.rectTransform);
+            var left = UiKit.Box("Left", scope, Color.black);
+            var right = UiKit.Box("Right", scope, Color.black);
+            foreach (var (bar, side) in new[] { (left, 0f), (right, 1f) })
+            {
+                var r = bar.rectTransform;
+                r.anchorMin = new Vector2(side, 0f);
+                r.anchorMax = new Vector2(side, 1f);
+                r.pivot = new Vector2(1f - side, 0.5f);
+                r.anchoredPosition = Vector2.zero;
+                r.sizeDelta = new Vector2(4000f, 0f);
+            }
+            scopeParts = new Graphic[] { lens, left, right };
+            scope.gameObject.SetActive(false);
+        }
+
+        static Texture2D ScopeTexture()
+        {
+            const int N = 1024;
+            var tex = new Texture2D(N, N, TextureFormat.RGBA32, false) { name = "Scope", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            var px = new Color32[N * N];
+            const float Px = 1f / N, Edge = 0.475f;
+            for (int y = 0; y < N; y++)
+            for (int x = 0; x < N; x++)
+            {
+                float u = (x + 0.5f) / N - 0.5f, v = (y + 0.5f) / N - 0.5f;
+                float r = Mathf.Sqrt(u * u + v * v), au = Mathf.Abs(u), av = Mathf.Abs(v);
+                // Black past the lens, its rim shading in; a faint shade over the glass.
+                float a = Mathf.Max(Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(Edge - 0.035f, Edge, r)), 0.05f + 0.3f * Mathf.Pow(Mathf.Min(r / Edge, 1f), 6f));
+                // Fine lines through the middle (a gap at the center), heavy posts from the
+                // sides and below.
+                float fine = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.6f * Px, 1.6f * Px, Mathf.Min(av + (au < 0.01f ? 1f : 0f), au + (av < 0.01f ? 1f : 0f))));
+                float heavy = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(2.5f * Px, 3.5f * Px, Mathf.Min(au > 0.22f ? av : 1f, v < -0.22f ? au : 1f)));
+                a = Mathf.Max(a, 0.9f * Mathf.Max(fine, heavy));
+                var c = new Color32(0, 0, 0, (byte)(a * 255f));
+                float dot = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(2f * Px, 3.2f * Px, r));
+                if (dot > 0f)
+                    c = Color32.Lerp(c, new Color32(255, 150, 60, 255), dot);
+                px[y * N + x] = c;
+            }
+            tex.SetPixels32(px);
+            tex.Apply(false, true);
+            return tex;
+        }
+
+        void Scope(Lattice.LocalPlayer.LocalPlayer p, bool shown)
+        {
+            float s = shown && Gun != null && p != null && p.Mode == ViewMode.FirstPerson ? Gun.Scoped : 0f;
+            bool on = s > 0.001f;
+            if (scope.gameObject.activeSelf != on)
+                scope.gameObject.SetActive(on);
+            if (!on || s == shownScope)
+                return;
+            shownScope = s;
+            foreach (var g in scopeParts)
+            {
+                var c = g.color;
+                c.a = s;
+                g.color = c;
+            }
         }
 
         void BuildReticle()
@@ -257,24 +332,40 @@ namespace Lattice.Combat
             track.pivot = new Vector2(0f, 0f);
             track.offsetMin = new Vector2(14f, 12f);
             track.offsetMax = new Vector2(-18f, 20f);
-            int n = Mathf.Max(1, LtConst.Magazine);
-            rounds = new Image[n];
-            for (int i = 0; i < n; i++)
-            {
-                var seg = UiKit.Box($"Round {i}", track, UiKit.Ink);
-                var r = seg.rectTransform;
-                // A sliver of gap between rounds, as a cell's charge marks.
-                float gap = 0.18f / n;
-                r.anchorMin = new Vector2(i / (float)n + gap * 0.5f, 0f);
-                r.anchorMax = new Vector2((i + 1) / (float)n - gap * 0.5f, 1f);
-                r.offsetMin = r.offsetMax = Vector2.zero;
-                rounds[i] = seg;
-            }
+            // As many segments as the biggest magazine; a class shows its own (U6).
+            int n = 0;
+            for (int k = 0; k < Weapons.Count; k++)
+                n = Mathf.Max(n, Weapons.Of(k).magazine);
+            rounds = new Image[Mathf.Max(1, n)];
+            for (int i = 0; i < rounds.Length; i++)
+                rounds[i] = UiKit.Box($"Round {i}", track, UiKit.Ink);
+            LayRounds(LtConst.Magazine);
             ammoPrompt = UiKit.Text("Prompt", root, UiKit.Display, 19f, Low, TextAlignmentOptions.Center);
             ammoPrompt.characterSpacing = 5f;
             UiKit.Warm(ammoPrompt, 64);
             Place(ammoPrompt.rectTransform, new Vector2(0f, -64f), new Vector2(300f, 26f));
             ammoPrompt.gameObject.SetActive(false);
+        }
+
+        /// <summary>The first <paramref name="n"/> segments across the track (a magazine's
+        /// rounds), the rest hidden.</summary>
+        void LayRounds(int n)
+        {
+            shownRounds = n = Mathf.Clamp(n, 1, rounds.Length);
+            for (int i = 0; i < rounds.Length; i++)
+            {
+                bool on = i < n;
+                rounds[i].gameObject.SetActive(on);
+                if (!on)
+                    continue;
+                var r = rounds[i].rectTransform;
+                // A sliver of gap between rounds, as a cell's charge marks.
+                float gap = Mathf.Min(0.18f / n, 0.03f);
+                r.anchorMin = new Vector2(i / (float)n + gap * 0.5f, 0f);
+                r.anchorMax = new Vector2((i + 1) / (float)n - gap * 0.5f, 1f);
+                r.offsetMin = r.offsetMax = Vector2.zero;
+            }
+            shownFill = -1;
         }
 
         void BuildFeed()
@@ -335,6 +426,7 @@ namespace Lattice.Combat
             if (Test && live)
                 Script(f, p, now);
 
+            Scope(p, body && !dead);
             Reticle(f, p, body && !dead, dt);
             Marker(now);
             DamageArcs(p, now, dt);
@@ -535,7 +627,10 @@ namespace Lattice.Combat
                 ammoPanel.gameObject.SetActive(on);
             int mag = f.Own.mag, reserve = f.Own.reserve;
             bool reloading = f.Own.reload > 0f;
-            bool low = mag * 4 <= LtConst.Magazine;
+            int magazine = Weapons.Of(f.Own.kit).magazine;
+            if (magazine != shownRounds)
+                LayRounds(magazine);
+            bool low = mag * 4 <= magazine;
             bool empty = mag == 0 && reserve == 0 && !reloading;
             // The prompt: 0 none, 1 RELOAD, 2 NO AMMO.
             bool dry = Gun != null && now - Gun.DryAt < 0.7f;
@@ -576,7 +671,7 @@ namespace Lattice.Combat
                 shownFill = -1;
             }
             // Reloading, the segments fill as it runs (as far as the reserve goes).
-            int n = rounds.Length;
+            int n = shownRounds;
             int fill;
             if (reloading)
             {

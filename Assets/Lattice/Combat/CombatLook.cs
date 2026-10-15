@@ -35,6 +35,18 @@ namespace Lattice.Combat
         /// <summary>The muzzle, in the rifle's frame at size 1.</summary>
         public Vector3 Muzzle = new Vector3(0f, 0.069f, 0.5f);
 
+        [Header("The classes' weapons (U6)")]
+        /// <summary>Each class's first-person weapon by kit (0: <see cref="ViewRifle"/>), as
+        /// SoldierLook's: Tools/Blender/weapons_fbx.py. Muzzles and sights are SoldierLook's.</summary>
+        public Mesh[] ViewWeapons = new Mesh[5];
+        /// <summary>The scope's rear lens on its line of sight (the rifle's frame at size 1),
+        /// as <see cref="Sight"/> is the holographic sight's, and how far it zooms. Fully
+        /// down it, the view is the scope's picture (the HUD's), not the rifle.</summary>
+        public Vector3 ScopeSight = new Vector3(0f, 0.206f, -0.2565f);
+        public float ScopeZoom = 3f;
+
+        public Mesh ViewWeaponOf(int kit) => kit > 0 && kit < ViewWeapons.Length && ViewWeapons[kit] != null ? ViewWeapons[kit] : ViewRifle;
+
         [Header("The ammo cell")]
         /// <summary>The rifle's cell (Tools/Blender/cell_fbx.py): a canister across the
         /// receiver's round bay that a reload takes out and puts back. Centered on its

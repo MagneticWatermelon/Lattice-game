@@ -1,5 +1,6 @@
 using System;
 using Lattice.Native;
+using Lattice.Net;
 using UnityEngine;
 
 namespace Lattice.Combat
@@ -190,8 +191,10 @@ namespace Lattice.Combat
         /// </summary>
         public void Follow(float left, float now, Vector3 grip, Vector3 gripFingers, Vector3 gripBack)
         {
-            float tactical = LtConst.ReloadSteps / (float)LtConst.TickHz;
-            float empty = LtConst.ReloadEmptySteps / (float)LtConst.TickHz;
+            // The motion is keyed to the assault rifle's reloads; another weapon's
+            // plays it paced to its own (U6).
+            ref readonly var w = ref Weapons.Of(NetDriver.Frame.Own.kit);
+            float tactical = w.reloadSecs, empty = w.reloadEmptySecs;
             if (DebugAt >= 0f)
             {
                 if (!Active || Empty != DebugEmpty || hand == null)
@@ -213,19 +216,21 @@ namespace Lattice.Combat
                 // The plugin counts whole steps: a reload with n steps left is
                 // between n and n-1 from its end. Ours runs smooth; if it's off by
                 // more than that (a correction), it jumps.
-                float plugin = Total - left;
+                float real = Empty ? empty : tactical;
+                pace = Total / Mathf.Max(real, 0.1f);
+                float plugin = real - left;
                 float t = now - start;
                 if (t < plugin - 0.02f || t > plugin + 1f / LtConst.TickHz + 0.03f)
                     start = now - plugin;
-                T = Mathf.Min(now - start, Total);
+                T = Mathf.Min((now - start) * pace, Total);
             }
             else if (Active)
             {
                 // Done, or cut short (a death, a respawn, a correction): run out what
                 // little is left, or blend out from where it was.
-                if (now - start >= Total - 0.08f && abortAt < 0f)
+                if ((now - start) * pace >= Total - 0.08f && abortAt < 0f)
                 {
-                    T = now - start;
+                    T = (now - start) * pace;
                     if (T > Total + 0.25f)
                         Active = false;
                 }
@@ -233,7 +238,7 @@ namespace Lattice.Combat
                 {
                     if (abortAt < 0f)
                         (abortAt, abortFrom) = (now, Weight);
-                    T = now - start;
+                    T = (now - start) * pace;
                     if (now - abortAt > 0.18f)
                         Active = false;
                 }
@@ -243,6 +248,9 @@ namespace Lattice.Combat
             while (Active && abortAt < 0f && cues != null && cue < cues.Length && T >= cueAt[cue])
                 Cued?.Invoke(cues[cue++]);
         }
+
+        /// <summary>The motion's seconds a second of the weapon's reload (1: the assault rifle's).</summary>
+        float pace = 1f;
 
         // Each kind's keys, built once (the first reload of each, or Prepare): never per frame.
         readonly HandKey[][] handKeys = new HandKey[2][];

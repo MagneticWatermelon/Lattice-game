@@ -157,6 +157,7 @@ namespace Lattice.Game
             shell = Lattice.Shell.Shell.Create(transform, world, title);
             shell.Auto = Options.Autoplay || Options.Autotarget || Options.Autofire || Options.HudTest;
             shell.ShowAtStart = Options.Show;
+            shell.Kit = Options.Kit;
             shell.Quit = Quit;
             shell.Connect = Join;
             if (title)

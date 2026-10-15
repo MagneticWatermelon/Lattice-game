@@ -25,8 +25,9 @@ namespace Lattice.Shell
         public MapView Map { get; private set; }
         /// <summary>Self-checks: deploy at the top spawn a second after the screen opens.</summary>
         public bool Auto;
-        /// <summary>The kit to deploy with (U6's loadouts; 0: the rifleman).</summary>
+        /// <summary>The class to deploy as (U6: a kit, <see cref="Weapons"/>), remembered between games.</summary>
         public int Kit;
+        const string KitPref = "Lattice.Kit";
 
         RectTransform column;
         TextMeshProUGUI side, xp, status, deployText;
@@ -36,6 +37,10 @@ namespace Lattice.Shell
         Clickable deploy;
         Image deployFill;
         RectTransform loadout;
+        readonly Clickable[] kits = new Clickable[5];
+        readonly Image[] kitBars = new Image[5];
+        TextMeshProUGUI kitAbout;
+        int shownKit = -1;
         readonly List<Option> options = new List<Option>();
         int selected = -1;
         /// <summary>Rows shown: fewer under a recap, so the loadout and the button fit.</summary>
@@ -99,10 +104,20 @@ namespace Lattice.Shell
             for (int i = 0; i < Rows; i++)
                 rows[i] = MakeRow(i, 38f + i * RowH);
             loadout = Widgets.At(column, "Loadout", 0f, 0f, Column, 110f);
-            Widgets.Heading(loadout, "LOADOUT", 0f, 0f, Column);
-            Widgets.Box(loadout, Widgets.Card, 0f, 38f, Column, 66f);
-            Widgets.Label(loadout, "RIFLEMAN", 20f, 44f, 300f, 30f, 26f);
-            Widgets.Label(loadout, "assault rifle  ·  30 rounds + 180  ·  600 m/s, 20 body / 40 head", 20f, 74f, Column - 40f, 22f, 15f, true, UiKit.Muted);
+            Widgets.Heading(loadout, "CLASS", 0f, 0f, Column);
+            // A tile a class (GDD §4.3): its name and its weapon; the chosen one's numbers below.
+            Kit = Mathf.Clamp(PlayerPrefs.GetInt(KitPref, 0), 0, Weapons.Count - 1);
+            float tile = (Column - 4 * 8f) / 5f;
+            for (int k = 0; k < kits.Length && k < Weapons.Count; k++)
+            {
+                int kit = k;
+                var c = Widgets.Clickable(loadout, $"Class {k}", k * (tile + 8f), 36f, tile, 50f, Widgets.Row, Widgets.RowHover, () => PickKit(kit));
+                kitBars[k] = Widgets.Box(c.transform, UiKit.Accent, 0f, 46f, tile, 4f);
+                Widgets.Label(c.transform, Weapons.Class(k), 10f, 4f, tile - 20f, 26f, 21f);
+                Widgets.Label(c.transform, Weapons.Name(k).ToLowerInvariant(), 10f, 26f, tile - 20f, 18f, 13f, true, UiKit.Muted);
+                kits[k] = c;
+            }
+            kitAbout = Widgets.Label(loadout, "", 0f, 92f, Column, 22f, 15f, true, UiKit.Muted);
             deploy = Widgets.Button(column, "DEPLOY", 0f, 1000f - 84f, Column, 84f, Deploy, true, UiKit.Accent, 30f);
             deployText = deploy.Text;
             deployText.textWrappingMode = TextWrappingModes.NoWrap;
@@ -171,6 +186,34 @@ namespace Lattice.Shell
             };
         }
 
+        void PickKit(int kit)
+        {
+            Kit = kit;
+            PlayerPrefs.SetInt(KitPref, kit);
+        }
+
+        /// <summary>The classes' tiles, the chosen one lit; its weapon in numbers.</summary>
+        void Kits(Color ink)
+        {
+            for (int k = 0; k < kits.Length && kits[k] != null; k++)
+            {
+                bool on = k == Kit;
+                kits[k].Lit = on;
+                kits[k].SetColors(on ? new Color(ink.r, ink.g, ink.b, 0.14f) : Widgets.Row, on ? new Color(ink.r, ink.g, ink.b, 0.2f) : Widgets.RowHover);
+                kitBars[k].color = on ? ink : new Color(1f, 1f, 1f, 0.06f);
+            }
+            if (Kit == shownKit)
+                return;
+            shownKit = Kit;
+            ref readonly var w = ref Weapons.Of(Kit);
+            unsafe
+            {
+                string dmg = w.damage[0] == w.farDamage[0] ? $"{w.damage[0]}" : $"{w.damage[0]}-{w.farDamage[0]}";
+                string pellets = w.pellets > 1 ? $"{w.pellets} x " : "";
+                kitAbout.text = $"{Weapons.Roles[Kit]}  ·  {pellets}{dmg} a hit, {1f / w.intervalSecs:0.#}/s  ·  {w.magazine} + {w.reserve}  ·  {w.speed:0} m/s";
+            }
+        }
+
         void Pick(int site)
         {
             var f = NetDriver.Frame;
@@ -235,6 +278,7 @@ namespace Lattice.Shell
                 Options(f, us);
             }
             Rows_(f, ink);
+            Kits(ink);
             Button(f, ink);
             Map.Selected = selected;
             if (f.Shell.refusals != shownRefusals)

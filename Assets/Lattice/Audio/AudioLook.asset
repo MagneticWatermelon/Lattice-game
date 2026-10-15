@@ -27,6 +27,38 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 726d6342ac2cc8e43865921a7750dbec, type: 3}
   - {fileID: 8300000, guid: d16480b3afd77d843968f6dfbdcc2987, type: 3}
   - {fileID: 8300000, guid: 433687e87e574d2459dd390db49e3b37, type: 3}
+  CarbineOwn:
+  - {fileID: 8300000, guid: d2af731263f85f5419561498fd93997f, type: 3}
+  - {fileID: 8300000, guid: fbf059eaacf95b14a8963eb2c9441761, type: 3}
+  - {fileID: 8300000, guid: df3077463caac204e9913609d45d2035, type: 3}
+  CarbineNear:
+  - {fileID: 8300000, guid: e80e9a21462b3ec45b021c8f73a3b2f2, type: 3}
+  - {fileID: 8300000, guid: 0f4b9b9a4d2bfdb4b9442c1ab836b7cb, type: 3}
+  - {fileID: 8300000, guid: e951246533fb49d4dafcf227549511a7, type: 3}
+  ShotgunOwn:
+  - {fileID: 8300000, guid: fe63cc609c109bf4ea65fe01862d7d55, type: 3}
+  - {fileID: 8300000, guid: ed128279155145242b95cf9176a93321, type: 3}
+  - {fileID: 8300000, guid: 08259ba44d4867042b1d0de842b2e2a7, type: 3}
+  ShotgunNear:
+  - {fileID: 8300000, guid: daaf5237e64455240a3132c38b1893f8, type: 3}
+  - {fileID: 8300000, guid: 0ece1eef0545fe445b1673131429889d, type: 3}
+  - {fileID: 8300000, guid: 3442bb2fa9755ad4984c1c6b19b35ac8, type: 3}
+  MarksmanOwn:
+  - {fileID: 8300000, guid: aa34067a8d48aa34b85eca370c2d2d7c, type: 3}
+  - {fileID: 8300000, guid: 93b65b54f5a1e7441a1936e1359c7ca6, type: 3}
+  - {fileID: 8300000, guid: ea1306f9e2ae67e489de09a7551d52c8, type: 3}
+  MarksmanNear:
+  - {fileID: 8300000, guid: 19d57ac1a7d743344911043527e80a4d, type: 3}
+  - {fileID: 8300000, guid: 43593b487a6808e4d9a362396113b4ee, type: 3}
+  - {fileID: 8300000, guid: 55fd5f169a09984478aaa74c6052853d, type: 3}
+  SmgOwn:
+  - {fileID: 8300000, guid: 216c582b7343a24469845f5b07a2e951, type: 3}
+  - {fileID: 8300000, guid: 74b3fb8e65a15dc4ab2fd454c884b46e, type: 3}
+  - {fileID: 8300000, guid: 32eeeab59a2e3e04994d295185b3c761, type: 3}
+  SmgNear:
+  - {fileID: 8300000, guid: 898506b113e0dee4c94e9e7a5ffc2f01, type: 3}
+  - {fileID: 8300000, guid: 55d87fd0b8bd0e54394e009a80990cfe, type: 3}
+  - {fileID: 8300000, guid: 12ad7d9b2b9927b48a575504fe8cd2cd, type: 3}
   Crack:
   - {fileID: 8300000, guid: 0f2ec4a36b831464585e85a460083679, type: 3}
   - {fileID: 8300000, guid: 1b0faddf2ef57b94db7c1361f3c40ae1, type: 3}

@@ -15,11 +15,11 @@ namespace Lattice.Native
         /// <summary>
         /// The plugin API's version (lt_version).
         /// </summary>
-        public const uint Version = 9;
+        public const uint Version = 10;
         /// <summary>
         /// The layout hash of these bindings (lt_layout_hash).
         /// </summary>
-        public const ulong LayoutHash = 0xC466714CE3275705;
+        public const ulong LayoutHash = 0x7B9124D513663FE2;
         /// <summary>
         /// Game steps a second.
         /// </summary>
@@ -431,13 +431,37 @@ namespace Lattice.Native
         /// </summary>
         public const int RefusedInvalid = 5;
         /// <summary>
-        /// Killed by the rifle.
+        /// Killed by the assault rifle (any other weapon: its kit).
         /// </summary>
         public const int CauseRifle = 0;
         /// <summary>
         /// Killed by a fall.
         /// </summary>
-        public const int CauseFall = 1;
+        public const int CauseFall = 255;
+        /// <summary>
+        /// The assault: the assault rifle (U6).
+        /// </summary>
+        public const int ClassAssault = 0;
+        /// <summary>
+        /// The medic: the carbine.
+        /// </summary>
+        public const int ClassMedic = 1;
+        /// <summary>
+        /// The engineer: the shotgun.
+        /// </summary>
+        public const int ClassEngineer = 2;
+        /// <summary>
+        /// The recon: the marksman rifle.
+        /// </summary>
+        public const int ClassRecon = 3;
+        /// <summary>
+        /// The skirmisher: the SMG.
+        /// </summary>
+        public const int ClassSkirmisher = 4;
+        /// <summary>
+        /// How many classes there are.
+        /// </summary>
+        public const int Classes = 5;
         /// <summary>
         /// A head shot.
         /// </summary>
@@ -828,7 +852,7 @@ namespace Lattice.Native
     /// <summary>
     /// Our own player.
     /// </summary>
-    [StructLayout(LayoutKind.Explicit, Size = 60)]
+    [StructLayout(LayoutKind.Explicit, Size = 64)]
     public unsafe partial struct LtOwn
     {
         /// <summary>
@@ -871,14 +895,18 @@ namespace Lattice.Native
         /// </summary>
         [FieldOffset(52)] public byte crouched;
         /// <summary>
+        /// Our class (`LT_CLASS_*`, U6): our weapon (`lt_weapon`), this life's.
+        /// </summary>
+        [FieldOffset(53)] public byte kit;
+        /// <summary>
         /// The rifle's rounds (predicted): in the magazine, and carried.
         /// </summary>
-        [FieldOffset(53)] public byte mag;
-        [FieldOffset(54)] public ushort reserve;
+        [FieldOffset(54)] public byte mag;
+        [FieldOffset(56)] public ushort reserve;
         /// <summary>
         /// Seconds left of the reload under way; 0: none.
         /// </summary>
-        [FieldOffset(56)] public float reload;
+        [FieldOffset(60)] public float reload;
     }
 
     /// <summary>
@@ -902,7 +930,10 @@ namespace Lattice.Native
         /// </summary>
         [FieldOffset(5)] public byte flags;
         [FieldOffset(6)] public byte health;
-        [FieldOffset(7)] public byte reserved;
+        /// <summary>
+        /// Its class (`LT_CLASS_*`, U6): its weapon and its look.
+        /// </summary>
+        [FieldOffset(7)] public byte kit;
         /// <summary>
         /// The feet.
         /// </summary>
@@ -1064,6 +1095,59 @@ namespace Lattice.Native
     }
 
     /// <summary>
+    /// A weapon's numbers (`lt_weapon`; GDD §4.5): what the HUD, the sounds
+    /// and the view's recoil follow.
+    /// </summary>
+    [StructLayout(LayoutKind.Explicit, Size = 72)]
+    public unsafe partial struct LtWeapon
+    {
+        /// <summary>
+        /// Muzzle speed, m/s.
+        /// </summary>
+        [FieldOffset(0)] public float speed;
+        /// <summary>
+        /// Seconds between shots.
+        /// </summary>
+        [FieldOffset(4)] public float intervalSecs;
+        /// <summary>
+        /// Damage to the body and the head up close, and from `falloff[1]` m
+        /// on (in a line between `falloff[0]` and `falloff[1]`).
+        /// </summary>
+        [FieldOffset(8)] public fixed byte damage[2];
+        [FieldOffset(10)] public fixed byte farDamage[2];
+        [FieldOffset(12)] public fixed float falloff[2];
+        /// <summary>
+        /// Projectiles a shot fires (a shotgun's pellets), over a cone this
+        /// many degrees round the shot.
+        /// </summary>
+        [FieldOffset(20)] public byte pellets;
+        [FieldOffset(21)] public byte magazine;
+        [FieldOffset(22)] public ushort reserve;
+        [FieldOffset(24)] public float pelletCone;
+        /// <summary>
+        /// How long a projectile flies, s.
+        /// </summary>
+        [FieldOffset(28)] public float rangeSecs;
+        /// <summary>
+        /// A reload, and from empty, s.
+        /// </summary>
+        [FieldOffset(32)] public float reloadSecs;
+        [FieldOffset(36)] public float reloadEmptySecs;
+        /// <summary>
+        /// The cone of fire, degrees: down the sights standing and moving,
+        /// from the hip standing and moving.
+        /// </summary>
+        [FieldOffset(40)] public fixed float cone[4];
+        /// <summary>
+        /// Recoil on the view: up a shot, the first of a burst this many times
+        /// as much, sideways within these (degrees; positive: right).
+        /// </summary>
+        [FieldOffset(56)] public float recoilUp;
+        [FieldOffset(60)] public float recoilFirst;
+        [FieldOffset(64)] public fixed float recoilSide[2];
+    }
+
+    /// <summary>
     /// A site's fight (`lt_fights`).
     /// </summary>
     [StructLayout(LayoutKind.Explicit, Size = 6)]
@@ -1103,7 +1187,11 @@ namespace Lattice.Native
         /// The shooter, or `LT_NOBODY`.
         /// </summary>
         [FieldOffset(4)] public ushort shooter;
-        [FieldOffset(6)] public ushort reserved;
+        /// <summary>
+        /// Shots: the shooter's weapon (its kit; a distant fight's, 0).
+        /// </summary>
+        [FieldOffset(6)] public byte kit;
+        [FieldOffset(7)] public byte reserved;
         /// <summary>
         /// Shots: the muzzle; impacts: the point hit.
         /// </summary>
@@ -1718,6 +1806,12 @@ namespace Lattice.Native
         /// </summary>
         [NonSerialized] public delegate* unmanaged[Cdecl]<IntPtr, LtFight*, int, int> lt_fights;
         /// <summary>
+        /// Kit `kit`'s weapon (a class's, `LT_CLASS_*`) into `out`; returns 1,
+        /// or 0 for no such kit (`out` is then the assault rifle's).
+        /// (byte kit, LtWeapon* out)
+        /// </summary>
+        [NonSerialized] public delegate* unmanaged[Cdecl]<byte, LtWeapon*, int> lt_weapon;
+        /// <summary>
         /// The net graph's numbers.
         /// (IntPtr s, LtStats* out)
         /// </summary>
@@ -1859,6 +1953,7 @@ namespace Lattice.Native
             p = proc("lt_spawn_options"); if (p == IntPtr.Zero) missing.Append(" lt_spawn_options"); lt_spawn_options = (delegate* unmanaged[Cdecl]<IntPtr, LtSpawnOption*, int, int>)(void*)p;
             p = proc("lt_recap"); if (p == IntPtr.Zero) missing.Append(" lt_recap"); lt_recap = (delegate* unmanaged[Cdecl]<IntPtr, LtRecap*, int>)(void*)p;
             p = proc("lt_fights"); if (p == IntPtr.Zero) missing.Append(" lt_fights"); lt_fights = (delegate* unmanaged[Cdecl]<IntPtr, LtFight*, int, int>)(void*)p;
+            p = proc("lt_weapon"); if (p == IntPtr.Zero) missing.Append(" lt_weapon"); lt_weapon = (delegate* unmanaged[Cdecl]<byte, LtWeapon*, int>)(void*)p;
             p = proc("lt_stats"); if (p == IntPtr.Zero) missing.Append(" lt_stats"); lt_stats = (delegate* unmanaged[Cdecl]<IntPtr, LtStats*, void>)(void*)p;
             p = proc("lt_snapshot_gaps"); if (p == IntPtr.Zero) missing.Append(" lt_snapshot_gaps"); lt_snapshot_gaps = (delegate* unmanaged[Cdecl]<IntPtr, float*, int, int>)(void*)p;
             p = proc("lt_summary"); if (p == IntPtr.Zero) missing.Append(" lt_summary"); lt_summary = (delegate* unmanaged[Cdecl]<IntPtr, byte*, int, int>)(void*)p;

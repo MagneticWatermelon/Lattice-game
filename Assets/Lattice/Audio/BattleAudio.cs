@@ -271,7 +271,7 @@ namespace Lattice.Audio
         void OnOwnShot()
         {
             nOwn++;
-            PlayHead(Pick(Look.ShotOwn), Look.OwnShot, 0.97f + 0.06f * Rand());
+            PlayHead(Pick(Look.Shot(NetDriver.Frame.Own.kit, true)), Look.OwnShot, 0.97f + 0.06f * Rand());
         }
 
         /// <summary>Our reload, as its motion passes each sound: a little left of
@@ -421,7 +421,9 @@ namespace Lattice.Audio
             if (fx.tracer == LtCode.TracerAmbient)
                 level *= 0.6f;
             if (far) nFar++; else nNear++;
-            PlayAt(Pick(far ? Look.ShotFar : Look.ShotNear), pos, level, Air(d), d / Look.SoundSpeed, 0.95f + 0.1f * Rand());
+            // A far shot's the rifle's report for every weapon, a shotgun's lower.
+            float pitch = (far && fx.kit == 2 ? 0.8f : 0.95f) + 0.1f * Rand();
+            PlayAt(Pick(far ? Look.ShotFar : Look.Shot(fx.kit, false)), pos, level, Air(d), d / Look.SoundSpeed, pitch);
         }
 
         void Impact(in LtFx fx, Vector3 ear)

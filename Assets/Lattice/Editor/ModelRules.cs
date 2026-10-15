@@ -25,10 +25,10 @@ namespace Lattice.EditorTools
             m.importCameras = false;
             m.importLights = false;
             m.importBlendShapes = false;
-            // The crowd's rifle stays readable: the crowd combines it into its poses
+            // The crowd's rifles stay readable: the crowd combines them into its poses
             // at run time (Mesh.CombineMeshes), which in a player needs the CPU copy
             // (the editor always has one).
-            m.isReadable = assetPath.EndsWith("/Combat/Rifle/RifleLow.fbx");
+            m.isReadable = assetPath.EndsWith("/Combat/Rifle/RifleLow.fbx") || (assetPath.Contains("/Combat/Weapons/") && assetPath.EndsWith("Low.fbx"));
             m.meshCompression = ModelImporterMeshCompression.Off;
             m.importNormals = ModelImporterNormals.Import;
             m.importTangents = ModelImporterTangents.CalculateMikk;

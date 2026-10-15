@@ -51,7 +51,13 @@ namespace Lattice.Combat
         public bool Ads { get; private set; }
         /// <summary>0 from the hip, 1 down the sights (eased between).</summary>
         public float Blend { get; private set; }
-        public float SensitivityScale => 1f - Blend * (1f - 1f / LtConst.AdsZoom);
+        public float SensitivityScale => 1f - Blend * (1f - 1f / AdsZoom(NetDriver.Frame.Own.kit));
+        /// <summary>How far into the scope's own picture (0..1): the marksman rifle's,
+        /// fully down its sights; at 1 the rifle isn't drawn (the HUD shows the scope).</summary>
+        public float Scoped { get; private set; }
+
+        /// <summary>The view's zoom down kit <paramref name="kit"/>'s sights.</summary>
+        float AdsZoom(int kit) => Soldier != null && Soldier.Scoped(kit) ? Look.ScopeZoom : LtConst.AdsZoom;
         public float LastShot { get; private set; } = -10f;
         /// <summary>When the trigger was last pulled dry (no rounds at all), for the HUD; how often (the report).</summary>
         public float DryAt { get; private set; } = -10f;
@@ -66,6 +72,8 @@ namespace Lattice.Combat
         /// <summary>The view's vertical field of view now, degrees.</summary>
         float viewFov;
         Transform rifle, flash, cell;
+        MeshFilter rifleFilter, sightFilter;
+        int shownKit;
         Light flashLight;
         ViewArms arms;
         MeshRenderer cellRenderer;
@@ -117,7 +125,8 @@ namespace Lattice.Combat
             r.layer = ViewLayer;
             rifle = r.transform;
             rifle.SetParent(go.transform, false);
-            r.AddComponent<MeshFilter>().sharedMesh = Look.ViewRifle;
+            rifleFilter = r.AddComponent<MeshFilter>();
+            rifleFilter.sharedMesh = Look.ViewRifle;
             var mr = r.AddComponent<MeshRenderer>();
             mr.sharedMaterial = Look.ViewRifleMaterial;
             mr.shadowCastingMode = ShadowCastingMode.Off;
@@ -130,7 +139,8 @@ namespace Lattice.Combat
             {
                 var hg = new GameObject("Holo sight") { layer = ViewLayer };
                 hg.transform.SetParent(rifle, false);
-                hg.AddComponent<MeshFilter>().sharedMesh = Soldier.Holo;
+                sightFilter = hg.AddComponent<MeshFilter>();
+                sightFilter.sharedMesh = Soldier.Holo;
                 var hr = hg.AddComponent<MeshRenderer>();
                 hr.sharedMaterials = new[] { Soldier.HoloBody, Soldier.HoloInner, Look.ViewHoloGlass };
                 hr.shadowCastingMode = ShadowCastingMode.Off;
@@ -215,7 +225,8 @@ namespace Lattice.Combat
             Ads = aim && !reloading;
             Blend = Mathf.MoveTowards(Blend, Ads ? 1f : 0f, dt / AdsTime);
             if (Rig != null)
-                Rig.Zoom = Mathf.Lerp(1f, LtConst.AdsZoom, Ease(Blend));
+                Rig.Zoom = Mathf.Lerp(1f, AdsZoom(own.kit), Ease(Blend));
+            Scoped = Soldier != null && Soldier.Scoped(own.kit) ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.72f, 0.97f, Blend)) : 0f;
 
             if (trigger && session != null)
             {
@@ -239,7 +250,7 @@ namespace Lattice.Combat
             triggerWas = trigger;
 
             // Recoil drifts back down once the burst is over.
-            if (t - LastShot > LtConst.RecoilDelay && debt.x > 0f)
+            if (t - LastShot > Mathf.Max(LtConst.RecoilDelay, Weapons.Of(NetDriver.Frame.Own.kit).intervalSecs) && debt.x > 0f)
             {
                 float back = Mathf.Min(LtConst.RecoilRecovery * dt, debt.x);
                 float side = debt.y * back / debt.x;
@@ -253,9 +264,15 @@ namespace Lattice.Combat
         /// rifle kicks back, the muzzle flashes, the cell pulses.</summary>
         void Shot(Lattice.LocalPlayer.LocalPlayer player, float t)
         {
-            bool first = t - LastShot > LtConst.BurstGap;
-            float up = LtConst.RecoilUp * (first ? LtConst.RecoilFirst : 1f);
-            float side = Mathf.Lerp(LtConst.RecoilSideMin, LtConst.RecoilSideMax, Rand());
+            // This class's weapon's kick (U6): a shotgun's and a marksman rifle's each shot, a burst's the first.
+            ref readonly var w = ref Weapons.Of(NetDriver.Frame.Own.kit);
+            bool first = t - LastShot > Mathf.Max(LtConst.BurstGap, w.intervalSecs * 1.5f);
+            float up = w.recoilUp * (first ? w.recoilFirst : 1f);
+            float side;
+            unsafe
+            {
+                side = Mathf.Lerp(w.recoilSide[0], w.recoilSide[1], Rand());
+            }
             player.Pitch = Mathf.Min(player.Pitch + up * Mathf.Deg2Rad, Mathf.PI / 2f - 0.01f);
             player.Yaw = Coords.Wrap(player.Yaw - side * Mathf.Deg2Rad);
             debt += new Vector2(up, side);
@@ -278,8 +295,18 @@ namespace Lattice.Combat
             if (Soldier != null)
                 Reloading.Follow(f.Welcomed && f.Own.dead == 0 ? f.Own.reload : 0f, t, Soldier.LeftGrip, Soldier.LeftFingers, Soldier.LeftBack);
             UpdateSpent(dt);
-            // (Not while the debug camera follows someone else.)
-            bool show = p != null && p.Mode == ViewMode.FirstPerson && f.Welcomed && f.Own.dead == 0 && CameraRig.Follow == 0;
+            // This class's weapon and its sight (U6).
+            int kit = f.Own.kit;
+            if (kit != shownKit)
+            {
+                shownKit = kit;
+                rifleFilter.sharedMesh = Look.ViewWeaponOf(kit);
+                if (sightFilter != null)
+                    sightFilter.sharedMesh = Soldier.SightOf(kit);
+            }
+            // (Not while the debug camera follows someone else, nor all the way down a
+            // scope: the view is then the scope's picture.)
+            bool show = p != null && p.Mode == ViewMode.FirstPerson && f.Welcomed && f.Own.dead == 0 && CameraRig.Follow == 0 && Scoped < 0.999f;
             if (rifle.gameObject.activeSelf != show)
                 rifle.gameObject.SetActive(show);
             arms?.Show(show);
@@ -336,7 +363,8 @@ namespace Lattice.Combat
             var kb = Vector2.Lerp(Look.KickHip, Look.KickAds, a);
 
             float size = Look.ViewScale;
-            var adsPos = new Vector3(0f, 0f, Look.SightDistance) - Look.Sight * size;
+            var sight = Soldier != null && Soldier.Scoped(kit) ? Look.ScopeSight : Look.Sight;
+            var adsPos = new Vector3(0f, 0f, Look.SightDistance) - sight * size;
             var pos = Vector3.Lerp(Look.Hip, adsPos, a) + Look.SprintOffset * sprint + bob
                       + new Vector3(0f, -0.035f * dip, -kb.x * kick) + new Vector3(sway.x * 0.002f, -sway.y * 0.002f, 0f);
             var rot = Quaternion.Euler(-kb.y * kick - sway.y + 2.5f * dip, sway.x, kickRoll * kick * 2f + bobRoll)
@@ -390,7 +418,7 @@ namespace Lattice.Combat
 
             // Where the tracer leaves from: the drawn muzzle, as the world camera
             // sees that point (the view's field of view differs from the world's).
-            var mv = pos + rot * (Look.Muzzle * size);
+            var mv = pos + rot * ((Soldier != null ? Soldier.MuzzleOf(kit) : Look.Muzzle) * size);
             float k = Mathf.Tan(Rig.Camera.fieldOfView * 0.5f * Mathf.Deg2Rad) / Mathf.Tan(viewFov * 0.5f * Mathf.Deg2Rad);
             muzzleView = new Vector3(mv.x * k, mv.y * k, mv.z);
             MuzzleWorld = Rig.Camera.transform.TransformPoint(muzzleView);
@@ -422,7 +450,7 @@ namespace Lattice.Combat
             if (cell == null)
                 return;
             int mag = f.Own.mag;
-            float charge = mag == 0 ? 0.04f : 0.3f + 0.7f * mag / (float)LtConst.Magazine;
+            float charge = mag == 0 ? 0.04f : 0.3f + 0.7f * mag / (float)Mathf.Max(1, Weapons.Of(f.Own.kit).magazine);
             var state = Reloading.Cell(charge, out float pulled, out _, out float glow);
             Vector3 cp;
             Quaternion cr;

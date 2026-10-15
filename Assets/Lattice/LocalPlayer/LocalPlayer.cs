@@ -241,7 +241,7 @@ namespace Lattice.LocalPlayer
             bool alive = NetDriver.Frame.Welcomed && own.dead == 0 && !Held && !UiOpen;
             bool onTarget = Autotarget && alive && Mode != ViewMode.Spectator && Target(dt);
             // The self-check tops up between fights, as a player would.
-            if (Autotarget && alive && !onTarget && targetId == LtCode.Nobody && own.reload <= 0f && own.reserve > 0 && own.mag < LtConst.Magazine / 3)
+            if (Autotarget && alive && !onTarget && targetId == LtCode.Nobody && own.reload <= 0f && own.reserve > 0 && own.mag < Weapons.Of(own.kit).magazine / 3)
                 reloadUntil = Time.unscaledTime + ReloadPress;
             // The press is held out until the reload shows as under way: held past
             // the reload's end, the next shot would start another.
@@ -270,17 +270,21 @@ namespace Lattice.LocalPlayer
         }
 
         /// <summary>
-        /// --autotarget: turn toward the nearest living enemy within 400 m (its
-        /// chest, led by how it moves and raised for the slug's drop), at a
-        /// hand's pace; true once the aim is on it. A self-check, like
-        /// --autofire: the turn is ours, the shot the plugin's as ever.
+        /// --autotarget: turn toward the nearest living enemy in sight within
+        /// its weapon's reach (its chest, led by how it moves and raised for the
+        /// slug's drop), at a hand's pace; true once the aim is on it. A
+        /// self-check, like --autofire: the turn is ours, the shot the plugin's as ever.
         /// </summary>
         bool Target(float dt)
         {
             var f = NetDriver.Frame;
             var me = f.Own.pos;
-            float best = 400f * 400f;
+            float reach = Reach(f.Own.kit);
+            float best = reach * reach;
             int k = -1;
+            var world = NetDriver.World;
+            float eye = f.Own.crouched != 0 ? LtConst.CrouchEyeHeight : LtConst.EyeHeight;
+            var from = new LtVec3 { x = me.x, y = me.y, z = me.z + eye };
             for (int i = 0; i < f.EntityCount; i++)
             {
                 var e = f.Entities[i];
@@ -291,8 +295,13 @@ namespace Lattice.LocalPlayer
                 // Keep the one we're on unless another is much nearer.
                 if (e.id == targetId)
                     d2 *= 0.6f;
-                if (d2 < best)
-                    (best, k) = (d2, i);
+                if (d2 >= best)
+                    continue;
+                // Only one we can see: through a wall it's a waste of rounds.
+                var chestAt = new LtVec3 { x = e.pos.x, y = e.pos.y, z = e.pos.z + 1.2f };
+                if (world != null && world.Raycast(from, chestAt, out _))
+                    continue;
+                (best, k) = (d2, i);
             }
             if (k < 0)
             {
@@ -308,12 +317,11 @@ namespace Lattice.LocalPlayer
                 targetVel = Vector3.Lerp(targetVel, (at - targetLast) / dt, 1f - Mathf.Exp(-dt / 0.2f));
             (targetId, targetLast) = (t.id, at);
             float tx = at.x - me.x, ty = at.y - me.y;
-            float flight = Mathf.Sqrt(tx * tx + ty * ty) / LtConst.MuzzleSpeed;
+            float flight = Mathf.Sqrt(tx * tx + ty * ty) / Weapons.Of(f.Own.kit).speed;
             tx += targetVel.x * flight;
             ty += targetVel.y * flight;
             // The chest, standing or crouched; from our own eyes, standing or crouched.
             float chest = (t.flags & LtCode.FlagCrouched) != 0 ? 0.8f : 1.2f;
-            float eye = f.Own.crouched != 0 ? LtConst.CrouchEyeHeight : LtConst.EyeHeight;
             float tz = at.z + chest + 0.5f * LtConst.Gravity * flight * flight - (me.z + eye);
             float wantYaw = Mathf.Atan2(ty, tx);
             float wantPitch = Mathf.Atan2(tz, Mathf.Sqrt(tx * tx + ty * ty));
@@ -327,6 +335,16 @@ namespace Lattice.LocalPlayer
 
         ushort targetId = LtCode.Nobody;
         Vector3 targetLast, targetVel;
+
+        /// <summary>How far the self-check takes on an enemy with kit <paramref name="kit"/>'s
+        /// weapon: twice where its damage stops falling off, or as far as its slug flies (at most 400 m).</summary>
+        static unsafe float Reach(int kit)
+        {
+            ref readonly var w = ref Weapons.Of(kit);
+            float flies = w.speed * w.rangeSecs;
+            float reach = w.damage[0] != w.farDamage[0] && w.falloff[1] > 0f ? 2f * w.falloff[1] : flies;
+            return Mathf.Clamp(Mathf.Min(reach, flies), 20f, 400f);
+        }
 
         /// <summary>Above and behind our player, looking at it.</summary>
         void PlaceSpectatorBehind()

@@ -99,6 +99,8 @@ namespace Lattice.Net
         public string Server, TokenKey, Invite, View, Spectate, Screenshot;
         /// <summary>--show map|menu|settings: open that screen once the world is up (screenshots).</summary>
         public string Show;
+        /// <summary>--kit N: deploy as class N (a self-check; -1: the one chosen last).</summary>
+        public int Kit = -1;
         /// <summary>The command line said where to connect or ran a self-check: no title
         /// screen. --title shows it anyway.</summary>
         public bool Joins, Title;
@@ -148,6 +150,7 @@ namespace Lattice.Net
                     case "--server": o.Server = Val(); o.Joins = true; break;
                     case "--title": o.Title = true; break;
                     case "--show": o.Show = Val(); break;
+                    case "--kit": o.Kit = (int)F(); break;
                     case "--world":
                         var w = Val();
                         o.World = w == "kiln" ? (ulong)LtCode.WorldKiln : w == "kit" ? (ulong)LtCode.WorldKit : w == "harrow" ? 1UL : w == "none" ? 0UL : ulong.TryParse(w, out var id) ? id : 0UL;

@@ -23,6 +23,14 @@ MonoBehaviour:
   SightDistance: 0.11
   ViewHoloGlass: {fileID: 2100000, guid: 493cbc67a95cd314198c57268ccc689d, type: 2}
   Muzzle: {x: 0, y: 0.069, z: 0.5}
+  ViewWeapons:
+  - {fileID: 8707901099844997707, guid: cb69a531e2cf03340987cb1ff2e3fa51, type: 3}
+  - {fileID: -3987579647812693606, guid: 04a7c37cd47335c46b25de89abb16988, type: 3}
+  - {fileID: -9115550942314561706, guid: 97fe5cf790e307b49bf2cf55a348f9a5, type: 3}
+  - {fileID: -4570024056787598942, guid: a2665894f901945489c9102f4943644f, type: 3}
+  - {fileID: 3935673884406830558, guid: 464a7d798d5ec874799055daf1b91a4c, type: 3}
+  ScopeSight: {x: 0, y: 0.206, z: -0.2565}
+  ScopeZoom: 3
   Cell: {fileID: 5264201581553841347, guid: 7a202e327b6cdb34291c37d988b8e1c6, type: 3}
   CellBody: {fileID: 2100000, guid: b9ecceed03635c8458d08bb33af18e5d, type: 2}
   CellTrim: {fileID: 2100000, guid: d5d42af6ba213b24e89800101087cbb9, type: 2}

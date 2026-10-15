@@ -25,6 +25,13 @@ namespace Lattice.EditorTools
             }
             look.ViewRifle = AssetDatabase.LoadAllAssetsAtPath($"{Dir}/Rifle/RifleView.fbx").OfType<Mesh>().First();
             look.ViewRifleMaterial = AssetDatabase.LoadAssetAtPath<Material>($"{Dir}/Rifle/RifleView.mat");
+            look.ViewWeapons = new Mesh[LatticeSetupPlayers.WeaponNames.Length];
+            look.ViewWeapons[0] = look.ViewRifle;
+            // (Set here, not left to the fields' defaults: the asset keeps what it had.)
+            look.ScopeSight = new Vector3(0f, 0.206f, -0.2565f);
+            look.ScopeZoom = 3f;
+            for (int k = 1; k < look.ViewWeapons.Length; k++)
+                look.ViewWeapons[k] = AssetDatabase.LoadAllAssetsAtPath($"{LatticeSetupPlayers.WeaponDir}/{LatticeSetupPlayers.WeaponNames[k]}View.fbx").OfType<Mesh>().First();
             look.Arms = AssetDatabase.LoadAssetAtPath<GameObject>($"{Dir}/Arms/SoldierArms.fbx");
             look.ViewHoloGlass = LatticeSetupPlayers.HoloGlass($"{Dir}/Rifle/HoloGlassView.mat", true);
             look.Cell = AssetDatabase.LoadAllAssetsAtPath($"{Dir}/Rifle/Cell.fbx").OfType<Mesh>().FirstOrDefault();

@@ -28,6 +28,26 @@ MonoBehaviour:
   RifleMuzzle: {x: 0, y: 0.069, z: 0.5}
   RifleEuler: {x: 90, y: 90, z: 0}
   RifleScale: 0.85
+  Weapons:
+  - {fileID: 624270676327525987, guid: acfaa12c1f9d40041aea9b5b3f759f6d, type: 3}
+  - {fileID: 2363575952939405280, guid: 0a2e5e7ea3425254ab297e2bdc52c828, type: 3}
+  - {fileID: 3814378201483603881, guid: a3dc55cead46d9b479a51791e1d134cc, type: 3}
+  - {fileID: 1348880320320514979, guid: a59f4d1009daaee498a7f70ab8343d9a, type: 3}
+  - {fileID: -1538856867505734987, guid: 4c2e4a9dc5df44b45bd0401255e1a32a, type: 3}
+  WeaponsLow:
+  - {fileID: -4423922550080184455, guid: 269b234d5d3e9fc46a72fa3b5763fbaf, type: 3}
+  - {fileID: 6761297753763547438, guid: 1c14d1bfaa06cd147b3f78846e0e99ad, type: 3}
+  - {fileID: -5985597849181632295, guid: 6c952818d3be3334385fd48b69f56184, type: 3}
+  - {fileID: -491409215309448369, guid: 50322487796f6904fa3cf7508096e3b9, type: 3}
+  - {fileID: -81013286218408616, guid: 769325345f0dc184bb6a34d5f1084160, type: 3}
+  Muzzles:
+  - {x: 0, y: 0.069, z: 0.5}
+  - {x: 0, y: 0.069, z: 0.3822}
+  - {x: 0, y: 0.069, z: 0.4205}
+  - {x: 0, y: 0.069, z: 0.7885}
+  - {x: 0, y: 0.069, z: 0.283}
+  Scope: {fileID: 5943889611964897698, guid: 16055f01fa5f18f46884b16c8d19d797, type: 3}
+  ScopedKit: 3
   ModelScale: 0.95
   ShoulderPocket: {x: -0.15, y: -0.07, z: 0.24}
   RightGrip: {x: 0.059, y: -0.071, z: -0.49}

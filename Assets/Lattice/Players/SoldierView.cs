@@ -39,6 +39,9 @@ namespace Lattice.Players
         float lodSize;
         int lod = -2;
         MeshRenderer rifleRenderer, holoRenderer;
+        MeshFilter rifleFilter, holoFilter;
+        /// <summary>The class whose weapon it carries (U6).</summary>
+        int kit;
         Transform spine, chest, upperChest, neck, head;
         Transform rUpper, rLower, rHand, lUpper, lLower, lHand;
         Transform hips, lThigh, lShin, lFoot, rThigh, rShin, rFoot;
@@ -129,7 +132,8 @@ namespace Lattice.Players
             rifle = rg.transform;
             rifle.SetParent(transform, false);
             rifle.localScale = Vector3.one * look.RifleScale;
-            rg.AddComponent<MeshFilter>().sharedMesh = look.Rifle;
+            rifleFilter = rg.AddComponent<MeshFilter>();
+            rifleFilter.sharedMesh = look.Rifle;
             rifleRenderer = rg.AddComponent<MeshRenderer>();
             rifleRenderer.sharedMaterial = look.RifleMaterial;
             rifleRenderer.shadowCastingMode = ShadowCastingMode.On;
@@ -140,7 +144,8 @@ namespace Lattice.Players
             {
                 var hg = new GameObject("Holo sight");
                 hg.transform.SetParent(rifle, false);
-                hg.AddComponent<MeshFilter>().sharedMesh = look.Holo;
+                holoFilter = hg.AddComponent<MeshFilter>();
+                holoFilter.sharedMesh = look.Holo;
                 holoRenderer = hg.AddComponent<MeshRenderer>();
                 holoRenderer.sharedMaterials = new[] { look.HoloBody, look.HoloInner, look.HoloGlass };
                 holoRenderer.shadowCastingMode = ShadowCastingMode.On;
@@ -170,6 +175,17 @@ namespace Lattice.Players
             body = mat;
             foreach (var r in renderers)
                 r.sharedMaterial = mat;
+        }
+
+        /// <summary>Carries class <paramref name="k"/>'s weapon (and its sight).</summary>
+        public void Kit(int k)
+        {
+            if (k == kit)
+                return;
+            kit = k;
+            rifleFilter.sharedMesh = look.WeaponOf(k);
+            if (holoFilter != null)
+                holoFilter.sharedMesh = look.SightOf(k);
         }
 
         public void Release()
@@ -382,7 +398,7 @@ namespace Lattice.Players
                 pos += (-up * 0.06f - transform.right * 0.04f) * reload;
             }
             rifle.SetPositionAndRotation(pos, frame * Quaternion.Euler(look.RifleEuler));
-            Muzzle = pos + frame * (look.RifleMuzzle * size);
+            Muzzle = pos + frame * (look.MuzzleOf(kit) * size);
             MuzzleForward = frame * Vector3.forward;
 
             if (visible && w > 0.01f && !small)

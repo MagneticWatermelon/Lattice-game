@@ -15,6 +15,9 @@ namespace Lattice.EditorTools
     {
         const string Dir = "Assets/Lattice/Players/Soldier";
         const string RifleDir = "Assets/Lattice/Combat/Rifle";
+        public const string WeaponDir = "Assets/Lattice/Combat/Weapons";
+        /// <summary>The classes' weapons' files by kit (Tools/Blender/weapons_fbx.py; kit 0 is the rifle).</summary>
+        public static readonly string[] WeaponNames = { "Rifle", "Carbine", "Shotgun", "Marksman", "Smg" };
         public const string LookPath = "Assets/Lattice/Players/SoldierLook.asset";
         static readonly string[] FactionNames = { "Ordinate", "Compact", "Resonance" };
 
@@ -34,6 +37,15 @@ namespace Lattice.EditorTools
                 look.Factions[f] = SoldierMaterial(FactionNames[f], SoldierLook.FactionColors[f]);
             look.Rifle = AssetDatabase.LoadAllAssetsAtPath($"{RifleDir}/Rifle.fbx").OfType<Mesh>().First();
             look.RifleLow = AssetDatabase.LoadAllAssetsAtPath($"{RifleDir}/RifleLow.fbx").OfType<Mesh>().FirstOrDefault();
+            look.Weapons = new Mesh[WeaponNames.Length];
+            look.WeaponsLow = new Mesh[WeaponNames.Length];
+            (look.Weapons[0], look.WeaponsLow[0]) = (look.Rifle, look.RifleLow);
+            for (int k = 1; k < WeaponNames.Length; k++)
+            {
+                look.Weapons[k] = AssetDatabase.LoadAllAssetsAtPath($"{WeaponDir}/{WeaponNames[k]}.fbx").OfType<Mesh>().First();
+                look.WeaponsLow[k] = AssetDatabase.LoadAllAssetsAtPath($"{WeaponDir}/{WeaponNames[k]}Low.fbx").OfType<Mesh>().First();
+            }
+            look.Scope = AssetDatabase.LoadAllAssetsAtPath($"{WeaponDir}/Scope.fbx").OfType<Mesh>().First();
             look.RifleMaterial = RifleMaterial("Rifle", 0.62f);
             RifleMaterial("RifleView", 0.62f);
             look.Holo = AssetDatabase.LoadAllAssetsAtPath($"{RifleDir}/HoloSight.fbx").OfType<Mesh>().First();

@@ -46,7 +46,12 @@ namespace Lattice.Players
         enum Pose { Stand, Run, Dead, CrouchStand, CrouchRun }
         const int Poses = 5;
         Mesh[] poses;
+        /// <summary>The poses again with each class's weapon (U6): a body is drawn from
+        /// <see cref="poses"/>, its weapon (submesh 1) from its class's.</summary>
+        Mesh[,] kitPoses;
+        static readonly int Kits = LtCode.Classes;
         readonly List<Matrix4x4>[,] batches = new List<Matrix4x4>[SoldierColors.Keys, Poses];
+        readonly List<Matrix4x4>[,] weaponBatches = new List<Matrix4x4>[LtCode.Classes, Poses];
         Matrix4x4[] chunk = new Matrix4x4[1023];
         RenderParams[] crowdParams;
         RenderParams rifleParams;
@@ -95,6 +100,9 @@ namespace Lattice.Players
             for (int f = 0; f < SoldierColors.Keys; f++)
             for (int p = 0; p < Poses; p++)
                 batches[f, p] = new List<Matrix4x4>(1024);
+            for (int k = 0; k < Kits; k++)
+            for (int p = 0; p < Poses; p++)
+                weaponBatches[k, p] = new List<Matrix4x4>(256);
         }
 
         void OnDestroy() => SoldierColors.Dispose();
@@ -109,18 +117,24 @@ namespace Lattice.Players
         }
 
         /// <summary>The crowd's poses: the lightest LOD, posed by the animator and
-        /// baked into plain meshes, with the rifle in its hands.</summary>
+        /// baked into plain meshes, with each class's weapon in its hands.</summary>
         void BakePoses()
         {
+            kitPoses = new Mesh[Kits, Poses];
+            for (int k = 0; k < Kits; k++)
+            {
+                var weapon = Look.LowOf(k);
+                kitPoses[k, (int)Pose.Stand] = own.Bake(0f, false, weapon);
+                kitPoses[k, (int)Pose.Run] = own.Bake(4.5f, false, weapon);
+                // Crouched, as the full soldiers crouch: the crowd is who you aim at from
+                // afar, and a crouched one drawn standing would show a head where none is.
+                kitPoses[k, (int)Pose.CrouchStand] = own.Bake(0f, false, weapon, true);
+                kitPoses[k, (int)Pose.CrouchRun] = own.Bake(3f, false, weapon, true);
+            }
             poses = new Mesh[Poses];
-            var rifle = Look.RifleLow != null ? Look.RifleLow : Look.Rifle;
-            poses[(int)Pose.Stand] = own.Bake(0f, false, rifle);
-            poses[(int)Pose.Run] = own.Bake(4.5f, false, rifle);
+            for (int p = 0; p < Poses; p++)
+                poses[p] = kitPoses[0, p];
             poses[(int)Pose.Dead] = own.Bake(0f, true, null);
-            // Crouched, as the full soldiers crouch: the crowd is who you aim at from
-            // afar, and a crouched one drawn standing would show a head where none is.
-            poses[(int)Pose.CrouchStand] = own.Bake(0f, false, rifle, true);
-            poses[(int)Pose.CrouchRun] = own.Bake(3f, false, rifle, true);
             // A wrong bake leaves the crowd invisible (only the rich soldiers drawn),
             // which nothing else would show: say so, loudly.
             foreach (var m in poses)
@@ -211,6 +225,9 @@ namespace Lattice.Players
             for (int key = 0; key < SoldierColors.Keys; key++)
             for (int p = 0; p < Poses; p++)
                 batches[key, p].Clear();
+            for (int k = 0; k < Kits; k++)
+            for (int p = 0; p < Poses; p++)
+                weaponBatches[k, p].Clear();
             int crowd = 0, taken = 0;
             for (int k = 0; k < n; k++)
             {
@@ -229,6 +246,7 @@ namespace Lattice.Players
                     if (v != null)
                     {
                         v.Body(SoldierColors.Material(SoldierColors.Key(e)));
+                        v.Kit(e.kit);
                         v.Place(feet, e.yaw, e.pitch, (e.flags & LtCode.FlagAirborne) != 0, deadE, (e.flags & LtCode.FlagAds) != 0,
                                 crouchedE, (e.flags & LtCode.FlagReloading) != 0, dt, now);
                         continue;
@@ -249,6 +267,8 @@ namespace Lattice.Players
                 var pose = deadE ? Pose.Dead : crouchedE ? (moving ? Pose.CrouchRun : Pose.CrouchStand) : moving ? Pose.Run : Pose.Stand;
                 var m = Matrix4x4.TRS(Coords.ToUnity(feet.x, feet.y, feet.z), Coords.Yaw(e.yaw), Vector3.one);
                 batches[SoldierColors.Key(e), (int)pose].Add(m);
+                if (!deadE)
+                    weaponBatches[e.kit < Kits ? e.kit : 0, (int)pose].Add(m);
                 crowd++;
             }
             CrowdDrawn = crowd;
@@ -260,6 +280,7 @@ namespace Lattice.Players
                 if (!own.Assigned || own.Entity != f.Own.entity)
                     own.Assign(f.Own.entity);
                 own.Body(SoldierColors.Material(f.Own.faction));
+                own.Kit(f.Own.kit);
                 own.SetShadowsOnly(!o.thirdPerson);
                 own.Place(o.feet, o.yaw, o.pitch, o.airborne, o.dead, o.ads, o.crouched, o.reloading, dt, now);
             }
@@ -306,8 +327,21 @@ namespace Lattice.Players
                     int count = Mathf.Min(chunk.Length, list.Count - start);
                     list.CopyTo(start, chunk, 0, count);
                     Graphics.RenderMeshInstanced(crowdParams[key], poses[p], 0, chunk, count);
-                    if (poses[p].subMeshCount > 1)
-                        Graphics.RenderMeshInstanced(rifleParams, poses[p], 1, chunk, count);
+                }
+            }
+            // Their weapons, by class.
+            for (int k = 0; k < Kits; k++)
+            for (int p = 0; p < Poses; p++)
+            {
+                var list = weaponBatches[k, p];
+                var mesh = kitPoses[k, p];
+                if (mesh == null || mesh.subMeshCount < 2)
+                    continue;
+                for (int start = 0; start < list.Count; start += chunk.Length)
+                {
+                    int count = Mathf.Min(chunk.Length, list.Count - start);
+                    list.CopyTo(start, chunk, 0, count);
+                    Graphics.RenderMeshInstanced(rifleParams, mesh, 1, chunk, count);
                 }
             }
         }

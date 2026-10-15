@@ -13,6 +13,20 @@ namespace Lattice.Audio
         [Header("Shots")]
         /// <summary>Our rifle (stereo, played in the head), others' near and far.</summary>
         public AudioClip[] ShotOwn, ShotNear, ShotFar;
+        /// <summary>The classes' other weapons (U6), ours and others' near: the carbine,
+        /// the shotgun, the marksman rifle, the SMG (far shots share the rifle's).</summary>
+        public AudioClip[] CarbineOwn, CarbineNear, ShotgunOwn, ShotgunNear, MarksmanOwn, MarksmanNear, SmgOwn, SmgNear;
+
+        /// <summary>A shot by kit <paramref name="kit"/>'s weapon: ours (in the head) or someone's near.</summary>
+        public AudioClip[] Shot(int kit, bool own) => kit switch
+        {
+            1 => own ? CarbineOwn : CarbineNear,
+            2 => own ? ShotgunOwn : ShotgunNear,
+            3 => own ? MarksmanOwn : MarksmanNear,
+            4 => own ? SmgOwn : SmgNear,
+            _ => own ? ShotOwn : ShotNear,
+        };
+
         /// <summary>A slug passing close: the supersonic crack.</summary>
         public AudioClip[] Crack;
         public AudioClip[] ImpactDirt, ImpactHard;

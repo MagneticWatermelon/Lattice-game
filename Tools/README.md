@@ -32,6 +32,7 @@ The numpy-only scripts run on Blender's bundled Python (`...\Blender 5.1\5.1\pyt
 | `Blender/rifle_fbx.py` | `Combat/Rifle/Rifle.fbx`, `RifleView.fbx`: the GLB as one mesh, its folding iron sights folded down. With the last three args, also `RifleLow.fbx`: welded and decimated to 600 triangles, the crowd's rifle | `in.glb out.fbx Name [low.fbx LowName triangles]` |
 | `Blender/cell_fbx.py` | `Combat/Rifle/Cell.fbx`: the rifle's ammo cell, which the reload takes out and puts back. A canister across the receiver's round bay (measured from the rifle: its dark disc at x 0.1887, z -0.0716, r 0.032, on a dome to y 0.0945), centered on its own middle, its axis along the rifle's left-right; looks the same every 60 degrees (the empty reload's twist hands it back unturned); body, trim and glow materials; renders previews seated and out | `rifle_view.glb out.fbx preview_dir` |
 | `Blender/holo_fbx.py` | `Combat/Rifle/HoloSight.fbx`: the holographic sight, in the rifle mesh's own frame (body, matte hood inside, glass); renders previews | `rifle_view.glb out.fbx preview_dir` |
+| `Blender/weapons_fbx.py` | `Combat/Weapons/`: the classes' weapons (U6), each made from the rifle so it keeps its receiver, cell, grip and rail (hands, reloads and sights work on all alike): `Carbine`, `Shotgun`, `Marksman`, `Smg` (third person), `*View` (first person), `*Low` (the crowd's: the body decimated alone, then its barrels and the scope added back eight-sided). The handguard ahead of the left hand is shortened or lengthened with the muzzle block moved along; the shotgun's front swells and grows two stubby barrels, the marksman rifle a long barrel and brake. Added parts take the darkest texel of the rifle's own texture. Also `Scope.fbx`, the marksman rifle's scope in the holographic sight's frame and materials (body, lens caps, glass). Prints each muzzle (SoldierLook's `Muzzles`) and renders side views | `rifle.glb rifle_view.glb out_dir preview_dir` |
 | `Blender/prop_fbx.py` | `World/Cover/*.fbx`: a static GLB as one FBX mesh, in Unity's axes (the client draws the bare mesh, not the FBX's transform), with its textures beside it (then `mr_to_urp.py` for `_metal.png`) | `in.glb out.fbx Name` |
 
 ## Textures
@@ -52,7 +53,9 @@ The numpy-only scripts run on Blender's bundled Python (`...\Blender 5.1\5.1\pyt
 (own, others' near and far), supersonic cracks, impacts, hit, head and kill
 confirms, hurts, death, respawn, sights up/down, footsteps, the reload's
 handling (the cell released, pulled out, the pouch, the fresh one slid in,
-seated, charged from empty), the dry trigger, a spent cell's clink,
+seated, charged from empty), the dry trigger, the classes' other weapons
+(`Carbine`, `Shotgun`, `Marksman`, `Smg`: own and near, three takes each; far
+shots use the rifle's), a spent cell's clink,
 crouching down and up, wind and the distant battle beds, with an open-field reverb whose tail is set in dB below
 the direct sound. `SFX_ONLY=Shot_Own,Crack` remakes some. `PREVIEW_DIR` gets a
 waveform/spectrogram sheet; `Audio/sfx_stats.py DIR [names]` prints each
