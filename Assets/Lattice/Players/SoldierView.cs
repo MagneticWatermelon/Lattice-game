@@ -616,6 +616,15 @@ namespace Lattice.Players
                 hipsSmooth = hipsAverage = -1f;
                 return;
             }
+            // The sprint clip drifts sideways, hips and feet together, 35 cm either way
+            // every cycle: every sprinter zig-zagged across its path, and its shadow
+            // with it. Back onto its path, keeping a natural hip sway (moving the hips
+            // moves the whole body, feet and all, as the clip's drift did).
+            var side = transform.right;
+            float lateral = Vector3.Dot(hips.position - transform.position, side);
+            float sway = Mathf.Clamp(lateral, -look.HipSway, look.HipSway);
+            if (Mathf.Abs(sway - lateral) > 0.001f)
+                hips.position += side * (sway - lateral);
             float h = hips.position.y - transform.position.y;
             hipsSmooth = hipsSmooth < 0f ? h : Mathf.Lerp(hipsSmooth, h, 1f - Mathf.Exp(-rigDt / 0.05f));
             hipsAverage = hipsAverage < 0f ? h : Mathf.Lerp(hipsAverage, h, 1f - Mathf.Exp(-rigDt / 0.45f));

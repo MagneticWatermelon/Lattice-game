@@ -98,6 +98,9 @@ namespace Lattice.Players
         /// <summary>How much of the sprint clip's vertical bounce the hips keep (1: all of it;
         /// a walk keeps all of its own, the share falling to this from 5 to 8.5 m/s).</summary>
         public float SprintBounce = 0.4f;
+        /// <summary>How far (m) the hips may sway to either side of the soldier's path (a
+        /// clip that drifts further is brought back).</summary>
+        public float HipSway = 0.04f;
 
         [Header("Crouch (there's no crouch clip: the hips go down, the legs fold by IK)")]
         /// <summary>The hips' height (m) crouched still (a kneel, the right knee down) and
