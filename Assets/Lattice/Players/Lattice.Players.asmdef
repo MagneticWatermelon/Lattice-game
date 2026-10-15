@@ -4,6 +4,7 @@
     "references": [
         "Lattice.Native",
         "Lattice.Net",
+        "Lattice.Diagnostics",
         "Unity.Burst",
         "Unity.Collections",
         "Unity.Mathematics",

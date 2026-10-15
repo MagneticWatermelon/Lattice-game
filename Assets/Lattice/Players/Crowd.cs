@@ -20,9 +20,11 @@ namespace Lattice.Players
     public sealed class Crowd : MonoBehaviour
     {
         public SoldierLook Look;
-        /// <summary>Full soldiers at most (GDD: ≤ 96), and how far out.</summary>
+        /// <summary>Full soldiers at most (GDD: ≤ 96), and how far out: as seen in the
+        /// standard 74° view (through a scope, as far out as it magnifies, in view).</summary>
         public int RichCount = 64;
         public float RichDistance = 150f;
+        const float StandardHalfFov = 37f * Mathf.Deg2Rad;
         /// <summary>Full soldiers taken on per frame at most: waking an animator costs a
         /// few ms, and the whole band at once (joining a fight) held a frame for 200.
         /// The rest wait in the crowd a frame or two.</summary>
@@ -65,6 +67,12 @@ namespace Lattice.Players
         RenderParams rifleParams;
 
         public int RichDrawn => rich.Count;
+        int zoomedFrames, mostPastZoomed;
+        float farthestZoomed;
+
+        string Summary() => string.Format(System.Globalization.CultureInfo.InvariantCulture,
+            "  crowd: zoomed in {0} frames, at most {1} drawn in full past {2:F0} m (the farthest {3:F0} m)\n",
+            zoomedFrames, mostPastZoomed, RichDistance, farthestZoomed);
 
         // The crowd's steps, for the profiler (free in a release build).
         static readonly ProfilerMarker PlaceMarker = new ProfilerMarker("Crowd.Place"), LodMarker = new ProfilerMarker("Crowd.Lod"),
@@ -87,6 +95,7 @@ namespace Lattice.Players
             // the death view shows it: it never waits on being seen to animate.
             own.AlwaysAnimate();
             BakePoses();
+            Lattice.Diagnostics.Report.Sections.Add(Summary);
             crowdParams = new RenderParams[SoldierColors.Keys];
             for (int f = 0; f < SoldierColors.Keys; f++)
             {
@@ -191,7 +200,22 @@ namespace Lattice.Players
             }
 
             // The nearest (within reach) are drawn in full; those already full keep
-            // their place a little farther out, so the band doesn't flicker.
+            // their place a little farther out, so the band doesn't flicker. Near by how
+            // big they're drawn (GDD §14.4): zoomed down a scope, those in view are as
+            // near as it magnifies them (the crowd's poses are still: a sniper would
+            // watch statues glide).
+            var cam = Camera.main;
+            float zoom = 1f, cosView = -1f;
+            Vector3 camAt = Vector3.zero, camFwd = Vector3.forward;
+            if (cam != null)
+            {
+                float half = cam.fieldOfView * 0.5f * Mathf.Deg2Rad;
+                zoom = Mathf.Max(1f, Mathf.Tan(StandardHalfFov) / Mathf.Tan(half));
+                // In view: within the view's half diagonal.
+                cosView = Mathf.Cos(Mathf.Atan(Mathf.Tan(half) * Mathf.Sqrt(1f + cam.aspect * cam.aspect)));
+                camAt = cam.transform.position;
+                camFwd = cam.transform.forward;
+            }
             if (keys.Length < n)
             {
                 keys = new float[Mathf.NextPowerOfTwo(n)];
@@ -202,6 +226,13 @@ namespace Lattice.Players
                 var e = ents[i];
                 float dx = e.pos.x - center.x, dy = e.pos.y - center.y, dz = e.pos.z - center.z;
                 float d2 = dx * dx + dy * dy + dz * dz;
+                if (zoom > 1.01f)
+                {
+                    var u = Coords.ToUnity(e.pos.x, e.pos.y, e.pos.z + 1f) - camAt;
+                    float len = u.magnitude;
+                    if (Vector3.Dot(u, camFwd) >= len * cosView)
+                        d2 /= zoom * zoom;
+                }
                 if (rich.ContainsKey(e.id))
                     d2 *= 0.8f;
                 keys[i] = d2;
@@ -215,6 +246,24 @@ namespace Lattice.Players
                 if (keys[k] > maxD2)
                     break;
                 richWanted++;
+            }
+            // For the report: zoomed in, how many drawn in full are past the unzoomed reach.
+            if (zoom > 2f)
+            {
+                zoomedFrames++;
+                int past = 0;
+                for (int k = 0; k < richWanted; k++)
+                {
+                    var e = ents[order[k]];
+                    float dx = e.pos.x - center.x, dy = e.pos.y - center.y, dz = e.pos.z - center.z;
+                    float d = Mathf.Sqrt(dx * dx + dy * dy + dz * dz);
+                    if (d > RichDistance)
+                    {
+                        past++;
+                        farthestZoomed = Mathf.Max(farthestZoomed, d);
+                    }
+                }
+                mostPastZoomed = Mathf.Max(mostPastZoomed, past);
             }
 
             // Release the full soldiers that fell out of the band.
