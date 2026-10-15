@@ -54,6 +54,13 @@ namespace Lattice.EditorTools
             look.DryFire = One("Dry_Fire");
             look.CrouchDown = One("Crouch_Down");
             look.CrouchUp = One("Crouch_Up");
+            look.JetsLoop = One("Jets_Loop");
+            look.JetsIgnite = One("Jets_Ignite");
+            look.BulwarkOn = One("Bulwark_On");
+            look.MendOn = One("Mend_On");
+            look.MendTick = One("Mend_Tick");
+            look.CloakOn = One("Cloak_On");
+            look.CloakOff = One("Cloak_Off");
             look.Wind = One("Wind");
             look.BattleSmall = One("Battle_Small");
             look.BattleLarge = One("Battle_Large");

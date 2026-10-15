@@ -59,7 +59,11 @@ namespace Lattice.Audio
         readonly Vector3[] lastFeet = new Vector3[65536];
         readonly float[] seenAt = new float[65536];
 
-        bool wasAds, wasDead, wasCrouched;
+        bool wasAds, wasDead, wasCrouched, wasOn;
+        // The class's ability (U6): the jets' roar (ours), heals heard.
+        AudioSource jets;
+        float jetsLevel;
+        int lastHealth = -1;
         // Near soldiers seen reloading (per entity id), so each reload sounds once.
         readonly bool[] reloadHeard = new bool[65536];
 
@@ -100,6 +104,8 @@ namespace Lattice.Audio
             for (int i = 0; i < HeadVoices; i++)
                 head[i] = MakeVoice($"Head voice {i}", false);
             wind = Loop("Wind", Look.Wind, false);
+            jets = Loop("Jets", Look.JetsLoop, false);
+            Lattice.Players.Crowd.AbilityStarted += OthersAbility;
             bedSmall = new AudioSource[Sectors];
             bedLarge = new AudioSource[Sectors];
             for (int s = 0; s < Sectors; s++)
@@ -157,6 +163,7 @@ namespace Lattice.Audio
 
         void OnDestroy()
         {
+            Lattice.Players.Crowd.AbilityStarted -= OthersAbility;
             if (Gun != null)
             {
                 Gun.Fired -= OnOwnShot;
@@ -520,7 +527,54 @@ namespace Lattice.Audio
                 PlayHead(crouched ? Look.CrouchDown : Look.CrouchUp, Look.Footsteps * 0.95f, 0.95f + 0.1f * Rand());
             }
             wasCrouched = crouched;
+
+            // Our ability: its sound as it starts (and the cloak's as it drops); the
+            // jets' roar while they burn; a soft bell as a heal lands.
+            int kit = f.Own.kit;
+            bool on = f.Own.abilityOn != 0 && !dead;
+            if (on && !wasOn)
+            {
+                nHandling++;
+                PlayHead(AbilityClip(kit), Look.Ability * (kit == LtCode.ClassSkirmisher ? 0.7f : 1f), 0.97f + 0.06f * Rand());
+            }
+            else if (!on && wasOn && kit == LtCode.ClassRecon && !dead)
+                PlayHead(Look.CloakOff, Look.Ability * 0.9f);
+            wasOn = on;
+            float dt = Mathf.Min(Time.unscaledDeltaTime, 0.1f);
+            bool burning = on && kit == LtCode.ClassSkirmisher;
+            jetsLevel = Mathf.MoveTowards(jetsLevel, burning ? 1f : 0f, dt / (burning ? 0.06f : 0.2f));
+            if (jets != null)
+                jets.volume = jetsLevel * Look.Ability * 0.75f * Look.Master;
+            int hp = dead ? -1 : f.Own.health;
+            if (hp > lastHealth && lastHealth > 0)
+                PlayHead(Look.MendTick, Look.Feedback * 0.35f, 0.98f + 0.04f * Rand());
+            lastHealth = hp;
         }
+
+        AudioClip AbilityClip(int kit) => kit switch
+        {
+            LtCode.ClassAssault => Look.BulwarkOn,
+            LtCode.ClassMedic => Look.MendOn,
+            LtCode.ClassRecon => Look.CloakOn,
+            LtCode.ClassSkirmisher => Look.JetsIgnite,
+            _ => null,
+        };
+
+        /// <summary>Someone near starting their ability (a rich soldier's: the crowd's
+        /// are too far to hear), where they stand.</summary>
+        void OthersAbility(Vector3 at, int kit)
+        {
+            var cam = Camera.main;
+            if (cam == null)
+                return;
+            float d = Vector3.Distance(at, cam.transform.position);
+            float reach = Look.HandlingDistance * 2f;
+            if (d > reach)
+                return;
+            float level = Look.Ability * 0.8f * Mathf.Clamp01(3f / Mathf.Max(d, 0.5f));
+            PlayAt(AbilityClip(kit), at, level, Air(d * 4f), d / Look.SoundSpeed, 0.95f + 0.1f * Rand());
+        }
+
 
         void Steps(NetFrame f, Lattice.LocalPlayer.LocalPlayer p, Vector3 ear, float now, float dt)
         {

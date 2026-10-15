@@ -48,6 +48,12 @@ MonoBehaviour:
   - {x: 0, y: 0.069, z: 0.283}
   Scope: {fileID: 5943889611964897698, guid: 16055f01fa5f18f46884b16c8d19d797, type: 3}
   ScopedKit: 3
+  BulwarkGlow: {fileID: 2100000, guid: 3fd316319fd9d7e418cb0f9cee9ba9ed, type: 2}
+  CloakGlow: {fileID: 2100000, guid: eecce20a94e12244ab57f5491da31514, type: 2}
+  JetFlame: {fileID: 2100000, guid: df09aab57ecb9c4409101c7804c53741, type: 2}
+  MendField: {fileID: 2100000, guid: 228678ba2e9f1514d942cc788cadaa12, type: 2}
+  ShellRadii: {x: 0.62, y: 1.05}
+  ShellHeight: 0.95
   ModelScale: 0.95
   ShoulderPocket: {x: -0.15, y: -0.07, z: 0.24}
   RightGrip: {x: 0.059, y: -0.071, z: -0.49}

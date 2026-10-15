@@ -576,6 +576,72 @@ def crouch(down):
     return fade(normalize(close_space(out, seed + 4), -6.0), 0.002, 0.06)
 
 
+# ---- the classes' abilities (U6) ---------------------------------------------
+
+def jets_loop(secs=3.0):
+    """Jump jets burning: a rough low roar and a hissing top, with the burn's flutter (a loop)."""
+    t = t_axis(secs + 0.5)
+    r = np.random.default_rng(3100)
+    roar = lowpass(tilt(noise(secs + 0.5, 3101), -3.0), 900) * 1.4
+    hiss = band(noise(secs + 0.5, 3102), 2500, 9000) * 0.18
+    # The burn's flutter: a fast, uneven wobble of level.
+    fl = np.convolve(r.standard_normal(len(t) // 400 + 2), np.ones(2) / 2, mode="same")
+    flutter = 0.8 + 0.2 * np.tanh(np.interp(t, np.linspace(0, t[-1], len(fl)), fl))
+    out = softclip((roar + hiss) * flutter, 1.6)
+    return loopify(out / (np.abs(out).max() + 1e-9) * 0.5, 0.5)
+
+
+def jets_ignite():
+    """The jets lighting: a breathy whump and a rising hiss."""
+    secs = 0.5
+    t = t_axis(secs)
+    whump = lowpass(noise(secs, 3110), 300) * env_exp(secs, 0.08, 0.004) * 1.6
+    hiss = band(noise(secs, 3111), 1800, 8000) * np.clip(t / 0.15, 0, 1) * np.exp(-t / 0.3) * 0.5
+    return fade(normalize(whump + hiss, -3.0), 0.001, 0.1)
+
+
+def bulwark_on():
+    """A Bulwark rising: a deep swell under a bright, shimmering chord that settles."""
+    secs = 1.1
+    t = t_axis(secs)
+    swell = np.sin(2 * np.pi * (70 + 40 * t) * t) * np.clip(t / 0.12, 0, 1) * np.exp(-t / 0.5) * 0.8
+    chord = sum(np.sin(2 * np.pi * f * t + k) * a for k, (f, a) in enumerate(((440, 0.3), (660, 0.22), (990, 0.16), (1320, 0.1))))
+    shimmer = 1.0 + 0.35 * np.sin(2 * np.pi * 11 * t)
+    chord = chord * shimmer * np.clip(t / 0.05, 0, 1) * np.exp(-t / 0.35)
+    air = band(noise(secs, 3120), 3000, 9000) * np.exp(-t / 0.15) * 0.15
+    return fade(normalize(swell + chord + air, -4.0), 0.001, 0.15)
+
+
+def mend_on():
+    """A Mend field opening: soft rising chimes over a warm hum."""
+    secs = 1.4
+    t = t_axis(secs)
+    hum = np.sin(2 * np.pi * 196 * t) * 0.25 * np.clip(t / 0.2, 0, 1) * np.exp(-t / 0.7)
+    out = hum.copy()
+    for k, f in enumerate((523.25, 659.25, 783.99, 1046.5)):
+        at = 0.06 * k
+        tone = ring(secs - at, (f, f * 2.01), (0.45, 0.2), (0.35, 0.08))
+        place(out, tone, at, 0.8)
+    return fade(normalize(out, -5.0), 0.002, 0.2)
+
+
+def mend_tick():
+    """A heal landing: a small, soft bell."""
+    secs = 0.35
+    return fade(normalize(ring(secs, (1318.5, 2637.0, 3955.0), (0.12, 0.05, 0.03), (0.5, 0.15, 0.06)), -10.0), 0.001, 0.08)
+
+
+def cloak(on):
+    """Cloaking (a breath drawn in, falling and thinning to nothing) or uncloaking (the reverse, out)."""
+    secs = 0.6
+    t = t_axis(secs)
+    x = band(noise(secs, 3130 + on), 600, 7000)
+    f = sweep(secs, 2400, 300, 3.0) if on else sweep(secs, 300, 2400, 3.0)
+    env = np.sin(np.pi * np.clip(t / secs, 0, 1)) ** (1.5 if on else 0.8)
+    out = (x * 0.6 + f * 0.25) * env
+    return fade(normalize(close_space(out, 3135 + on), -6.0), 0.003, 0.08)
+
+
 # ---- beds (loops) -----------------------------------------------------------
 
 def loopify(x, xfade):
@@ -677,6 +743,13 @@ write("Cell_Charge", cell_charge())
 write("Dry_Fire", dry_fire())
 for v in range(2):
     write(f"Cell_Clink_{v}", cell_clink(v))
+write("Jets_Loop", jets_loop())
+write("Jets_Ignite", jets_ignite())
+write("Bulwark_On", bulwark_on())
+write("Mend_On", mend_on())
+write("Mend_Tick", mend_tick())
+write("Cloak_On", cloak(True))
+write("Cloak_Off", cloak(False))
 write("Crouch_Down", crouch(True))
 write("Crouch_Up", crouch(False))
 write("Wind", wind(), stereo=True)

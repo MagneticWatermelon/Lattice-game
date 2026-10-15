@@ -15,11 +15,11 @@ namespace Lattice.Native
         /// <summary>
         /// The plugin API's version (lt_version).
         /// </summary>
-        public const uint Version = 10;
+        public const uint Version = 11;
         /// <summary>
         /// The layout hash of these bindings (lt_layout_hash).
         /// </summary>
-        public const ulong LayoutHash = 0x7B9124D513663FE2;
+        public const ulong LayoutHash = 0x07AFC050F7F69B85;
         /// <summary>
         /// Game steps a second.
         /// </summary>
@@ -162,6 +162,14 @@ namespace Lattice.Native
         /// and the view zoomed this many times.
         /// </summary>
         public const float AdsZoom = 1.35f;
+        /// <summary>
+        /// A Mend field heals friends within this of the medic, m (U6).
+        /// </summary>
+        public const float MendRadius = 6.0f;
+        /// <summary>
+        /// Enemies past this aren't sent a cloaked player, m.
+        /// </summary>
+        public const float CloakRange = 15.0f;
         /// <summary>
         /// Hitboxes: a body capsule (radius, and its segment's ends above the feet), m.
         /// </summary>
@@ -323,6 +331,10 @@ namespace Lattice.Native
         /// </summary>
         public const int ButtonReload = 32;
         /// <summary>
+        /// The class's ability: pressed (Bulwark, the Mend field, the cloak on or off) or held (jets).
+        /// </summary>
+        public const int ButtonAbility = 64;
+        /// <summary>
         /// 30 Hz, within 150 m (plus squad and contacts).
         /// </summary>
         public const int TierNear = 0;
@@ -370,6 +382,10 @@ namespace Lattice.Native
         /// Reloading (near tier only).
         /// </summary>
         public const int FlagReloading = 16;
+        /// <summary>
+        /// Its class's ability is on: a Bulwark, a Mend field, cloaked, jets firing (near tier only).
+        /// </summary>
+        public const int FlagAbility = 32;
         /// <summary>
         /// Our shot hit `a` for `amount`.
         /// </summary>
@@ -438,6 +454,10 @@ namespace Lattice.Native
         /// Killed by a fall.
         /// </summary>
         public const int CauseFall = 255;
+        /// <summary>
+        /// Killed by a spawn room's field (its site not held by the victim's side).
+        /// </summary>
+        public const int CauseField = 254;
         /// <summary>
         /// The assault: the assault rifle (U6).
         /// </summary>
@@ -852,7 +872,7 @@ namespace Lattice.Native
     /// <summary>
     /// Our own player.
     /// </summary>
-    [StructLayout(LayoutKind.Explicit, Size = 64)]
+    [StructLayout(LayoutKind.Explicit, Size = 80)]
     public unsafe partial struct LtOwn
     {
         /// <summary>
@@ -907,6 +927,22 @@ namespace Lattice.Native
         /// Seconds left of the reload under way; 0: none.
         /// </summary>
         [FieldOffset(60)] public float reload;
+        /// <summary>
+        /// Our class's ability (U6, `LT_BUTTON_ABILITY`; predicted): seconds
+        /// it has left running (a Bulwark, a Mend field; 0 otherwise), and
+        /// until it can start again (jets and the cloak: until they refill).
+        /// </summary>
+        [FieldOffset(64)] public float abilityLeft;
+        [FieldOffset(68)] public float abilityCooldown;
+        /// <summary>
+        /// Its energy (jets, the cloak), of full; 1 for the others.
+        /// </summary>
+        [FieldOffset(72)] public float abilityEnergy;
+        /// <summary>
+        /// It's on: a Bulwark or a Mend field running, cloaked, jets firing.
+        /// </summary>
+        [FieldOffset(76)] public byte abilityOn;
+        [FieldOffset(77)] public fixed byte reserved[3];
     }
 
     /// <summary>

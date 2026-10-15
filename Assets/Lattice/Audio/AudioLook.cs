@@ -42,6 +42,13 @@ namespace Lattice.Audio
         public AudioClip CellRelease, CellOut, CellPouch, CellIn, CellSeat, CellCharge, DryFire, CrouchDown, CrouchUp;
         public AudioClip[] CellClink;
 
+        [Header("Abilities (U6)")]
+        /// <summary>The jets' roar while they burn (a loop) and their lighting; a Bulwark
+        /// rising; a Mend field opening and a heal landing; cloaking and uncloaking.</summary>
+        public AudioClip JetsLoop, JetsIgnite, BulwarkOn, MendOn, MendTick, CloakOn, CloakOff;
+        /// <summary>Their level, ours; others' within <see cref="HandlingDistance"/> × 2.</summary>
+        [Range(0f, 1f)] public float Ability = 0.6f;
+
         [Header("Beds")]
         public AudioClip Wind, BattleSmall, BattleLarge;
 

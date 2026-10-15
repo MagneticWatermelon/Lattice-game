@@ -125,6 +125,8 @@ namespace Lattice.Net
         public bool NoVsync, Ghosts, Autoplay, Autofire, Autoaim, Autotarget, HudTest, NoAudio, Windowed, FactionColors, TierColors, Controls, Pump, NetGraph;
         /// <summary>--crouch: the self-check plays crouched (with --autotarget, it fights crouched).</summary>
         public bool Crouch;
+        /// <summary>--ability: use the class's ability now and then (a self-check).</summary>
+        public bool Ability;
         /// <summary>Main-thread stalls to stage (--freeze AT:MS,...): at AT seconds after
         /// start, the frame stops for MS milliseconds. U3's self-check.</summary>
         public (float at, int ms)[] Freezes = new (float, int)[0];
@@ -171,6 +173,7 @@ namespace Lattice.Net
                     case "--autoaim": o.Autoaim = true; break;
                     case "--autotarget": o.Autotarget = true; break;
                     case "--crouch": o.Crouch = true; break;
+                    case "--ability": o.Ability = true; break;
                     case "--hud-test": o.HudTest = true; break;
                     case "--no-audio": o.NoAudio = true; break;
                     case "--windowed": o.Windowed = true; break;

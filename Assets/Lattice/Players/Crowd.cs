@@ -52,6 +52,14 @@ namespace Lattice.Players
         static readonly int Kits = LtCode.Classes;
         readonly List<Matrix4x4>[,] batches = new List<Matrix4x4>[SoldierColors.Keys, Poses];
         readonly List<Matrix4x4>[,] weaponBatches = new List<Matrix4x4>[LtCode.Classes, Poses];
+        /// <summary>The crowd's cloaked (drawn by their shimmer, no weapon), by pose; Mend
+        /// fields on the ground round every medic using one.</summary>
+        readonly List<Matrix4x4>[] cloakBatches = new List<Matrix4x4>[Poses];
+        readonly List<Matrix4x4> mendFields = new List<Matrix4x4>(64);
+        RenderParams cloakParams, mendParams;
+
+        /// <summary>A rich soldier's ability turned on this frame: where, and its class (for sounds).</summary>
+        public static event System.Action<Vector3, int> AbilityStarted;
         Matrix4x4[] chunk = new Matrix4x4[1023];
         RenderParams[] crowdParams;
         RenderParams rifleParams;
@@ -103,6 +111,13 @@ namespace Lattice.Players
             for (int k = 0; k < Kits; k++)
             for (int p = 0; p < Poses; p++)
                 weaponBatches[k, p] = new List<Matrix4x4>(256);
+            for (int p = 0; p < Poses; p++)
+                cloakBatches[p] = new List<Matrix4x4>(64);
+            var everywhere = new Bounds(Vector3.zero, Vector3.one * 20000f);
+            if (Look.CloakGlow != null)
+                cloakParams = new RenderParams(Look.CloakGlow) { shadowCastingMode = ShadowCastingMode.Off, layer = gameObject.layer, worldBounds = everywhere };
+            if (Look.MendField != null)
+                mendParams = new RenderParams(Look.MendField) { shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false, layer = gameObject.layer, worldBounds = everywhere };
         }
 
         void OnDestroy() => SoldierColors.Dispose();
@@ -228,6 +243,10 @@ namespace Lattice.Players
             for (int k = 0; k < Kits; k++)
             for (int p = 0; p < Poses; p++)
                 weaponBatches[k, p].Clear();
+            for (int p = 0; p < Poses; p++)
+                cloakBatches[p].Clear();
+            mendFields.Clear();
+            float field = 2f * LtConst.MendRadius;
             int crowd = 0, taken = 0;
             for (int k = 0; k < n; k++)
             {
@@ -235,6 +254,9 @@ namespace Lattice.Players
                 var feet = new Vector3(e.pos.x, e.pos.y, e.pos.z);
                 bool deadE = (e.flags & LtCode.FlagDead) != 0;
                 bool crouchedE = (e.flags & LtCode.FlagCrouched) != 0;
+                bool abilityE = (e.flags & LtCode.FlagAbility) != 0 && !deadE;
+                if (abilityE && e.kit == LtCode.ClassMedic)
+                    mendFields.Add(Matrix4x4.TRS(Coords.ToUnity(feet.x, feet.y, feet.z + 0.12f), Quaternion.identity, new Vector3(field, 1f, field)));
                 if (k < richWanted)
                 {
                     if (!rich.TryGetValue(e.id, out var v) && taken < RichPerFrame && (v = Free()) != null)
@@ -247,6 +269,9 @@ namespace Lattice.Players
                     {
                         v.Body(SoldierColors.Material(SoldierColors.Key(e)));
                         v.Kit(e.kit);
+                        v.Ability(abilityE, e.faction);
+                        if (v.AbilityStarted)
+                            AbilityStarted?.Invoke(Coords.ToUnity(feet.x, feet.y, feet.z + 1.1f), e.kit);
                         v.Place(feet, e.yaw, e.pitch, (e.flags & LtCode.FlagAirborne) != 0, deadE, (e.flags & LtCode.FlagAds) != 0,
                                 crouchedE, (e.flags & LtCode.FlagReloading) != 0, dt, now);
                         continue;
@@ -266,6 +291,12 @@ namespace Lattice.Players
                 bool moving = velocity[id].sqrMagnitude > 1f;
                 var pose = deadE ? Pose.Dead : crouchedE ? (moving ? Pose.CrouchRun : Pose.CrouchStand) : moving ? Pose.Run : Pose.Stand;
                 var m = Matrix4x4.TRS(Coords.ToUnity(feet.x, feet.y, feet.z), Coords.Yaw(e.yaw), Vector3.one);
+                if (abilityE && e.kit == LtCode.ClassRecon)
+                {
+                    cloakBatches[(int)pose].Add(m);
+                    crowd++;
+                    continue;
+                }
                 batches[SoldierColors.Key(e), (int)pose].Add(m);
                 if (!deadE)
                     weaponBatches[e.kit < Kits ? e.kit : 0, (int)pose].Add(m);
@@ -281,6 +312,9 @@ namespace Lattice.Players
                     own.Assign(f.Own.entity);
                 own.Body(SoldierColors.Material(f.Own.faction));
                 own.Kit(f.Own.kit);
+                own.Ability(f.Own.abilityOn != 0 && f.Own.dead == 0, f.Own.faction);
+                if (f.Own.abilityOn != 0 && f.Own.dead == 0 && f.Own.kit == LtCode.ClassMedic)
+                    mendFields.Add(Matrix4x4.TRS(Coords.ToUnity(f.Own.pos.x, f.Own.pos.y, f.Own.pos.z + 0.12f), Quaternion.identity, new Vector3(field, 1f, field)));
                 own.SetShadowsOnly(!o.thirdPerson);
                 own.Place(o.feet, o.yaw, o.pitch, o.airborne, o.dead, o.ads, o.crouched, o.reloading, dt, now);
             }
@@ -328,6 +362,25 @@ namespace Lattice.Players
                     list.CopyTo(start, chunk, 0, count);
                     Graphics.RenderMeshInstanced(crowdParams[key], poses[p], 0, chunk, count);
                 }
+            }
+            // The cloaked, by their shimmer.
+            if (Look.CloakGlow != null)
+            for (int p = 0; p < Poses; p++)
+            {
+                var list = cloakBatches[p];
+                for (int start = 0; start < list.Count; start += chunk.Length)
+                {
+                    int count = Mathf.Min(chunk.Length, list.Count - start);
+                    list.CopyTo(start, chunk, 0, count);
+                    Graphics.RenderMeshInstanced(cloakParams, poses[p], 0, chunk, count);
+                }
+            }
+            // Mend fields.
+            if (Look.MendField != null && mendFields.Count > 0)
+            {
+                int count = Mathf.Min(chunk.Length, mendFields.Count);
+                mendFields.CopyTo(0, chunk, 0, count);
+                Graphics.RenderMeshInstanced(mendParams, AbilityFx.Disc(), 0, chunk, count);
             }
             // Their weapons, by class.
             for (int k = 0; k < Kits; k++)

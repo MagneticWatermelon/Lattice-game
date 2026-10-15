@@ -42,6 +42,16 @@ namespace Lattice.Players
         MeshFilter rifleFilter, holoFilter;
         /// <summary>The class whose weapon it carries (U6).</summary>
         int kit;
+        // Its ability, as others see it (U6): a Bulwark's shell, the jets' plumes,
+        // the cloak (drawn with nothing but its shimmer).
+        Transform shell;
+        MeshRenderer shellRenderer;
+        readonly Transform[] jets = new Transform[2];
+        bool bulwark, jetting, cloaked;
+        MaterialPropertyBlock shellProps;
+        static readonly int ColorId = Shader.PropertyToID("_Color");
+        /// <summary>It turned on this frame (others' sounds).</summary>
+        public bool AbilityStarted { get; private set; }
         Transform spine, chest, upperChest, neck, head;
         Transform rUpper, rLower, rHand, lUpper, lLower, lHand;
         Transform hips, lThigh, lShin, lFoot, rThigh, rShin, rFoot;
@@ -151,7 +161,99 @@ namespace Lattice.Players
                 holoRenderer.shadowCastingMode = ShadowCastingMode.On;
                 GpuDriven.Exclude(holoRenderer);
             }
+            if (look.BulwarkGlow != null)
+            {
+                var sg = new GameObject("Bulwark");
+                shell = sg.transform;
+                shell.SetParent(transform, false);
+                sg.AddComponent<MeshFilter>().sharedMesh = AbilityFx.Sphere();
+                shellRenderer = sg.AddComponent<MeshRenderer>();
+                shellRenderer.sharedMaterial = look.BulwarkGlow;
+                shellRenderer.shadowCastingMode = ShadowCastingMode.Off;
+                shellRenderer.receiveShadows = false;
+                GpuDriven.Exclude(shellRenderer);
+                shellProps = new MaterialPropertyBlock();
+                sg.SetActive(false);
+            }
+            if (look.JetFlame != null)
+            {
+                for (int i = 0; i < jets.Length; i++)
+                {
+                    var jg = new GameObject($"Jet {i}");
+                    jets[i] = jg.transform;
+                    jets[i].SetParent(transform, false);
+                    jg.AddComponent<MeshFilter>().sharedMesh = AbilityFx.Plume();
+                    var jr = jg.AddComponent<MeshRenderer>();
+                    jr.sharedMaterial = look.JetFlame;
+                    jr.shadowCastingMode = ShadowCastingMode.Off;
+                    jr.receiveShadows = false;
+                    GpuDriven.Exclude(jr);
+                    jg.SetActive(false);
+                }
+            }
             gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// Its class's ability as it's drawn this frame (<paramref name="on"/>: the
+        /// entity's flag): a Bulwark's shell in its faction's color, the jets' flames,
+        /// or, cloaked, the body and its weapon drawn with nothing but a shimmer.
+        /// </summary>
+        public void Ability(bool on, int faction)
+        {
+            bool b = on && !dead && kit == LtCode.ClassAssault, j = on && !dead && kit == LtCode.ClassSkirmisher, c = on && !dead && kit == LtCode.ClassRecon;
+            AbilityStarted = on && !dead && !wasOn;
+            wasOn = on && !dead;
+            if (shell != null && b != bulwark)
+            {
+                shell.gameObject.SetActive(b);
+                if (b)
+                {
+                    var ink = SoldierColors.Ink(faction);
+                    shellProps.SetColor(ColorId, new Color(ink.r, ink.g, ink.b) * 2.2f);
+                    shellRenderer.SetPropertyBlock(shellProps);
+                }
+            }
+            bulwark = b;
+            if (j != jetting)
+                foreach (var t in jets)
+                    if (t != null)
+                        t.gameObject.SetActive(j);
+            jetting = j;
+            if (c != cloaked)
+            {
+                cloaked = c;
+                Materials();
+            }
+            if (bulwark)
+            {
+                float k = Mathf.Lerp(1f, 0.72f, crouch);
+                shell.localPosition = new Vector3(0f, look.ShellHeight * k, 0f);
+                shell.localScale = new Vector3(look.ShellRadii.x, look.ShellRadii.y * k, look.ShellRadii.x);
+            }
+        }
+
+        bool wasOn;
+        Material[] holoOwn, holoCloak;
+
+        /// <summary>The body's, weapon's and sight's materials: their own, or the cloak's.</summary>
+        void Materials()
+        {
+            var cloak = cloaked ? look.CloakGlow : null;
+            foreach (var r in renderers)
+                r.sharedMaterial = cloak != null ? cloak : body;
+            rifleRenderer.sharedMaterial = cloak != null ? cloak : look.RifleMaterial;
+            if (holoRenderer != null)
+            {
+                holoOwn ??= new[] { look.HoloBody, look.HoloInner, look.HoloGlass };
+                holoCloak ??= new[] { look.CloakGlow, look.CloakGlow, look.CloakGlow };
+                holoRenderer.sharedMaterials = cloak != null ? holoCloak : holoOwn;
+            }
+            // (Our own body in first person stays a shadow only, cloaked or not.)
+            var mode = shadowsOnly ? ShadowCastingMode.ShadowsOnly : cloak != null ? ShadowCastingMode.Off : ShadowCastingMode.On;
+            foreach (var r in renderers)
+                r.shadowCastingMode = mode;
+            rifleRenderer.shadowCastingMode = mode;
         }
 
         public void Assign(ushort entity)
@@ -164,6 +266,7 @@ namespace Lattice.Players
             crouch = 0f;
             reloadAt = -1f;
             reloadWeight = 0f;
+            Ability(false, 0);
             gameObject.SetActive(true);
         }
 
@@ -173,6 +276,8 @@ namespace Lattice.Players
             if (mat == body || mat == null)
                 return;
             body = mat;
+            if (cloaked)
+                return;
             foreach (var r in renderers)
                 r.sharedMaterial = mat;
         }
@@ -200,7 +305,7 @@ namespace Lattice.Players
             if (shadowsOnly == on)
                 return;
             shadowsOnly = on;
-            var mode = on ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.On;
+            var mode = on ? ShadowCastingMode.ShadowsOnly : cloaked ? ShadowCastingMode.Off : ShadowCastingMode.On;
             foreach (var r in renderers)
                 r.shadowCastingMode = mode;
             rifleRenderer.shadowCastingMode = mode;
@@ -399,6 +504,15 @@ namespace Lattice.Players
             }
             rifle.SetPositionAndRotation(pos, frame * Quaternion.Euler(look.RifleEuler));
             Muzzle = pos + frame * (look.MuzzleOf(kit) * size);
+            // The jets: two nozzles on the back, burning down and a little back.
+            if (jetting && upperChest != null)
+            {
+                var back = upperChest.position - transform.forward * 0.2f - up * 0.12f;
+                var dir = Quaternion.LookRotation((Vector3.down - transform.forward * 0.25f).normalized, transform.forward);
+                for (int i = 0; i < jets.Length; i++)
+                    if (jets[i] != null)
+                        jets[i].SetPositionAndRotation(back + transform.right * (i == 0 ? -0.13f : 0.13f), dir);
+            }
             MuzzleForward = frame * Vector3.forward;
 
             if (visible && w > 0.01f && !small)

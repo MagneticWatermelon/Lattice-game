@@ -79,6 +79,14 @@ namespace Lattice.Combat
         // The rounds: the cell's count and what's carried, a segment per round (they
         // refill as the reload runs), and a prompt under the reticle when low or out.
         RectTransform ammoPanel;
+        // The class's ability (U6): its panel over the rounds', and its tint at the
+        // screen's edge (a Bulwark's faction glow, the cloak's cool haze, a heal's green).
+        RectTransform abilityPanel;
+        Image abilityAccent, abilityFill, abilityVignette;
+        TextMeshProUGUI abilityName, abilityState;
+        readonly CharBuf abilityBuf = new CharBuf(32);
+        int shownAbilityKit = -1, shownAbilityValue = -1, shownAbilityMode = -1, lastHealth = -1;
+        float healPulse;
         Image ammoAccent;
         TextMeshProUGUI ammoLabel, ammoCount, ammoPrompt;
         Image[] rounds;
@@ -105,6 +113,7 @@ namespace Lattice.Combat
             BuildArcs();
             BuildHealth();
             BuildAmmo();
+            BuildAbility();
             BuildFeed();
             BuildDeath();
             for (int i = 0; i < FeedLines; i++)
@@ -347,6 +356,113 @@ namespace Lattice.Combat
             ammoPrompt.gameObject.SetActive(false);
         }
 
+        /// <summary>The class's ability, over the rounds: its name and key, how it stands
+        /// (READY, seconds left on, seconds to wait, its energy), a bar for the same.</summary>
+        void BuildAbility()
+        {
+            abilityPanel = UiKit.Rect("Ability", root, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-44f, 104f), new Vector2(300f, 40f));
+            var bg = UiKit.Box("Panel", abilityPanel, UiKit.Panel);
+            UiKit.Fill(bg.rectTransform);
+            abilityAccent = UiKit.Box("Faction", abilityPanel, SoldierColors.Ink(0));
+            var ar = abilityAccent.rectTransform;
+            ar.anchorMin = new Vector2(1f, 0f);
+            ar.anchorMax = new Vector2(1f, 1f);
+            ar.pivot = new Vector2(1f, 0.5f);
+            ar.sizeDelta = new Vector2(4f, 0f);
+            ar.anchoredPosition = Vector2.zero;
+            abilityName = UiKit.Text("Name", abilityPanel, UiKit.Display, 17f, UiKit.Ink);
+            abilityName.characterSpacing = 5f;
+            var nr = abilityName.rectTransform;
+            nr.anchorMin = nr.anchorMax = new Vector2(0f, 1f);
+            nr.pivot = new Vector2(0f, 1f);
+            nr.anchoredPosition = new Vector2(14f, -5f);
+            nr.sizeDelta = new Vector2(190f, 22f);
+            abilityState = UiKit.Text("State", abilityPanel, UiKit.Mono, 16f, UiKit.Muted, TextAlignmentOptions.Right);
+            UiKit.Warm(abilityState, 24);
+            var sr = abilityState.rectTransform;
+            sr.anchorMin = sr.anchorMax = new Vector2(1f, 1f);
+            sr.pivot = new Vector2(1f, 1f);
+            sr.anchoredPosition = new Vector2(-18f, -6f);
+            sr.sizeDelta = new Vector2(100f, 22f);
+            var track = UiKit.Box("Track", abilityPanel, new Color(1f, 1f, 1f, 0.08f));
+            var tr = track.rectTransform;
+            tr.anchorMin = new Vector2(0f, 0f);
+            tr.anchorMax = new Vector2(1f, 0f);
+            tr.pivot = new Vector2(0f, 0f);
+            tr.offsetMin = new Vector2(14f, 7f);
+            tr.offsetMax = new Vector2(-18f, 11f);
+            abilityFill = UiKit.Box("Fill", tr, UiKit.Ink);
+            var fr = abilityFill.rectTransform;
+            fr.anchorMin = Vector2.zero;
+            fr.anchorMax = Vector2.one;
+            fr.offsetMin = fr.offsetMax = Vector2.zero;
+            abilityPanel.gameObject.SetActive(false);
+            abilityVignette = UiKit.Box("Ability edge", root, new Color(0f, 0f, 0f, 0f));
+            abilityVignette.sprite = Sprites.Vignette;
+            UiKit.Fill(abilityVignette.rectTransform);
+            abilityVignette.transform.SetSiblingIndex(0);
+        }
+
+        void Ability(NetFrame f, bool shown, bool dead, float now, float dt)
+        {
+            var o = f.Own;
+            int kit = o.kit;
+            bool has = kit != LtCode.ClassEngineer;
+            bool on = shown && !dead && has;
+            if (abilityPanel.gameObject.activeSelf != on)
+                abilityPanel.gameObject.SetActive(on);
+            // A heal (health going up, alive): a green breath at the edge.
+            int hp = f.Welcomed && !dead ? o.health : -1;
+            if (hp > lastHealth && lastHealth > 0)
+                healPulse = 1f;
+            lastHealth = hp;
+            healPulse = Mathf.Max(0f, healPulse - dt / 0.6f);
+            Color edge = new Color(0.35f, 0.95f, 0.6f, healPulse * 0.35f);
+            bool running = on && o.abilityOn != 0;
+            if (running && kit == LtCode.ClassAssault)
+            {
+                var ink = SoldierColors.Ink(o.faction);
+                edge = new Color(ink.r, ink.g, ink.b, 0.28f + 0.07f * Mathf.Sin(now * 6f));
+            }
+            else if (running && kit == LtCode.ClassRecon)
+                edge = new Color(0.45f, 0.62f, 0.75f, 0.42f + 0.05f * Mathf.Sin(now * 2.3f));
+            abilityVignette.color = edge;
+            if (!on)
+                return;
+            if (kit != shownAbilityKit)
+            {
+                shownAbilityKit = kit;
+                abilityName.text = AbilityNames[Mathf.Clamp(kit, 0, AbilityNames.Length - 1)] + "  <color=#8E9A99><size=80%>F</size></color>";
+                shownAbilityValue = shownAbilityMode = -1;
+            }
+            abilityAccent.color = SoldierColors.Ink(o.faction);
+            // How it stands: 0 ready, 1 on (seconds left), 2 waiting (seconds), 3 energy (percent).
+            bool energy = kit == LtCode.ClassRecon || kit == LtCode.ClassSkirmisher;
+            int mode = energy ? 3 : running ? 1 : o.abilityCooldown > 0f ? 2 : 0;
+            int value = mode == 1 ? Mathf.CeilToInt(o.abilityLeft) : mode == 2 ? Mathf.CeilToInt(o.abilityCooldown) : mode == 3 ? Mathf.RoundToInt(o.abilityEnergy * 100f) + (running ? 1000 : 0) : 0;
+            if (mode != shownAbilityMode || value != shownAbilityValue)
+            {
+                (shownAbilityMode, shownAbilityValue) = (mode, value);
+                abilityBuf.Clear();
+                if (mode == 0)
+                    abilityBuf.Append("READY");
+                else if (mode == 3)
+                    abilityBuf.Append(value % 1000).Append('%');
+                else
+                    abilityBuf.Append(value).Append(" S");
+                abilityState.SetCharArray(abilityBuf.Chars, 0, abilityBuf.Length);
+                abilityState.color = mode == 0 ? UiKit.Good : mode == 1 || value >= 1000 ? UiKit.Accent : UiKit.Muted;
+            }
+            float fill = mode == 0 ? 1f
+                : mode == 1 ? o.abilityLeft / (kit == LtCode.ClassAssault ? 6f : 8f)
+                : mode == 2 ? 1f - o.abilityCooldown / (kit == LtCode.ClassAssault ? 25f : 40f)
+                : o.abilityEnergy;
+            abilityFill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(fill), 1f);
+            abilityFill.color = mode == 0 ? UiKit.Good : mode == 2 ? UiKit.Muted : running ? UiKit.Accent : UiKit.Ink;
+        }
+
+        static readonly string[] AbilityNames = { "BULWARK", "MEND FIELD", "TURRET", "CLOAK", "JUMP JETS" };
+
         /// <summary>The first <paramref name="n"/> segments across the track (a magazine's
         /// rounds), the rest hidden.</summary>
         void LayRounds(int n)
@@ -432,6 +548,7 @@ namespace Lattice.Combat
             DamageArcs(p, now, dt);
             Vitals(f, body, dead, now, dt);
             Rounds(f, p, body, dead, now);
+            Ability(f, body, dead, now, dt);
             Feed(f, now);
             Death(dead && f.Shell.away == 0, dt);
         }

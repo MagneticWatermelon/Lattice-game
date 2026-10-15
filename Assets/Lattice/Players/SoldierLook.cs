@@ -48,6 +48,14 @@ namespace Lattice.Players
         public Mesh Scope;
         public int ScopedKit = 3;
 
+        [Header("The classes' abilities (U6), as others see them")]
+        /// <summary>A Bulwark's shell (its faction's color set per soldier), a cloaked soldier's
+        /// shimmer (all it's drawn with), the jets' flame, a Mend field on the ground.</summary>
+        public Material BulwarkGlow, CloakGlow, JetFlame, MendField;
+        /// <summary>A Bulwark's shell round the body: its radii (m: across, up), its middle's height.</summary>
+        public Vector2 ShellRadii = new Vector2(0.62f, 1.05f);
+        public float ShellHeight = 0.95f;
+
         public Mesh WeaponOf(int kit) => kit > 0 && kit < Weapons.Length && Weapons[kit] != null ? Weapons[kit] : Rifle;
         public Mesh LowOf(int kit) => kit > 0 && kit < WeaponsLow.Length && WeaponsLow[kit] != null ? WeaponsLow[kit] : RifleLow != null ? RifleLow : Rifle;
         public Vector3 MuzzleOf(int kit) => kit >= 0 && kit < Muzzles.Length ? Muzzles[kit] : RifleMuzzle;

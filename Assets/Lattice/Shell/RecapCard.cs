@@ -66,13 +66,20 @@ namespace Lattice.Shell
 
         unsafe void Write(LtRecap r, ushort me)
         {
-            bool fall = r.cause == LtCode.CauseFall;
+            bool fall = r.cause == LtCode.CauseFall, field = r.cause == LtCode.CauseField;
             bool nobody = r.killer == LtCode.Nobody;
             if (fall)
             {
                 title.text = "YOU FELL";
                 killer.text = "<color=#C8CFCC>A FATAL DROP</color>";
                 how.text = "a fall past 18 m kills; past 8 m it hurts";
+                accent.color = Names.NoOneInk;
+            }
+            else if (field)
+            {
+                title.text = "YOU DIED";
+                killer.text = "<color=#C8CFCC>A SPAWN ROOM'S FIELD</color>";
+                how.text = "it hurts anyone whose side doesn't hold its site";
                 accent.color = Names.NoOneInk;
             }
             else if (nobody)
@@ -87,7 +94,7 @@ namespace Lattice.Shell
                 title.text = "KILLED BY";
                 int fac = r.killerFaction < 3 ? r.killerFaction : FactionOf(r.killer);
                 killer.text = $"<color={Names.Hex(fac)}>{Names.Faction(fac)}</color> <size=70%><color=#9AA4A6>#{r.killer}</color></size>{(r.head != 0 ? "  <size=55%><color=#FFA020>HEADSHOT</color></size>" : "")}";
-                how.text = $"rifle  ·  {r.distance:F0} m  ·  {(r.killerHealth > 0 ? $"they had {r.killerHealth} health" : "they died too")}";
+                how.text = $"{Weapons.Name(r.cause).ToLowerInvariant()}  ·  {r.distance:F0} m  ·  {(r.killerHealth > 0 ? $"they had {r.killerHealth} health" : "they died too")}";
                 accent.color = Names.Ink(fac);
             }
             int n = Mathf.Min(r.lines, Lines);
@@ -104,7 +111,7 @@ namespace Lattice.Shell
                 int dmg = r.damage[i], hits = r.hits[i], heads = r.heads[i];
                 if (from == LtCode.Nobody)
                 {
-                    who[i].text = fall ? "<color=#C8CFCC>the fall</color>" : "<color=#C8CFCC>no one</color>";
+                    who[i].text = fall ? "<color=#C8CFCC>the fall</color>" : field ? "<color=#C8CFCC>the field</color>" : "<color=#C8CFCC>no one</color>";
                     bars[i].color = Names.NoOneInk;
                 }
                 else

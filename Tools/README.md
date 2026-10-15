@@ -55,7 +55,9 @@ confirms, hurts, death, respawn, sights up/down, footsteps, the reload's
 handling (the cell released, pulled out, the pouch, the fresh one slid in,
 seated, charged from empty), the dry trigger, the classes' other weapons
 (`Carbine`, `Shotgun`, `Marksman`, `Smg`: own and near, three takes each; far
-shots use the rifle's), a spent cell's clink,
+shots use the rifle's), the abilities (the jets' roar, a loop, and their lighting;
+Bulwark rising; the Mend field opening and a heal landing; cloaking and
+uncloaking), a spent cell's clink,
 crouching down and up, wind and the distant battle beds, with an open-field reverb whose tail is set in dB below
 the direct sound. `SFX_ONLY=Shot_Own,Crack` remakes some. `PREVIEW_DIR` gets a
 waveform/spectrogram sheet; `Audio/sfx_stats.py DIR [names]` prints each

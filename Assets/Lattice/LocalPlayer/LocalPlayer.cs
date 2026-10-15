@@ -79,6 +79,9 @@ namespace Lattice.LocalPlayer
         /// <summary>Self-check (--crouch): crouched whenever it plays (with --autotarget, it
         /// fights crouched).</summary>
         public bool AutoCrouch;
+        /// <summary>Self-check (--ability): uses its class's ability now and then, as the
+        /// bots do, but more often (jets held 0.8 s every 4 s, the rest pressed every 5 s).</summary>
+        public bool AutoAbility;
 
         bool swallow, crouchToggle, jumpHeld;
         float reloadUntil;
@@ -249,6 +252,10 @@ namespace Lattice.LocalPlayer
                 reloadUntil = 0f;
             if (Time.unscaledTime < reloadUntil && Mode != ViewMode.Spectator)
                 buttons |= (byte)LtCode.ButtonReload;
+            // The class's ability (U6): F, held as long as it's down (jets); a press
+            // for the rest (the game takes its going down).
+            if (alive && Mode != ViewMode.Spectator && ((kb != null && kb.fKey.isPressed) || AutoUse(own.kit)))
+                buttons |= (byte)LtCode.ButtonAbility;
             if (Mode != ViewMode.Spectator && alive)
             {
                 trigger = Autofire || onTarget || (Grabbed && !swallow && mouse != null && mouse.leftButton.isPressed);
@@ -335,6 +342,15 @@ namespace Lattice.LocalPlayer
 
         ushort targetId = LtCode.Nobody;
         Vector3 targetLast, targetVel;
+
+        /// <summary>--ability: whether the self-check holds its ability's button now.</summary>
+        bool AutoUse(int kit)
+        {
+            if (!AutoAbility)
+                return false;
+            bool jets = kit == LtCode.ClassSkirmisher;
+            return Time.unscaledTime % (jets ? 4f : 5f) < (jets ? 0.8f : 0.15f);
+        }
 
         /// <summary>How far the self-check takes on an enemy with kit <paramref name="kit"/>'s
         /// weapon: twice where its damage stops falling off, or as far as its slug flies (at most 400 m).</summary>

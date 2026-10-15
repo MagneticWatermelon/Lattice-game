@@ -98,6 +98,7 @@ namespace Lattice.Game
             player.Autoaim = Options.Autoaim;
             player.Autotarget = Options.Autotarget;
             player.AutoCrouch = Options.Crouch;
+            player.AutoAbility = Options.Ability;
             if (Options.NoAudio)
                 AudioListener.volume = 0f;
             player.Ghosts = Options.Ghosts;

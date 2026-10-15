@@ -66,9 +66,49 @@ namespace Lattice.EditorTools
             look.HoloInner.enableInstancing = true;
             EditorUtility.SetDirty(look.HoloInner);
             look.HoloGlass = HoloGlass($"{RifleDir}/HoloGlass.mat", false);
+            // The classes' abilities as others see them (U6).
+            look.BulwarkGlow = Fx($"{Dir}/BulwarkGlow.mat", "Lattice/AbilityGlow");
+            look.BulwarkGlow.SetFloat("_Rim", 2.2f);
+            look.BulwarkGlow.SetFloat("_Fill", 0.05f);
+            look.BulwarkGlow.SetFloat("_Bands", 0.9f);
+            look.BulwarkGlow.SetFloat("_BandScale", 2.5f);
+            look.BulwarkGlow.SetFloat("_BandSpeed", 0.9f);
+            look.BulwarkGlow.SetFloat("_Strength", 0.8f);
+            look.CloakGlow = Fx($"{Dir}/CloakGlow.mat", "Lattice/AbilityGlow");
+            look.CloakGlow.SetColor("_Color", new Color(0.32f, 0.45f, 0.55f));
+            look.CloakGlow.SetFloat("_Rim", 3.5f);
+            look.CloakGlow.SetFloat("_Fill", 0.015f);
+            look.CloakGlow.SetFloat("_Bands", 1.6f);
+            look.CloakGlow.SetFloat("_BandScale", 6f);
+            look.CloakGlow.SetFloat("_BandSpeed", 1.6f);
+            look.CloakGlow.SetFloat("_Strength", 0.55f);
+            look.JetFlame = Fx($"{Dir}/JetFlame.mat", "Lattice/Flash");
+            look.JetFlame.SetColor("_Core", new Color(2.2f, 3f, 4.5f));
+            look.JetFlame.SetColor("_Edge", new Color(0.4f, 0.9f, 2.6f));
+            look.MendField = Fx($"{Dir}/MendField.mat", "Lattice/MendField");
+            look.MendField.SetColor("_Color", new Color(0.35f, 1.6f, 0.8f));
+            look.MendField.SetFloat("_Strength", 1f);
+            foreach (var m in new[] { look.BulwarkGlow, look.CloakGlow, look.JetFlame, look.MendField })
+            {
+                m.enableInstancing = true;
+                EditorUtility.SetDirty(m);
+            }
             EditorUtility.SetDirty(look);
             AssetDatabase.SaveAssets();
             Debug.Log("Lattice setup: players");
+        }
+
+        /// <summary>A material on one of the client's own effect shaders, made if missing.</summary>
+        static Material Fx(string path, string shader)
+        {
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null)
+            {
+                m = new Material(Shader.Find(shader));
+                AssetDatabase.CreateAsset(m, path);
+            }
+            m.shader = Shader.Find(shader);
+            return m;
         }
 
         static Material Lit(string path)

@@ -102,6 +102,14 @@ MonoBehaviour:
   CellClink:
   - {fileID: 8300000, guid: a2fc7d0608cbf8d43936d288c5d60e80, type: 3}
   - {fileID: 8300000, guid: 7e3a0ce7abd4c0645bcfc8a15ffaca46, type: 3}
+  JetsLoop: {fileID: 8300000, guid: 7be05bd3fe211dd4096ef5e763ce5a8e, type: 3}
+  JetsIgnite: {fileID: 8300000, guid: 3bac78e687d25da42a63edd570dbd865, type: 3}
+  BulwarkOn: {fileID: 8300000, guid: c543ac12df0174b4cb1de4acea1b7c1c, type: 3}
+  MendOn: {fileID: 8300000, guid: b47c413cba32b1b46837ef006d656f72, type: 3}
+  MendTick: {fileID: 8300000, guid: 37fa8b7d001fdf343aebfcefa7e9a08b, type: 3}
+  CloakOn: {fileID: 8300000, guid: 41a76bab20524a0438b5ca2a156c1676, type: 3}
+  CloakOff: {fileID: 8300000, guid: fefe8c208c6640641b56fba3c064e2e1, type: 3}
+  Ability: 0.6
   Wind: {fileID: 8300000, guid: fcb659dca13d1214694d9cdaaf0ddffe, type: 3}
   BattleSmall: {fileID: 8300000, guid: b39aa30e84da68545a505062ec1cd9fc, type: 3}
   BattleLarge: {fileID: 8300000, guid: daf4edea1157fb44ab99cf66f7e20742, type: 3}
