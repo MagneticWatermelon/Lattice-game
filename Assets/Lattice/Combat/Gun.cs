@@ -87,6 +87,10 @@ namespace Lattice.Combat
         float sprint, kick, kickRoll, flashUntil, dip, airTime, cellPulse, cellGlow;
         float sunlit = 1f;
         Vector2 debt;          // recoil not yet recovered: degrees (up, right)
+        Vector2 kickPending;   // recoil not yet applied to the view (it rises over KickRise)
+        /// <summary>A shot's kick rises over about three of these (s), eased out: in one
+        /// frame, a sniper rifle's 3.5° threw a scope's 12° picture a quarter of the way.</summary>
+        const float KickRise = 0.03f;
         Vector2 sway, swayVel; // degrees (yaw, pitch) the rifle lags the view
         float lastYaw, lastPitch;
         bool wasGrounded = true, wasCrouched, triggerWas;
@@ -270,10 +274,23 @@ namespace Lattice.Combat
             }
             triggerWas = trigger;
 
-            // Recoil drifts back down once the burst is over.
-            if (t - LastShot > Mathf.Max(LtConst.RecoilDelay, Weapons.Of(NetDriver.Frame.Own.weapon).intervalSecs) && debt.x > 0f)
+            // The kick, rising over a few frames (eased out), onto the aim.
+            if (kickPending.sqrMagnitude > 0f)
             {
-                float back = Mathf.Min(LtConst.RecoilRecovery * dt, debt.x);
+                var step = kickPending.sqrMagnitude < 1e-4f ? kickPending : kickPending * (1f - Mathf.Exp(-dt / KickRise));
+                player.Pitch = Mathf.Min(player.Pitch + step.x * Mathf.Deg2Rad, Mathf.PI / 2f - 0.01f);
+                player.Yaw = Coords.Wrap(player.Yaw - step.y * Mathf.Deg2Rad);
+                debt += step;
+                kickPending -= step;
+            }
+            // Recoil drifts back down once the burst is over (a slow weapon's after a
+            // moment, not after its whole refire: a scope sat kicked up for 1.4 s),
+            // slowing as it settles.
+            float interval = Weapons.Of(NetDriver.Frame.Own.weapon).intervalSecs;
+            if (t - LastShot > Mathf.Max(LtConst.RecoilDelay, Mathf.Min(interval, 0.2f) * 1.2f) && debt.x > 0f && kickPending.sqrMagnitude < 1e-4f)
+            {
+                float rate = LtConst.RecoilRecovery * Mathf.Clamp(debt.x / 1.5f, 0.3f, 1f);
+                float back = Mathf.Min(rate * dt, debt.x);
                 float side = debt.y * back / debt.x;
                 player.Pitch -= back * Mathf.Deg2Rad;
                 player.Yaw = Coords.Wrap(player.Yaw + side * Mathf.Deg2Rad);
@@ -295,9 +312,12 @@ namespace Lattice.Combat
             {
                 side = Mathf.Lerp(w.recoilSide[0], w.recoilSide[1], Rand());
             }
-            player.Pitch = Mathf.Min(player.Pitch + up * Mathf.Deg2Rad, Mathf.PI / 2f - 0.01f);
-            player.Yaw = Coords.Wrap(player.Yaw - side * Mathf.Deg2Rad);
-            debt += new Vector2(up, side);
+            // Down a scope, less of it (the picture's a few degrees across), and a jolt
+            // of the view alone (the aim stays where the kick puts it).
+            float scale = Mathf.Lerp(1f, Look.ScopedKick, Scoped);
+            kickPending += new Vector2(up, side) * scale;
+            if (Scoped > 0.5f)
+                CameraRig.Shake(0.22f);
             LastShot = t;
             kick = 1f;
             kickRoll = (Rand() - 0.5f) * 2f;

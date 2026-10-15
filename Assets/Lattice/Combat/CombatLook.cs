@@ -85,6 +85,8 @@ namespace Lattice.Combat
         public Vector2 KickHip = new Vector2(0.045f, 4.2f);
         public Vector2 KickAds = new Vector2(0.022f, 1.6f);
         public float KickTau = 0.075f;
+        /// <summary>How much of a weapon's kick reaches the view fully down a scope.</summary>
+        public float ScopedKick = 0.6f;
 
         [Header("Effects")]
         public Material Tracer;
