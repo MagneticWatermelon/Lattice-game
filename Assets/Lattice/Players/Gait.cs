@@ -3,13 +3,13 @@ using UnityEngine;
 namespace Lattice.Players
 {
     /// <summary>
-    /// How a soldier on foot steps at a speed: one curve for the legs, the
-    /// first-person view's bob and every footstep heard, so they keep time.
-    /// The clips take short steps (1.66 m running and sprinting), so to keep the
-    /// feet planted they'd play fast: 5.4 steps a second at a sprint, a
-    /// cartoon. Past a walk the stride stretches instead (<see cref="Stride"/>:
-    /// the clip plays slower and the feet reach further along, by IK), down to a
-    /// sprinter's cadence.
+    /// How a soldier on foot steps. Our own steps (first person: the bob and our
+    /// footsteps) keep <see cref="Cadence"/>, a runner's. Soldiers' legs are their
+    /// clips': those take short steps (1.66 m running and sprinting), so a sprint
+    /// played to keep its feet planted ran at 5.4 steps a second, a cartoon; past a
+    /// run the stride stretches (<see cref="Stride"/>: the clip plays slower and the
+    /// feet reach further along, by IK). Their footsteps follow their legs
+    /// (<see cref="SoldierStep"/>).
     /// </summary>
     public static class Gait
     {
@@ -24,16 +24,24 @@ namespace Lattice.Players
             return Mathf.Lerp(2.95f, 3.7f, Mathf.Clamp01((speed - 6f) / 3f));
         }
 
-        /// <summary>How much the stride stretches at a sprint, over the clips' (tuning).</summary>
-        public static float StrideGain = 0.45f;
+        /// <summary>How much the stride stretches at a full sprint, over the clips' (tuning).</summary>
+        public static float StrideGain = 0.25f;
 
-        /// <summary>How much longer than the clips' the stride is at <paramref name="speed"/>
-        /// (1 up to a walk; 1 + <see cref="StrideGain"/> at a sprint): the clips play this much slower.</summary>
+        /// <summary>How much longer than the clips' a soldier's stride is at <paramref name="speed"/>:
+        /// 1 up to a run (the run clip at its own pace, feet planted: slowed, it floated, a
+        /// leg hung behind for a quarter second), stretching past it to 1 +
+        /// <see cref="StrideGain"/> at a sprint (5.4 steps a second played straight).</summary>
         public static float Stride(float speed)
         {
-            float x = Mathf.Clamp01((speed - 3f) / 6f);
+            float x = Mathf.Clamp01((speed - 6.5f) / 2.5f);
             return 1f + StrideGain * x * x * (3f - 2f * x);
         }
+
+        /// <summary>A step's length (m) as soldiers' legs take them at <paramref name="speed"/>:
+        /// for their footsteps, which must fall with their feet. The clips step 1.66 m
+        /// running and sprinting (stretched past a run), less walking.</summary>
+        public static float SoldierStep(float speed) =>
+            speed >= 4.5f ? 1.66f * Stride(speed) : Mathf.Lerp(0.9f, 1.5f, Mathf.Clamp01((speed - 1f) / 3.5f));
 
         /// <summary>Our own steps (first person: the bob and our footsteps), counted in
         /// steps: a footfall as it passes a whole number. Advanced once a frame by

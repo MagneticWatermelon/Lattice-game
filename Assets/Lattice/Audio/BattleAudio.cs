@@ -727,7 +727,7 @@ namespace Lattice.Audio
                 float speed = moved / Mathf.Max(dt, 1e-4f);
                 stride[id] += moved;
                 // A step's length at that speed, as its legs take them (Gait).
-                float every = speed / Gait.Cadence(speed);
+                float every = Gait.SoldierStep(speed);
                 if (speed > 0.8f && stride[id] >= every)
                 {
                     stride[id] -= every;
